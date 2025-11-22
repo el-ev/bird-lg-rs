@@ -1,0 +1,10 @@
+{
+    "bind_socket": "/var/run/bird/bird.ctl",
+    "listen": "127.0.0.1:8000",
+    "allowed_ips": [
+        "127.0.0.0/8"
+    ],
+    "shared_secret": null,
+    "traceroute_bin": "/usr/sbin/traceroute",
+    "traceroute_args": "-q1 -N32 -w1"
+}

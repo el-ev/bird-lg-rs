@@ -1,0 +1,110 @@
+use std::pin::Pin;
+use std::task::{Context, Poll};
+
+use bytes::BytesMut;
+use tokio::io::{AsyncRead, AsyncWrite, AsyncReadExt, AsyncWriteExt};
+use tokio::net::UnixStream;
+use tokio_stream::Stream;
+use tokio_util::codec::{Decoder, Framed};
+
+pub async fn connect(socket_path: &str) -> Result<UnixStream, String> {
+    let mut stream = UnixStream::connect(socket_path)
+        .await
+        .map_err(|e| format!("Failed to connect to bird socket: {}", e))?;
+
+    let mut buffer = [0; 1024];
+    let n = stream
+        .read(&mut buffer)
+        .await
+        .map_err(|e| format!("Failed to read from bird socket: {}", e))?;
+
+    if !buffer[..n].starts_with(b"0001") {
+        return Err(format!("Unexpected birdc response: {:?}", &buffer[..n]));
+    }
+
+    stream
+        .write_all(b"restrict\n")
+        .await
+        .map_err(|e| format!("Failed to write to bird socket: {}", e))?;
+
+    buffer.fill(0);
+    let n = stream
+        .read(&mut buffer)
+        .await
+        .map_err(|e| format!("Failed to read from bird socket: {}", e))?;
+
+    if !buffer[..n].starts_with(b"0016") {
+        return Err(format!("Unable to set birdc restrict mode: {:?}", &buffer[..n]));
+    }
+
+    Ok(stream)
+}
+
+#[derive(Default)]
+pub struct BirdDecoder {
+    last_type: u8,
+}
+
+pub struct BirdLine {
+    content: String,
+    is_last: bool,
+}
+
+impl Decoder for BirdDecoder {
+    type Item = BirdLine;
+    type Error = std::io::Error;
+
+    fn decode(&mut self, src: &mut BytesMut) -> Result<Option<Self::Item>, Self::Error> {
+        if let Some(offset) = src.iter().position(|&b| b == b'\n') {
+            let line_len = offset + 1;
+            let line_bytes = src.split_to(line_len);
+            let line = &line_bytes[..offset];
+
+            let mut content = String::new();
+
+            if line.len() >= 4 && line[0..4].iter().all(|&b| b.is_ascii_digit()) {
+                self.last_type = line[0];
+                if line.len() >= 5 {
+                    content.push_str(&String::from_utf8_lossy(&line[5..]));
+                }
+            } else {
+                content.push_str(&String::from_utf8_lossy(line));
+            }
+            content.push('\n');
+
+            let is_last = b"089".contains(&self.last_type);
+
+            return Ok(Some(BirdLine { content, is_last }));
+        }
+        Ok(None)
+    }
+}
+
+pub struct BirdStream<T> {
+    pub inner: Framed<T, BirdDecoder>,
+    pub done: bool,
+}
+
+impl<T> Stream for BirdStream<T>
+where
+    T: AsyncRead + AsyncWrite + Unpin,
+{
+    type Item = Result<String, std::io::Error>;
+
+    fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
+        if self.done {
+            return Poll::Ready(None);
+        }
+
+        match std::task::ready!(Pin::new(&mut self.inner).poll_next(cx)) {
+            Some(Ok(line)) => {
+                if line.is_last {
+                    self.done = true;
+                }
+                Poll::Ready(Some(Ok(line.content)))
+            }
+            Some(Err(e)) => Poll::Ready(Some(Err(e))),
+            None => Poll::Ready(None),
+        }
+    }
+}
