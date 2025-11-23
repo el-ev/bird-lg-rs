@@ -1,12 +1,11 @@
 use serde_json::from_str;
-use wasm_bindgen::JsValue;
 use wasm_bindgen_futures::spawn_local;
-use web_sys::{HtmlInputElement, console};
+use web_sys::HtmlInputElement;
 use yew::prelude::*;
 
 use crate::config::backend_api;
 use crate::models::{NodeStatus, TracerouteHop};
-use crate::services::stream_fetch;
+use crate::services::{log_error, stream_fetch};
 use crate::utils::validate_hostname_or_ip;
 
 #[derive(Properties, PartialEq)]
@@ -154,10 +153,10 @@ pub fn traceroute_section(props: &TracerouteSectionProps) -> Html {
                     .await;
 
                     if let Err(err) = stream_result {
-                        console::error_1(&JsValue::from_str(&format!(
+                        log_error(&format!(
                             "Traceroute stream failed for {}: {}",
                             node_name, err
-                        )));
+                        ));
                         let mut cache = results_cache.borrow_mut();
                         if let Some((_, hops)) =
                             cache.iter_mut().find(|(name, _)| name == &node_name)

@@ -1,9 +1,9 @@
 use std::collections::HashMap;
 
+use chrono::{DateTime, Utc};
+
 use reqwasm::http::Request;
-use wasm_bindgen::JsValue;
 use wasm_bindgen_futures::spawn_local;
-use web_sys::console;
 use yew::prelude::*;
 
 use crate::components::{
@@ -12,7 +12,7 @@ use crate::components::{
 };
 use crate::config::backend_api;
 use crate::models::NodeStatus;
-use crate::services::stream_fetch;
+use crate::services::{log_error, sleep_ms, stream_fetch};
 use crate::utils::filter_protocol_details;
 
 #[function_component(App)]
@@ -28,79 +28,23 @@ pub fn app() -> Html {
         let fetch_error = fetch_error.clone();
         let data_ready = data_ready.clone();
         use_effect_with((), move |_| {
-            let nodes = nodes.clone();
-            let fetch_error = fetch_error.clone();
-            let data_ready = data_ready.clone();
+            let nodes_handle = nodes.clone();
+            let fetch_error_handle = fetch_error.clone();
+            let data_ready_handle = data_ready.clone();
+
             spawn_local(async move {
+                let mut last_known_updates = HashMap::new();
                 loop {
-                    let resp = Request::get(&backend_api("/api/status")).send().await;
-
-                    match resp {
-                        Ok(resp) => {
-                            if resp.ok() {
-                                match resp.json::<Vec<NodeStatus>>().await {
-                                    Ok(mut data) => {
-                                        let previous_nodes = (*nodes).clone();
-                                        let previous_map: HashMap<String, _> = previous_nodes
-                                            .into_iter()
-                                            .map(|n| (n.name.clone(), n.last_updated))
-                                            .collect();
-
-                                        for node in data.iter_mut() {
-                                            if let (Some(_), Some(prev)) =
-                                                (node.error.as_ref(), previous_map.get(&node.name))
-                                            {
-                                                node.last_updated = *prev;
-                                            }
-                                        }
-
-                                        for node in data.iter() {
-                                            if let Some(err) = &node.error {
-                                                console::error_1(&JsValue::from_str(&format!(
-                                                    "Node {} error: {}",
-                                                    node.name, err
-                                                )));
-                                            }
-                                        }
-
-                                        fetch_error.set(None);
-                                        if !data.is_empty() {
-                                            data_ready.set(true);
-                                        }
-                                        nodes.set(data);
-                                    }
-                                    Err(err) => {
-                                        let msg =
-                                            format!("Failed to parse backend response: {}", err);
-                                        fetch_error.set(Some(msg.clone()));
-                                        console::error_1(&JsValue::from_str(&msg));
-                                    }
-                                }
-                            } else {
-                                let msg =
-                                    format!("Status fetch failed with HTTP {}", resp.status());
-                                fetch_error.set(Some(msg.clone()));
-                                console::error_1(&JsValue::from_str(&msg));
-                            }
-                        }
-                        Err(err) => {
-                            let msg = format!("Status fetch request error: {}", err);
-                            fetch_error.set(Some(msg.clone()));
-                            console::error_1(&JsValue::from_str(&msg));
-                        }
-                    }
-
-                    let promise = js_sys::Promise::new(&mut |resolve, _| {
-                        if let Some(window) = web_sys::window() {
-                            let _ = window.set_timeout_with_callback_and_timeout_and_arguments_0(
-                                &resolve, 5000,
-                            );
-                        }
-                    });
-                    let _ = wasm_bindgen_futures::JsFuture::from(promise).await;
+                    fetch_status(
+                        &nodes_handle,
+                        &fetch_error_handle,
+                        &data_ready_handle,
+                        &mut last_known_updates,
+                    )
+                    .await;
+                    sleep_ms(5000).await;
                 }
             });
-            || ()
         });
     }
 
@@ -164,5 +108,50 @@ pub fn app() -> Html {
                 <TracerouteSection nodes={(*nodes).clone()} />
             </div>
         </main>
+    }
+}
+
+async fn fetch_status(
+    nodes: &UseStateHandle<Vec<NodeStatus>>,
+    fetch_error: &UseStateHandle<Option<String>>,
+    data_ready: &UseStateHandle<bool>,
+    last_known_updates: &mut HashMap<String, DateTime<Utc>>,
+) {
+    match Request::get(&backend_api("/api/status")).send().await {
+        Ok(resp) if resp.ok() => match resp.json::<Vec<NodeStatus>>().await {
+            Ok(mut data) => {
+                for node in data.iter_mut() {
+                    if let Some(err) = &node.error {
+                        log_error(&format!("Node {} error: {}", node.name, err));
+                        if let Some(previous) = last_known_updates.get(&node.name) {
+                            node.last_updated = *previous;
+                        }
+                    } else {
+                        last_known_updates.insert(node.name.clone(), node.last_updated);
+                    }
+                }
+
+                fetch_error.set(None);
+                if !data.is_empty() {
+                    data_ready.set(true);
+                }
+                nodes.set(data);
+            }
+            Err(err) => {
+                let msg = format!("Failed to parse backend response: {}", err);
+                fetch_error.set(Some(msg.clone()));
+                log_error(&msg);
+            }
+        },
+        Ok(resp) => {
+            let msg = format!("Status fetch failed with HTTP {}", resp.status());
+            fetch_error.set(Some(msg.clone()));
+            log_error(&msg);
+        }
+        Err(err) => {
+            let msg = format!("Status fetch request error: {}", err);
+            fetch_error.set(Some(msg.clone()));
+            log_error(&msg);
+        }
     }
 }
