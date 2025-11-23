@@ -8,6 +8,7 @@ use axum::{
 use clap::Command;
 use config::Config;
 use tokio::net::TcpListener;
+use tower_http::cors::CorsLayer;
 
 use crate::middleware::auth::auth_middleware;
 
@@ -41,6 +42,7 @@ async fn main() -> std::io::Result<()> {
         .route("/traceroute", get(handlers::traceroute::traceroute))
         .route("/traceroute4", get(handlers::traceroute::traceroute4))
         .route("/traceroute6", get(handlers::traceroute::traceroute6))
+        .layer(CorsLayer::permissive())
         .layer(axum::middleware::from_fn(auth_middleware))
         .layer(Extension(config));
 

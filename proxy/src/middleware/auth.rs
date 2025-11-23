@@ -1,6 +1,10 @@
 use std::sync::Arc;
 
-use axum::{body::Body, extract::Request, response::IntoResponse};
+use axum::{
+    body::Body,
+    extract::Request,
+    response::{IntoResponse, Response},
+};
 use hyper::HeaderMap;
 
 use crate::config::Config;
@@ -9,7 +13,7 @@ pub async fn auth_middleware(
     headers: HeaderMap,
     req: Request<Body>,
     next: axum::middleware::Next,
-) -> impl IntoResponse {
+) -> Response {
     let config = match req.extensions().get::<Arc<Config>>().cloned() {
         Some(cfg) => cfg,
         None => {

@@ -6,12 +6,14 @@ use std::path::Path;
 pub struct Config {
     pub bind_socket: String,
     pub listen: String,
-    pub allowed_ips: Vec<String>,
+    allowed_ips: Vec<String>,
     #[serde(skip)]
     pub allowed_nets: Vec<ipnet::IpNet>,
     pub shared_secret: Option<String>,
     pub traceroute_bin: Option<String>,
-    pub traceroute_args: Option<String>,
+    traceroute_args: Option<String>,
+    #[serde(skip)]
+    pub tr_arglist: Vec<String>,
 }
 
 impl Config {
@@ -117,7 +119,7 @@ impl Config {
         }
     }
 
-    fn validate_traceroute_bin(&self, errors: &mut Vec<String>) {
+    fn validate_traceroute_bin(&mut self, errors: &mut Vec<String>) {
         if let Some(ref bin) = self.traceroute_bin {
             if bin.trim().is_empty() {
                 errors.push("traceroute_bin must not be empty. you can set it to null to disable traceroute functionality".to_string());
@@ -135,5 +137,10 @@ impl Config {
         {
             errors.push("traceroute_args is set but traceroute_bin isn't".to_string());
         }
+        self.tr_arglist = self
+            .traceroute_args
+            .as_ref()
+            .map(|s| s.split_whitespace().map(|s| s.to_string()).collect())
+            .unwrap_or_default();
     }
 }

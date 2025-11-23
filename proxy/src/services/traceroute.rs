@@ -142,8 +142,8 @@ pub fn build_traceroute_command(
     let bin = config.traceroute_bin.as_ref()?;
     let mut cmd = Command::new(bin);
 
-    if let Some(args_str) = &config.traceroute_args {
-        cmd.args(args_str.split_whitespace());
+    for arg in &config.tr_arglist {
+        cmd.arg(arg);
     }
 
     match version {
