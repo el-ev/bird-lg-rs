@@ -1,6 +1,14 @@
 :root {
     --bg: #f5f5f5;
     --text: #222;
+    --card: #fff;
+    --border: #dcdcdc;
+    --muted: #6f6f6f;
+    --accent: #111;
+}
+
+* {
+    box-sizing: border-box;
 }
 
 /* @font-face {
@@ -136,6 +144,21 @@ body[data-modal-locked="true"] {
     border-bottom: 1px solid #ddd;
 }
 
+.table-scroll {
+    width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+}
+
+.table-scroll::-webkit-scrollbar {
+    height: 6px;
+}
+
+.table-scroll::-webkit-scrollbar-thumb {
+    background: #c7c7c7;
+    border-radius: 999px;
+}
+
 .node-row {
     cursor: pointer;
 }
@@ -182,12 +205,63 @@ body[data-modal-locked="true"] {
 }
 
 .traceroute-form select,
+.traceroute-form input,
+.traceroute-form button {
+    font-size: 0.95rem;
+    font-family: inherit;
+    border-radius: 8px;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease, background 0.15s ease,
+        color 0.15s ease;
+}
+
+.traceroute-form select,
 .traceroute-form input {
-    padding: 8px;
+    border: 1px solid var(--border);
+    background: var(--card);
+    color: var(--text);
+    min-height: 42px;
+}
+
+.traceroute-form select {
+    appearance: none;
+    -webkit-appearance: none;
+    padding: 10px 36px 10px 12px;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8' fill='none'%3E%3Cpath d='M1 1.5L6 6.5L11 1.5' stroke='%23222' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 12px center;
+    background-size: 12px;
+}
+
+.traceroute-form input {
+    padding: 10px 12px;
+}
+
+.traceroute-form select:focus,
+.traceroute-form input:focus {
+    outline: none;
+    border-color: var(--accent);
+    box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.05);
 }
 
 .traceroute-form button {
-    padding: 8px 16px;
+    border: 1px solid transparent;
+    padding: 10px 18px;
+    font-weight: 600;
+    cursor: pointer;
+    background: var(--accent);
+    color: #fff;
+    min-height: 42px;
+}
+
+.traceroute-form button:hover:not(:disabled) {
+    background: #000;
+}
+
+.traceroute-form button:disabled {
+    cursor: not-allowed;
+    background: #bfbfbf;
+    border-color: #bfbfbf;
+    color: #f5f5f5;
 }
 
 .target-input {
@@ -224,6 +298,64 @@ body[data-modal-locked="true"] {
 .traceroute-table td {
     padding: 4px;
     border-bottom: 1px solid #eee;
+}
+
+@media (max-width: 720px) {
+    .hero {
+        padding: 20px 0 32px;
+    }
+
+    .node-table {
+        border-collapse: separate;
+    }
+
+    .node-table thead {
+        display: none;
+    }
+
+    .node-table tbody {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+    }
+
+    .node-table tr {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 8px;
+        padding: 12px;
+        border: 1px solid #eee;
+        border-radius: 10px;
+        background: var(--card);
+    }
+
+    .node-table td {
+        display: flex;
+        flex-direction: column;
+        padding: 0;
+        border: none;
+        font-size: 0.85rem;
+        gap: 2px;
+    }
+
+    .node-table td::before {
+        content: attr(data-label);
+        font-size: 0.7rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        color: var(--muted);
+        letter-spacing: 0.04em;
+    }
+
+    .traceroute-form {
+        flex-direction: column;
+    }
+
+    .traceroute-form select,
+    .traceroute-form input,
+    .traceroute-form button {
+        width: 100%;
+    }
 }
 
 .hero .quote {
