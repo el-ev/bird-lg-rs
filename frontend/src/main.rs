@@ -1,3 +1,10 @@
+mod app;
+mod components;
+mod config;
+mod models;
+mod services;
+mod utils;
+
 fn main() {
-    println!("Hello, world!");
+    yew::Renderer::<app::App>::new().render();
 }

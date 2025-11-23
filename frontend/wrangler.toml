@@ -1,0 +1,16 @@
+name = "bird-lg-frontend"
+main = "worker/worker.js"
+compatibility_date = "2025-11-23"
+
+[build]
+command = "trunk build --release"
+cwd = "."
+watch_dir = [
+	"src",
+	"assets",
+	"index.html",
+]
+
+[assets]
+directory = "dist"
+binding = "ASSETS"
