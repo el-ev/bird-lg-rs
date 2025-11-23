@@ -10,7 +10,7 @@ use crate::components::{
     node_list::NodeList, protocol_modal::ProtocolModal, status_banner::StatusBanner,
     traceroute::TracerouteSection,
 };
-use crate::config::backend_api;
+use crate::config::{backend_api, load_backend_origin};
 use crate::models::NodeStatus;
 use crate::services::{log_error, sleep_ms, stream_fetch};
 use crate::utils::filter_protocol_details;
@@ -22,29 +22,49 @@ pub fn app() -> Html {
     let protocol_details = use_state(String::new);
     let fetch_error = use_state(|| None::<String>);
     let data_ready = use_state(|| false);
+    let config_ready = use_state(|| false);
+
+    {
+        let config_ready = config_ready.clone();
+        let fetch_error = fetch_error.clone();
+        use_effect_with((), move |_| {
+            spawn_local(async move {
+                match load_backend_origin().await {
+                    Ok(_) => config_ready.set(true),
+                    Err(err) => {
+                        let message = format!("Configuration load failed: {}", err);
+                        fetch_error.set(Some(message.clone()));
+                        log_error(&message);
+                    }
+                }
+            });
+        });
+    }
 
     {
         let nodes = nodes.clone();
         let fetch_error = fetch_error.clone();
         let data_ready = data_ready.clone();
-        use_effect_with((), move |_| {
-            let nodes_handle = nodes.clone();
-            let fetch_error_handle = fetch_error.clone();
-            let data_ready_handle = data_ready.clone();
+        use_effect_with(*config_ready, move |ready| {
+            if *ready {
+                let nodes_handle = nodes.clone();
+                let fetch_error_handle = fetch_error.clone();
+                let data_ready_handle = data_ready.clone();
 
-            spawn_local(async move {
-                let mut last_known_updates = HashMap::new();
-                loop {
-                    fetch_status(
-                        &nodes_handle,
-                        &fetch_error_handle,
-                        &data_ready_handle,
-                        &mut last_known_updates,
-                    )
-                    .await;
-                    sleep_ms(5000).await;
-                }
-            });
+                spawn_local(async move {
+                    let mut last_known_updates = HashMap::new();
+                    loop {
+                        fetch_status(
+                            &nodes_handle,
+                            &fetch_error_handle,
+                            &data_ready_handle,
+                            &mut last_known_updates,
+                        )
+                        .await;
+                        sleep_ms(5000).await;
+                    }
+                });
+            }
         });
     }
 
@@ -58,10 +78,9 @@ pub fn app() -> Html {
             protocol_state.set("Loading...".to_string());
 
             spawn_local(async move {
-                let url = backend_api(&format!("/api/node/{}/protocol/{}", node, proto));
-
-                let mut aggregated = String::new();
                 let stream_handle = protocol_state.clone();
+                let url = backend_api(&format!("/api/node/{}/protocol/{}", node, proto));
+                let mut aggregated = String::new();
                 let result = stream_fetch(url, {
                     let stream_state = stream_handle.clone();
                     move |chunk| {
@@ -79,7 +98,7 @@ pub fn app() -> Html {
         })
     };
 
-    let waiting_for_data = nodes.is_empty() && !*data_ready;
+    let waiting_for_data = nodes.is_empty() && (!*data_ready || !*config_ready);
 
     html! {
         <main class="hero">

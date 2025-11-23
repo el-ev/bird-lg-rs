@@ -119,10 +119,7 @@ pub fn traceroute_section(props: &TracerouteSectionProps) -> Html {
                     {
                         let mut cache = results_cache.borrow_mut();
                         cache.retain(|(name, _)| name != &node_name);
-                        cache.push((
-                            node_name.clone(),
-                            NodeTracerouteResult::Hops(Vec::new()),
-                        ));
+                        cache.push((node_name.clone(), NodeTracerouteResult::Hops(Vec::new())));
                         traceroute_results.set(cache.clone());
                     }
 
@@ -145,12 +142,10 @@ pub fn traceroute_section(props: &TracerouteSectionProps) -> Html {
                                 if let Ok(hop) = from_str::<TracerouteHop>(&line) {
                                     node_hops.push(hop);
                                     let mut cache = cache_handle.borrow_mut();
-                                    if let Some((_, result)) = cache
-                                        .iter_mut()
-                                        .find(|(name, _)| name == &node_for_stream)
+                                    if let Some((_, result)) =
+                                        cache.iter_mut().find(|(name, _)| name == &node_for_stream)
                                     {
-                                        *result =
-                                            NodeTracerouteResult::Hops(node_hops.clone());
+                                        *result = NodeTracerouteResult::Hops(node_hops.clone());
                                     } else {
                                         cache.push((
                                             node_for_stream.clone(),
