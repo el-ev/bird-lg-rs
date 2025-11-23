@@ -5,13 +5,13 @@ use axum::{
     extract::Extension,
     routing::{get, post},
 };
-use clap::Command;
 use config::Config;
 use tokio::net::TcpListener;
 use tower_http::cors::CorsLayer;
 
-use crate::middleware::auth::auth_middleware;
+use crate::{cli::Cli, middleware::auth::auth_middleware};
 
+mod cli;
 mod config;
 mod handlers;
 mod middleware;
@@ -19,20 +19,9 @@ mod services;
 
 #[tokio::main]
 async fn main() -> std::io::Result<()> {
-    let matches = Command::new("bird-lg-proxy-rs")
-        .version(env!("CARGO_PKG_VERSION"))
-        .about("A proxy for bird control socket with additional features")
-        .arg(
-            clap::Arg::new("config")
-                .short('c')
-                .long("config")
-                .value_name("FILE")
-                .help("Sets a custom config file.")
-                .default_value("config.json"),
-        )
-        .get_matches();
+    let cli = Cli::parse_args();
 
-    let config_path = matches.get_one::<String>("config").unwrap();
+    let config_path = &cli.config;
     println!("Using config file: {}", config_path);
     let config = Arc::new(Config::new(config_path));
 
