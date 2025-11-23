@@ -2,7 +2,7 @@ use std::pin::Pin;
 use std::task::{Context, Poll};
 
 use bytes::BytesMut;
-use tokio::io::{AsyncRead, AsyncWrite, AsyncReadExt, AsyncWriteExt};
+use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 use tokio::net::UnixStream;
 use tokio_stream::Stream;
 use tokio_util::codec::{Decoder, Framed};
@@ -34,7 +34,10 @@ pub async fn connect(socket_path: &str) -> Result<UnixStream, String> {
         .map_err(|e| format!("Failed to read from bird socket: {}", e))?;
 
     if !buffer[..n].starts_with(b"0016") {
-        return Err(format!("Unable to set birdc restrict mode: {:?}", &buffer[..n]));
+        return Err(format!(
+            "Unable to set birdc restrict mode: {:?}",
+            &buffer[..n]
+        ));
     }
 
     Ok(stream)
@@ -43,6 +46,7 @@ pub async fn connect(socket_path: &str) -> Result<UnixStream, String> {
 #[derive(Default)]
 pub struct BirdDecoder {
     last_type: u8,
+    current_message: String,
 }
 
 pub struct BirdLine {
@@ -55,28 +59,34 @@ impl Decoder for BirdDecoder {
     type Error = std::io::Error;
 
     fn decode(&mut self, src: &mut BytesMut) -> Result<Option<Self::Item>, Self::Error> {
-        if let Some(offset) = src.iter().position(|&b| b == b'\n') {
-            let line_len = offset + 1;
-            let line_bytes = src.split_to(line_len);
-            let line = &line_bytes[..offset];
+        loop {
+            if let Some(offset) = src.iter().position(|&b| b == b'\n') {
+                let line_len = offset + 1;
+                let line_bytes = src.split_to(line_len);
+                let line = &line_bytes[..offset];
 
-            let mut content = String::new();
+                if line.len() >= 4 && line[0..4].iter().all(|&b| b.is_ascii_digit()) {
+                    self.last_type = line[0];
+                    if line.len() >= 5 {
+                        self.current_message
+                            .push_str(&String::from_utf8_lossy(&line[5..]));
+                    }
+                } else {
+                    self.current_message
+                        .push_str(&String::from_utf8_lossy(line));
+                }
+                self.current_message.push('\n');
 
-            if line.len() >= 4 && line[0..4].iter().all(|&b| b.is_ascii_digit()) {
-                self.last_type = line[0];
-                if line.len() >= 5 {
-                    content.push_str(&String::from_utf8_lossy(&line[5..]));
+                let is_last = b"089".contains(&self.last_type);
+
+                if is_last {
+                    let content = std::mem::take(&mut self.current_message);
+                    return Ok(Some(BirdLine { content, is_last }));
                 }
             } else {
-                content.push_str(&String::from_utf8_lossy(line));
+                return Ok(None);
             }
-            content.push('\n');
-
-            let is_last = b"089".contains(&self.last_type);
-
-            return Ok(Some(BirdLine { content, is_last }));
         }
-        Ok(None)
     }
 }
 
