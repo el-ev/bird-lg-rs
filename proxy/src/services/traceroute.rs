@@ -22,6 +22,7 @@ impl std::fmt::Display for TracerouteError {
 
 impl std::error::Error for TracerouteError {}
 
+#[derive(Debug, Clone, Copy)]
 pub enum IpVersion {
     V4,
     V6,

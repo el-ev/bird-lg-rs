@@ -8,6 +8,7 @@ use axum::{
 use hyper::HeaderMap;
 
 use crate::config::Config;
+use tracing::{error, warn};
 
 pub async fn auth_middleware(
     headers: HeaderMap,
@@ -17,6 +18,7 @@ pub async fn auth_middleware(
     let config = match req.extensions().get::<Arc<Config>>().cloned() {
         Some(cfg) => cfg,
         None => {
+            error!("Request missing proxy config extension");
             return (
                 axum::http::StatusCode::INTERNAL_SERVER_ERROR,
                 "Server error",
@@ -52,6 +54,7 @@ pub async fn auth_middleware(
             .unwrap_or(false);
 
         if !header_ok {
+            warn!("Rejected request due to invalid shared secret");
             return (axum::http::StatusCode::UNAUTHORIZED, "Unauthorized").into_response();
         }
     }
@@ -65,6 +68,8 @@ pub async fn auth_middleware(
             break;
         }
     }
+
+    warn!(client_ip = ?client_addr, "Rejected request from unauthorized network");
 
     (axum::http::StatusCode::FORBIDDEN, "Forbidden").into_response()
 }

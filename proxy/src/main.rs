@@ -8,6 +8,7 @@ use axum::{
 use config::Config;
 use tokio::net::TcpListener;
 use tower_http::cors::CorsLayer;
+use tracing::info;
 
 use crate::{cli::Cli, middleware::auth::auth_middleware};
 
@@ -18,14 +19,17 @@ mod middleware;
 mod services;
 
 #[tokio::main]
-async fn main() -> std::io::Result<()> {
+async fn main() -> anyhow::Result<()> {
+    tracing_subscriber::fmt::init();
+
     let cli = Cli::parse_args();
 
     let config_path = &cli.config;
-    println!("Using config file: {}", config_path);
-    let config = Arc::new(Config::new(config_path));
+    info!("Using config file: {}", config_path);
+    let config = Arc::new(Config::new(config_path)?);
 
     let listener = TcpListener::bind(&config.listen).await?;
+    info!("Proxy listening on {}", config.listen);
     let app = Router::new()
         .route("/bird", post(handlers::bird::handler))
         .route("/traceroute", get(handlers::traceroute::traceroute))
@@ -39,5 +43,7 @@ async fn main() -> std::io::Result<()> {
         listener,
         app.into_make_service_with_connect_info::<SocketAddr>(),
     )
-    .await
+    .await?;
+
+    Ok(())
 }
