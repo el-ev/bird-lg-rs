@@ -47,24 +47,27 @@ pub async fn proxy_traceroute(
         match client.get(&url).send().await {
             Ok(resp) => {
                 let status = resp.status();
-                if !status.is_success() {
+                if status.is_success() {
+                    let stream = resp
+                        .bytes_stream()
+                        .map(|chunk| chunk.map_err(io::Error::other));
+
+                    Body::from_stream(stream).into_response()
+                } else {
+                    let body_text = resp
+                        .text()
+                        .await
+                        .unwrap_or_else(|_| "Upstream traceroute error".to_string());
+
                     warn!(
                         node = %node,
                         status = %status,
-                        "Node returned non-success status for traceroute"
+                        error = %body_text,
+                        "Node returned non-success status for traceroute",
                     );
-                    return (
-                        StatusCode::BAD_GATEWAY,
-                        "Traceroute service on node is currently unavailable",
-                    )
-                        .into_response();
+
+                    (status, body_text).into_response()
                 }
-
-                let stream = resp
-                    .bytes_stream()
-                    .map(|chunk| chunk.map_err(io::Error::other));
-
-                Body::from_stream(stream).into_response()
             }
             Err(e) => {
                 warn!(node = %node, error = ?e, "Failed to start traceroute");

@@ -15,7 +15,23 @@ where
         .map_err(|_| "Failed to cast fetch response".to_string())?;
 
     if !response.ok() {
-        return Err(format!("Request failed with HTTP {}", response.status()));
+        let status = response.status();
+        let error_body = match response.text() {
+            Ok(promise) => match JsFuture::from(promise).await {
+                Ok(value) => value.as_string().unwrap_or_default(),
+                Err(e) => js_value_to_string(e),
+            },
+            Err(e) => js_value_to_string(e),
+        };
+
+        let trimmed = error_body.trim();
+        let message = if trimmed.is_empty() {
+            format!("Request failed with HTTP {}", status)
+        } else {
+            trimmed.to_string()
+        };
+
+        return Err(message);
     }
 
     let body = response

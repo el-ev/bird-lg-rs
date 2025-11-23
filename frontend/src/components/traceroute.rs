@@ -13,10 +13,16 @@ pub struct TracerouteSectionProps {
     pub nodes: Vec<NodeStatus>,
 }
 
+#[derive(Clone, PartialEq)]
+enum NodeTracerouteResult {
+    Hops(Vec<TracerouteHop>),
+    Error(String),
+}
+
 #[function_component(TracerouteSection)]
 pub fn traceroute_section(props: &TracerouteSectionProps) -> Html {
-    let traceroute_results = use_state(Vec::<(String, Vec<TracerouteHop>)>::new);
-    let traceroute_results_cache = use_mut_ref(Vec::<(String, Vec<TracerouteHop>)>::new);
+    let traceroute_results = use_state(Vec::<(String, NodeTracerouteResult)>::new);
+    let traceroute_results_cache = use_mut_ref(Vec::<(String, NodeTracerouteResult)>::new);
     let traceroute_target = use_state(String::new);
     let traceroute_node = use_state(String::new);
     let traceroute_version = use_state(|| "auto".to_string());
@@ -57,7 +63,7 @@ pub fn traceroute_section(props: &TracerouteSectionProps) -> Html {
         let traceroute_node = traceroute_node.clone();
         let traceroute_version = traceroute_version.clone();
         let traceroute_loading = traceroute_loading.clone();
-        let traceroute_error = traceroute_error.clone();
+        let traceroute_error_state = traceroute_error.clone();
         let nodes = nodes_for_form.clone();
         let results_cache = traceroute_results_cache.clone();
 
@@ -67,10 +73,10 @@ pub fn traceroute_section(props: &TracerouteSectionProps) -> Html {
             let raw_target = (*traceroute_target).clone();
             let sanitized_target = raw_target.trim().to_string();
             if let Err(err) = validate_hostname_or_ip(&sanitized_target) {
-                traceroute_error.set(Some(err));
+                traceroute_error_state.set(Some(err));
                 return;
             }
-            traceroute_error.set(None);
+            traceroute_error_state.set(None);
 
             traceroute_loading.set(true);
             {
@@ -113,7 +119,10 @@ pub fn traceroute_section(props: &TracerouteSectionProps) -> Html {
                     {
                         let mut cache = results_cache.borrow_mut();
                         cache.retain(|(name, _)| name != &node_name);
-                        cache.push((node_name.clone(), Vec::new()));
+                        cache.push((
+                            node_name.clone(),
+                            NodeTracerouteResult::Hops(Vec::new()),
+                        ));
                         traceroute_results.set(cache.clone());
                     }
 
@@ -136,12 +145,17 @@ pub fn traceroute_section(props: &TracerouteSectionProps) -> Html {
                                 if let Ok(hop) = from_str::<TracerouteHop>(&line) {
                                     node_hops.push(hop);
                                     let mut cache = cache_handle.borrow_mut();
-                                    if let Some((_, hops)) =
-                                        cache.iter_mut().find(|(name, _)| name == &node_for_stream)
+                                    if let Some((_, result)) = cache
+                                        .iter_mut()
+                                        .find(|(name, _)| name == &node_for_stream)
                                     {
-                                        *hops = node_hops.clone();
+                                        *result =
+                                            NodeTracerouteResult::Hops(node_hops.clone());
                                     } else {
-                                        cache.push((node_for_stream.clone(), node_hops.clone()));
+                                        cache.push((
+                                            node_for_stream.clone(),
+                                            NodeTracerouteResult::Hops(node_hops.clone()),
+                                        ));
                                     }
                                     let snapshot = cache.clone();
                                     drop(cache);
@@ -158,24 +172,15 @@ pub fn traceroute_section(props: &TracerouteSectionProps) -> Html {
                             node_name, err
                         ));
                         let mut cache = results_cache.borrow_mut();
-                        if let Some((_, hops)) =
+                        let message = format!("Traceroute failed: {}", err);
+                        if let Some((_, result)) =
                             cache.iter_mut().find(|(name, _)| name == &node_name)
                         {
-                            *hops = vec![TracerouteHop {
-                                hop: 0,
-                                address: None,
-                                hostname: Some(format!("Error: {}", err)),
-                                rtts: None,
-                            }];
+                            *result = NodeTracerouteResult::Error(message.clone());
                         } else {
                             cache.push((
                                 node_name.clone(),
-                                vec![TracerouteHop {
-                                    hop: 0,
-                                    address: None,
-                                    hostname: Some(format!("Error: {}", err)),
-                                    rtts: None,
-                                }],
+                                NodeTracerouteResult::Error(message.clone()),
                             ));
                         }
                         let snapshot = cache.clone();
@@ -223,40 +228,49 @@ pub fn traceroute_section(props: &TracerouteSectionProps) -> Html {
                 }
             }
             <div class="traceroute-results">
-                { for traceroute_results.iter().map(|(node_name, hops)| {
+                { for traceroute_results.iter().map(|(node_name, result)| {
                     html! {
                         <div class="traceroute-node">
                             <h4>{ node_name }</h4>
-                            <table class="traceroute-table">
-                                <thead>
-                                    <tr>
-                                        <th>{"Hop"}</th>
-                                        <th>{"Host"}</th>
-                                        <th>{"IP"}</th>
-                                        <th>{"RTTs"}</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    { for hops.iter().map(|hop| {
-                                        html! {
-                                            <tr>
-                                                <td>{ hop.hop }</td>
-                                                <td>{ hop.hostname.clone().unwrap_or_default() }</td>
-                                                <td>{ hop.address.clone().unwrap_or_default() }</td>
-                                                <td>
-                                                    {
-                                                        if let Some(rtts) = &hop.rtts {
-                                                            rtts.iter().map(|r| format!("{:.2}ms", r)).collect::<Vec<_>>().join(" / ")
-                                                        } else {
-                                                            "*".to_string()
-                                                        }
+                            {
+                                match result {
+                                    NodeTracerouteResult::Hops(hops) => html! {
+                                        <table class="traceroute-table">
+                                            <thead>
+                                                <tr>
+                                                    <th>{"Hop"}</th>
+                                                    <th>{"Host"}</th>
+                                                    <th>{"IP"}</th>
+                                                    <th>{"RTTs"}</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                { for hops.iter().map(|hop| {
+                                                    html! {
+                                                        <tr>
+                                                            <td>{ hop.hop }</td>
+                                                            <td>{ hop.hostname.clone().unwrap_or_default() }</td>
+                                                            <td>{ hop.address.clone().unwrap_or_default() }</td>
+                                                            <td>
+                                                                {
+                                                                    if let Some(rtts) = &hop.rtts {
+                                                                        rtts.iter().map(|r| format!("{:.2}ms", r)).collect::<Vec<_>>().join(" / ")
+                                                                    } else {
+                                                                        "*".to_string()
+                                                                    }
+                                                                }
+                                                            </td>
+                                                        </tr>
                                                     }
-                                                </td>
-                                            </tr>
-                                        }
-                                    }) }
-                                </tbody>
-                            </table>
+                                                }) }
+                                            </tbody>
+                                        </table>
+                                    },
+                                    NodeTracerouteResult::Error(message) => html! {
+                                        <pre class="traceroute-node-error">{ message }</pre>
+                                    },
+                                }
+                            }
                         </div>
                     }
                 }) }

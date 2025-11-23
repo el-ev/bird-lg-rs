@@ -7,6 +7,7 @@ use axum::{
     response::{IntoResponse, Response},
 };
 use serde::Deserialize;
+use tokio::io::AsyncReadExt;
 use tokio_stream::StreamExt;
 use tokio_util::codec::{FramedRead, LinesCodec};
 use tracing::{error, info, warn};
@@ -75,31 +76,68 @@ async fn run_traceroute(
     info!(%target, version = ?version, "Executing traceroute");
     match cmd.spawn() {
         Ok(mut child) => {
-            if let Some(stdout) = child.stdout.take() {
-                let lines = FramedRead::new(stdout, LinesCodec::new());
+            let mut stderr = child.stderr.take();
 
-                let stream_target = target.clone();
-                let json_stream = lines.map(move |line| match line {
-                    Ok(l) => match TracerouteEntry::try_from(l.as_str()) {
-                        Ok(entry) => match serde_json::to_string(&entry) {
-                            Ok(json) => Ok::<_, std::io::Error>(json + "\n"),
+            if let Some(stdout) = child.stdout.take() {
+                let mut lines = FramedRead::new(stdout, LinesCodec::new());
+
+                match lines.next().await {
+                    Some(first_line) => {
+                        let combined_stream = tokio_stream::iter(vec![first_line]).chain(lines);
+                        let stream_target = target.clone();
+                        let json_stream = combined_stream.map(move |line| match line {
+                            Ok(l) => match TracerouteEntry::try_from(l.as_str()) {
+                                Ok(entry) => match serde_json::to_string(&entry) {
+                                    Ok(json) => Ok::<_, std::io::Error>(json + "\n"),
+                                    Err(e) => {
+                                        error!(error = %e, %stream_target, "Failed to serialize traceroute entry");
+                                        Ok(String::new())
+                                    }
+                                },
+                                Err(e) => {
+                                    warn!(%stream_target, line = %l, "Failed to parse traceroute line: {}", e);
+                                    Ok(String::new())
+                                }
+                            },
                             Err(e) => {
-                                error!(error = %e, %stream_target, "Failed to serialize traceroute entry");
+                                error!(error = %e, %stream_target, "Failed to read traceroute output");
                                 Ok(String::new())
                             }
-                        },
-                        Err(e) => {
-                            warn!(%stream_target, line = %l, "Failed to parse traceroute line: {}", e);
-                            Ok(String::new())
-                        }
-                    },
-                    Err(e) => {
-                        error!(error = %e, %stream_target, "Failed to read traceroute output");
-                        Ok(String::new())
-                    }
-                });
+                        });
 
-                Body::from_stream(json_stream).into_response()
+                        Body::from_stream(json_stream).into_response()
+                    }
+                    None => {
+                        let mut stderr_output = String::new();
+                        if let Some(stderr_reader) = stderr.as_mut() {
+                            match stderr_reader.read_to_string(&mut stderr_output).await {
+                                Ok(_) => {}
+                                Err(e) => {
+                                    error!(error = %e, %target, "Failed to read traceroute stderr");
+                                }
+                            }
+                        }
+
+                        let trimmed = stderr_output.trim();
+                        let response_msg = if trimmed.is_empty() {
+                            "Traceroute failed before producing output".to_string()
+                        } else {
+                            trimmed.to_string()
+                        };
+
+                        if let Err(e) = child.wait().await {
+                            error!(error = %e, %target, "Failed to wait for traceroute process");
+                        }
+
+                        warn!(%target, stderr = %response_msg, "Traceroute produced stderr without stdout");
+
+                        (
+                            axum::http::StatusCode::INTERNAL_SERVER_ERROR,
+                            response_msg,
+                        )
+                            .into_response()
+                    }
+                }
             } else {
                 error!(%target, "Traceroute stdout not captured");
                 (

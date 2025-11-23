@@ -159,6 +159,7 @@ pub fn build_traceroute_command(
 
     cmd.arg(target);
     cmd.stdout(Stdio::piped());
+    cmd.stderr(Stdio::piped());
 
     Some(cmd)
 }
