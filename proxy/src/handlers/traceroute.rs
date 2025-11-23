@@ -9,6 +9,7 @@ use axum::{
 use serde::Deserialize;
 use tokio_stream::StreamExt;
 use tokio_util::codec::{FramedRead, LinesCodec};
+use tracing::{error, info, warn};
 
 use crate::config::Config;
 use crate::services::traceroute::{
@@ -47,8 +48,9 @@ async fn run_traceroute(
     params: TracerouteQuery,
     version: IpVersion,
 ) -> Response {
-    let target = params.target.trim();
-    if let Err(e) = validate_target(target) {
+    let target = params.target.trim().to_string();
+    if let Err(e) = validate_target(&target) {
+        warn!(%target, "Invalid traceroute target: {}", e);
         return (
             axum::http::StatusCode::BAD_REQUEST,
             format!("Invalid target: {}", e),
@@ -56,9 +58,10 @@ async fn run_traceroute(
             .into_response();
     }
 
-    let mut cmd = match build_traceroute_command(&config, target, version) {
+    let mut cmd = match build_traceroute_command(&config, &target, version) {
         Some(cmd) => cmd,
         None => {
+            error!("Traceroute requested but traceroute_bin not configured");
             return (
                 axum::http::StatusCode::INTERNAL_SERVER_ERROR,
                 "traceroute not configured",
@@ -69,27 +72,36 @@ async fn run_traceroute(
 
     // FIXME: stderr not handled
     // TODO: report bad host
+    info!(%target, version = ?version, "Executing traceroute");
     match cmd.spawn() {
         Ok(mut child) => {
             if let Some(stdout) = child.stdout.take() {
                 let lines = FramedRead::new(stdout, LinesCodec::new());
 
-                let json_stream = lines.map(|line| match line {
-                    Ok(l) => {
-                        if let Ok(entry) = TracerouteEntry::try_from(l.as_str()) {
-                            match serde_json::to_string(&entry) {
-                                Ok(json) => Ok::<_, std::io::Error>(json + "\n"),
-                                Err(_) => Ok(String::new()),
+                let stream_target = target.clone();
+                let json_stream = lines.map(move |line| match line {
+                    Ok(l) => match TracerouteEntry::try_from(l.as_str()) {
+                        Ok(entry) => match serde_json::to_string(&entry) {
+                            Ok(json) => Ok::<_, std::io::Error>(json + "\n"),
+                            Err(e) => {
+                                error!(error = %e, %stream_target, "Failed to serialize traceroute entry");
+                                Ok(String::new())
                             }
-                        } else {
+                        },
+                        Err(e) => {
+                            warn!(%stream_target, line = %l, "Failed to parse traceroute line: {}", e);
                             Ok(String::new())
                         }
+                    },
+                    Err(e) => {
+                        error!(error = %e, %stream_target, "Failed to read traceroute output");
+                        Ok(String::new())
                     }
-                    Err(_) => Ok(String::new()),
                 });
 
                 Body::from_stream(json_stream).into_response()
             } else {
+                error!(%target, "Traceroute stdout not captured");
                 (
                     axum::http::StatusCode::INTERNAL_SERVER_ERROR,
                     "Failed to capture stdout",
@@ -97,10 +109,13 @@ async fn run_traceroute(
                     .into_response()
             }
         }
-        Err(e) => (
-            axum::http::StatusCode::INTERNAL_SERVER_ERROR,
-            format!("Failed to execute traceroute: {}", e),
-        )
-            .into_response(),
+        Err(e) => {
+            error!(error = %e, %target, "Failed to execute traceroute command");
+            (
+                axum::http::StatusCode::INTERNAL_SERVER_ERROR,
+                format!("Failed to execute traceroute: {}", e),
+            )
+                .into_response()
+        }
     }
 }

@@ -1,43 +1,41 @@
 use std::pin::Pin;
-use std::task::{Context, Poll};
+use std::task::{Context as TaskContext, Poll};
 
+use anyhow::{Context as _, bail};
 use bytes::BytesMut;
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 use tokio::net::UnixStream;
 use tokio_stream::Stream;
 use tokio_util::codec::{Decoder, Framed};
 
-pub async fn connect(socket_path: &str) -> Result<UnixStream, String> {
+pub async fn connect(socket_path: &str) -> anyhow::Result<UnixStream> {
     let mut stream = UnixStream::connect(socket_path)
         .await
-        .map_err(|e| format!("Failed to connect to bird socket: {}", e))?;
+        .with_context(|| format!("Failed to connect to bird socket {}", socket_path))?;
 
     let mut buffer = [0; 1024];
     let n = stream
         .read(&mut buffer)
         .await
-        .map_err(|e| format!("Failed to read from bird socket: {}", e))?;
+        .context("Failed to read greeting from bird socket")?;
 
     if !buffer[..n].starts_with(b"0001") {
-        return Err(format!("Unexpected birdc response: {:?}", &buffer[..n]));
+        bail!("Unexpected birdc response: {:?}", &buffer[..n]);
     }
 
     stream
         .write_all(b"restrict\n")
         .await
-        .map_err(|e| format!("Failed to write to bird socket: {}", e))?;
+        .context("Failed to enable restrict mode on bird socket")?;
 
     buffer.fill(0);
     let n = stream
         .read(&mut buffer)
         .await
-        .map_err(|e| format!("Failed to read from bird socket: {}", e))?;
+        .context("Failed to confirm restrict mode on bird socket")?;
 
     if !buffer[..n].starts_with(b"0016") {
-        return Err(format!(
-            "Unable to set birdc restrict mode: {:?}",
-            &buffer[..n]
-        ));
+        bail!("Unable to set birdc restrict mode: {:?}", &buffer[..n]);
     }
 
     Ok(stream)
@@ -101,7 +99,7 @@ where
 {
     type Item = Result<String, std::io::Error>;
 
-    fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
+    fn poll_next(mut self: Pin<&mut Self>, cx: &mut TaskContext<'_>) -> Poll<Option<Self::Item>> {
         if self.done {
             return Poll::Ready(None);
         }

@@ -1,3 +1,4 @@
+use anyhow::{Context, anyhow};
 use serde::{Deserialize, Serialize};
 use std::net::{IpAddr, SocketAddr};
 use std::path::Path;
@@ -17,22 +18,24 @@ pub struct Config {
 }
 
 impl Config {
-    pub fn new(path: &str) -> Self {
-        Self::read_and_parse(path)
-            .and_then(|cfg| cfg.validated())
-            .unwrap_or_else(|e| panic!("{}", e))
+    pub fn new(path: &str) -> anyhow::Result<Self> {
+        tracing::info!("Loading proxy config from {}", path);
+        let cfg = Self::read_and_parse(path)?
+            .validated()
+            .with_context(|| format!("Failed to validate config '{}'", path))?;
+        tracing::info!("Loaded proxy config from {}", path);
+        Ok(cfg)
     }
 
-    fn read_and_parse(path: &str) -> Result<Self, String> {
-        std::fs::read_to_string(path)
-            .map_err(|e| format!("Failed to read config file '{}': {}", path, e))
-            .and_then(|s| {
-                serde_json::from_str(&s)
-                    .map_err(|e| format!("Failed to parse config file '{}': {}", path, e))
-            })
+    fn read_and_parse(path: &str) -> anyhow::Result<Self> {
+        let raw = std::fs::read_to_string(path)
+            .with_context(|| format!("Failed to read config file '{}'", path))?;
+        let cfg = serde_json::from_str(&raw)
+            .with_context(|| format!("Failed to parse config file '{}'", path))?;
+        Ok(cfg)
     }
 
-    pub fn validated(mut self) -> Result<Self, String> {
+    pub fn validated(mut self) -> anyhow::Result<Self> {
         let mut errors: Vec<String> = Vec::new();
 
         self.validate_endpoint("bind_socket", &mut errors);
@@ -43,7 +46,10 @@ impl Config {
         if errors.is_empty() {
             Ok(self)
         } else {
-            Err(errors.join("; "))
+            for err in &errors {
+                tracing::error!("Config validation error: {}", err);
+            }
+            Err(anyhow!(errors.join("; ")))
         }
     }
 
