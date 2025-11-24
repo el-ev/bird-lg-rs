@@ -40,7 +40,7 @@ body {
     scrollbar-gutter: stable both-edges;
 }
 
-body[data-modal-locked="true"] {
+body[content-modal-locked="true"] {
     overflow: hidden;
 }
 
@@ -190,7 +190,7 @@ body[data-modal-locked="true"] {
     overflow-y: auto;
 }
 
-.protocol-details {
+.modal-content pre {
     background: var(--bg);
     padding: 10px;
     overflow-x: auto;

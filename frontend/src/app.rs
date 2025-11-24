@@ -7,8 +7,8 @@ use wasm_bindgen_futures::spawn_local;
 use yew::prelude::*;
 
 use crate::components::{
-    node_list::NodeList, protocol_modal::ProtocolModal, status_banner::StatusBanner,
-    traceroute::TracerouteSection,
+    content_modal::ContentModal, node_list::NodeList, route_lookup::RouteLookup,
+    status_banner::StatusBanner, traceroute::TracerouteSection,
 };
 use crate::config::{backend_api, load_backend_origin};
 use crate::models::NodeStatus;
@@ -18,8 +18,8 @@ use crate::utils::filter_protocol_details;
 #[function_component(App)]
 pub fn app() -> Html {
     let nodes = use_state(Vec::<NodeStatus>::new);
-    let selected_protocol = use_state(|| None::<(String, String)>);
-    let protocol_details = use_state(String::new);
+    let modal_active = use_state(|| false);
+    let modal_content = use_state(String::new);
     let fetch_error = use_state(|| None::<String>);
     let data_ready = use_state(|| false);
     let config_ready = use_state(|| false);
@@ -38,6 +38,8 @@ pub fn app() -> Html {
                     }
                 }
             });
+
+            || ()
         });
     }
 
@@ -65,16 +67,18 @@ pub fn app() -> Html {
                     }
                 });
             }
+
+            || ()
         });
     }
 
     let on_protocol_click = {
-        let selected_protocol = selected_protocol.clone();
-        let protocol_details = protocol_details.clone();
+        let modal_active = modal_active.clone();
+        let protocol_details = modal_content.clone();
         Callback::from(move |(node, proto): (String, String)| {
-            let selected_protocol = selected_protocol.clone();
+            let modal_active = modal_active.clone();
             let protocol_state = protocol_details.clone();
-            selected_protocol.set(Some((node.clone(), proto.clone())));
+            modal_active.set(true);
             protocol_state.set("Loading...".to_string());
 
             spawn_local(async move {
@@ -98,6 +102,38 @@ pub fn app() -> Html {
         })
     };
 
+    let on_route_lookup = {
+        let modal_active = modal_active.clone();
+        let protocol_details = modal_content.clone();
+        Callback::from(move |(node, target, all): (String, String, bool)| {
+            let modal_active = modal_active.clone();
+            let protocol_state = protocol_details.clone();
+            modal_active.set(true);
+            protocol_state.set("Loading...".to_string());
+
+            spawn_local(async move {
+                let stream_handle = protocol_state.clone();
+                let url = backend_api(&format!(
+                    "/api/route?node={}&target={}&all={}",
+                    node, target, all
+                ));
+                let mut aggregated = String::new();
+                let result = stream_fetch(url, {
+                    let stream_state = stream_handle.clone();
+                    move |chunk| {
+                        aggregated.push_str(&chunk);
+                        stream_state.set(aggregated.clone());
+                    }
+                })
+                .await;
+
+                if let Err(err) = result {
+                    stream_handle.set(format!("Failed to load route details: {}", err));
+                }
+            });
+        })
+    };
+
     let waiting_for_data = nodes.is_empty() && (!*data_ready || !*config_ready);
 
     html! {
@@ -115,16 +151,19 @@ pub fn app() -> Html {
                     on_protocol_click={on_protocol_click}
                 />
 
-                <ProtocolModal
-                    visible={selected_protocol.is_some()}
-                    content={(*protocol_details).clone()}
+                <TracerouteSection nodes={(*nodes).clone()} />
+                <RouteLookup nodes={(*nodes).clone()} on_lookup={on_route_lookup} />
+
+                <ContentModal
+                    visible={*modal_active}
+                    content={(*modal_content).clone()}
                     on_close={
-                        let selected_protocol = selected_protocol.clone();
-                        Callback::from(move |_| selected_protocol.set(None))
+                        let modal_active = modal_active.clone();
+                        Callback::from(move |_| {
+                            modal_active.set(false);
+                        })
                     }
                 />
-
-                <TracerouteSection nodes={(*nodes).clone()} />
             </div>
         </main>
     }
