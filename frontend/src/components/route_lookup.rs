@@ -4,6 +4,8 @@ use ipnet::IpNet;
 use web_sys::HtmlInputElement;
 use yew::prelude::*;
 
+use crate::components::shell::{ShellButton, ShellInput, ShellPrompt, ShellSelect, ShellToggle};
+use crate::config::username;
 use crate::models::NodeStatus;
 
 #[derive(Properties, PartialEq)]
@@ -27,22 +29,18 @@ pub fn route_lookup(props: &RouteLookupProps) -> Html {
         })
     };
 
-    let on_target_input = {
+    let on_target_change = {
         let target = target.clone();
         let error = error.clone();
-        Callback::from(move |e: InputEvent| {
-            let input: HtmlInputElement = e.target_unchecked_into();
-            target.set(input.value());
+        Callback::from(move |value: String| {
+            target.set(value);
             error.set(None);
         })
     };
 
-    let on_all_change = {
+    let on_all_toggle = {
         let all = all.clone();
-        Callback::from(move |e: Event| {
-            let input: HtmlInputElement = e.target_unchecked_into();
-            all.set(input.checked());
-        })
+        Callback::from(move |_| all.set(!*all))
     };
 
     let on_submit = {
@@ -88,28 +86,32 @@ pub fn route_lookup(props: &RouteLookupProps) -> Html {
     html! {
         <section>
             <h3>{"Route Lookup"}</h3>
-            <form class="control-bar" onsubmit={on_submit}>
-                <select value={(*selected_node).clone()} onchange={on_node_change}>
-                    { for props.nodes.iter().map(|n| html! {
-                        <option value={n.name.clone()}>{ &n.name }</option>
-                    }) }
-                </select>
-                <input
-                    class="flex-grow-input"
-                    type="text"
-                    placeholder="IP or Prefix (e.g. 1.1.1.1 or 1.1.1.0/24)"
+            <form class="shell-line" onsubmit={on_submit}>
+                <ShellPrompt>
+                    {format!("{}@", username())}
+                    <ShellSelect value={(*selected_node).clone()} on_change={on_node_change}>
+                        { for props.nodes.iter().map(|n| html! {
+                            <option value={n.name.clone()}>{ &n.name }</option>
+                        }) }
+                    </ShellSelect>
+                    {"$ "}
+                </ShellPrompt>
+                { "birdc show route for " }
+                <ShellInput
                     value={(*target).clone()}
-                    oninput={on_target_input}
+                    on_change={on_target_change}
+                    placeholder="<ip>[/<mask>]"
                 />
-                <div class="actions-group">
-                    <div class="checkbox-wrapper">
-                        <input type="checkbox" id="route-all" checked={*all} onchange={on_all_change} />
-                        <label for="route-all">{ "All" }</label>
-                    </div>
-                    <button type="submit">
-                        { "Show Route" }
-                    </button>
-                </div>
+                <span>{ " " }</span>
+                <ShellToggle
+                    active={*all}
+                    on_toggle={on_all_toggle}
+                >
+                    { "all" }
+                </ShellToggle>
+                <ShellButton type_="submit">
+                    { "↵" }
+                </ShellButton>
             </form>
             {
                 if let Some(err) = &*error {

@@ -1,9 +1,10 @@
 name = "bird-lg-frontend"
 main = "worker/worker.js"
 compatibility_date = "2025-11-23"
+keep_vars = true
 
 [build]
-command = "trunk build --release"
+command = "trunk build --release -M"
 cwd = "."
 watch_dir = ["src", "assets", "index.html"]
 
@@ -13,3 +14,4 @@ binding = "ASSETS"
 
 [vars]
 # BACKEND_URL = "https://127.0.0.1:3000"
+# USERNAME = "iris"

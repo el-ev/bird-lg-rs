@@ -1,6 +1,8 @@
 use chrono::Local;
 use yew::prelude::*;
 
+use crate::components::shell::ShellLine;
+use crate::config::username;
 use crate::models::NodeStatus;
 
 #[derive(Properties, PartialEq)]
@@ -39,6 +41,11 @@ pub fn node_list(props: &NodeListProps) -> Html {
                                 }
                             </span>
                         </summary>
+                        <ShellLine
+                            prompt={format!("{}@{}$ ", username(), node.name)}
+                            command={"birdc show protocols".to_string()}
+                            style={"font-size: 0.9em;".to_string()}
+                        />
                         <table class="data-table">
                             <thead>
                                 <tr>
