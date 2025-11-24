@@ -2,6 +2,7 @@ use serde_json::from_str;
 use wasm_bindgen_futures::spawn_local;
 use web_sys::HtmlInputElement;
 use yew::prelude::*;
+use futures::future::join_all;
 
 use crate::config::backend_api;
 use crate::models::{NodeStatus, TracerouteHop};
@@ -104,85 +105,94 @@ pub fn traceroute_section(props: &TracerouteSectionProps) -> Html {
                 let version_value = (*traceroute_version).clone();
                 let target_value = validated_target;
 
-                for node_name in target_nodes {
-                    let version_param = match version_value.as_str() {
-                        "4" => "&version=4",
-                        "6" => "&version=6",
-                        _ => "",
-                    };
+                let futures = target_nodes.into_iter().map(|node_name| {
+                    let version_value = version_value.clone();
+                    let target_value = target_value.clone();
+                    let results_cache = results_cache.clone();
+                    let traceroute_results = traceroute_results.clone();
 
-                    let url = backend_api(&format!(
-                        "/api/traceroute?node={}&target={}{}",
-                        node_name, target_value, version_param
-                    ));
+                    async move {
+                        let version_param = match version_value.as_str() {
+                            "4" => "&version=4",
+                            "6" => "&version=6",
+                            _ => "",
+                        };
 
-                    {
-                        let mut cache = results_cache.borrow_mut();
-                        cache.retain(|(name, _)| name != &node_name);
-                        cache.push((node_name.clone(), NodeTracerouteResult::Hops(Vec::new())));
-                        traceroute_results.set(cache.clone());
-                    }
+                        let url = backend_api(&format!(
+                            "/api/traceroute?node={}&target={}{}",
+                            node_name, target_value, version_param
+                        ));
 
-                    let stream_state = traceroute_results.clone();
-                    let cache_handle = results_cache.clone();
-                    let mut buffer = String::new();
-                    let mut node_hops: Vec<TracerouteHop> = Vec::new();
-                    let stream_result = stream_fetch(url, {
-                        let stream_state = stream_state.clone();
-                        let cache_handle = cache_handle.clone();
-                        let node_for_stream = node_name.clone();
-                        move |chunk| {
-                            buffer.push_str(&chunk);
-                            while let Some(idx) = buffer.find('\n') {
-                                let line = buffer[..idx].trim().to_string();
-                                buffer.drain(..=idx);
-                                if line.is_empty() {
-                                    continue;
-                                }
-                                if let Ok(hop) = from_str::<TracerouteHop>(&line) {
-                                    node_hops.push(hop);
-                                    let mut cache = cache_handle.borrow_mut();
-                                    if let Some((_, result)) =
-                                        cache.iter_mut().find(|(name, _)| name == &node_for_stream)
-                                    {
-                                        *result = NodeTracerouteResult::Hops(node_hops.clone());
-                                    } else {
-                                        cache.push((
-                                            node_for_stream.clone(),
-                                            NodeTracerouteResult::Hops(node_hops.clone()),
-                                        ));
+                        {
+                            let mut cache = results_cache.borrow_mut();
+                            cache.retain(|(name, _)| name != &node_name);
+                            cache.push((node_name.clone(), NodeTracerouteResult::Hops(Vec::new())));
+                            traceroute_results.set(cache.clone());
+                        }
+
+                        let stream_state = traceroute_results.clone();
+                        let cache_handle = results_cache.clone();
+                        let mut buffer = String::new();
+                        let mut node_hops: Vec<TracerouteHop> = Vec::new();
+                        let stream_result = stream_fetch(url, {
+                            let stream_state = stream_state.clone();
+                            let cache_handle = cache_handle.clone();
+                            let node_for_stream = node_name.clone();
+                            move |chunk| {
+                                buffer.push_str(&chunk);
+                                while let Some(idx) = buffer.find('\n') {
+                                    let line = buffer[..idx].trim().to_string();
+                                    buffer.drain(..=idx);
+                                    if line.is_empty() {
+                                        continue;
                                     }
-                                    let snapshot = cache.clone();
-                                    drop(cache);
-                                    stream_state.set(snapshot);
+                                    if let Ok(hop) = from_str::<TracerouteHop>(&line) {
+                                        node_hops.push(hop);
+                                        let mut cache = cache_handle.borrow_mut();
+                                        if let Some((_, result)) =
+                                            cache.iter_mut().find(|(name, _)| name == &node_for_stream)
+                                        {
+                                            *result = NodeTracerouteResult::Hops(node_hops.clone());
+                                        } else {
+                                            cache.push((
+                                                node_for_stream.clone(),
+                                                NodeTracerouteResult::Hops(node_hops.clone()),
+                                            ));
+                                        }
+                                        let snapshot = cache.clone();
+                                        drop(cache);
+                                        stream_state.set(snapshot);
+                                    }
                                 }
                             }
-                        }
-                    })
-                    .await;
+                        })
+                        .await;
 
-                    if let Err(err) = stream_result {
-                        log_error(&format!(
-                            "Traceroute stream failed for {}: {}",
-                            node_name, err
-                        ));
-                        let mut cache = results_cache.borrow_mut();
-                        let message = format!("Traceroute failed: {}", err);
-                        if let Some((_, result)) =
-                            cache.iter_mut().find(|(name, _)| name == &node_name)
-                        {
-                            *result = NodeTracerouteResult::Error(message.clone());
-                        } else {
-                            cache.push((
-                                node_name.clone(),
-                                NodeTracerouteResult::Error(message.clone()),
+                        if let Err(err) = stream_result {
+                            log_error(&format!(
+                                "Traceroute stream failed for {}: {}",
+                                node_name, err
                             ));
+                            let mut cache = results_cache.borrow_mut();
+                            let message = format!("Traceroute failed: {}", err);
+                            if let Some((_, result)) =
+                                cache.iter_mut().find(|(name, _)| name == &node_name)
+                            {
+                                *result = NodeTracerouteResult::Error(message.clone());
+                            } else {
+                                cache.push((
+                                    node_name.clone(),
+                                    NodeTracerouteResult::Error(message.clone()),
+                                ));
+                            }
+                            let snapshot = cache.clone();
+                            drop(cache);
+                            stream_state.set(snapshot);
                         }
-                        let snapshot = cache.clone();
-                        drop(cache);
-                        stream_state.set(snapshot);
                     }
-                }
+                });
+
+                join_all(futures).await;
 
                 traceroute_loading.set(false);
             });
