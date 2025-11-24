@@ -12,15 +12,15 @@ pub struct NodeListProps {
 #[function_component(NodeList)]
 pub fn node_list(props: &NodeListProps) -> Html {
     html! {
-        <div class="nodes">
+        <div>
             { for props.nodes.iter().map(|node| {
                 let node_name = node.name.clone();
                 let on_protocol_click = props.on_protocol_click.clone();
                 html! {
-                    <details class="node" open=true>
-                        <summary class="node-summary">
-                            <span class="node-name">{ &node.name }</span>
-                            <span class="node-updated">
+                    <details class="expandable-item" open=true>
+                        <summary class="summary-header">
+                            <span class="item-title">{ &node.name }</span>
+                            <span class="item-meta">
                                 {
                                     format!(
                                         "(Updated: {})",
@@ -32,14 +32,14 @@ pub fn node_list(props: &NodeListProps) -> Html {
                                 }
                                 {
                                     if node.error.is_some() {
-                                        html! { <span class="error-pill">{ "ERR" }</span> }
+                                        html! { <span class="status-pill">{ "ERR" }</span> }
                                     } else {
                                         html! {}
                                     }
                                 }
                             </span>
                         </summary>
-                        <table class="node-table">
+                        <table class="data-table">
                             <thead>
                                 <tr>
                                     <th>{ "Proto" }</th>
@@ -57,7 +57,7 @@ pub fn node_list(props: &NodeListProps) -> Html {
                                     let on_row_click = on_protocol_click.clone();
                                     html! {
                                         <tr
-                                            class="node-row"
+                                            class="clickable-row"
                                             onclick={move |_| on_row_click.emit((name_for_click.clone(), proto_name.clone()))}
                                         >
                                             <td>{ &p.proto }</td>
