@@ -86,22 +86,22 @@ pub fn route_lookup(props: &RouteLookupProps) -> Html {
     };
 
     html! {
-        <section class="traceroute-section">
+        <section>
             <h3>{"Route Lookup"}</h3>
-            <form class="traceroute-form" onsubmit={on_submit}>
+            <form class="control-bar" onsubmit={on_submit}>
                 <select value={(*selected_node).clone()} onchange={on_node_change}>
                     { for props.nodes.iter().map(|n| html! {
                         <option value={n.name.clone()}>{ &n.name }</option>
                     }) }
                 </select>
                 <input
-                    class="target-input"
+                    class="flex-grow-input"
                     type="text"
                     placeholder="IP or Prefix (e.g. 1.1.1.1 or 1.1.1.0/24)"
                     value={(*target).clone()}
                     oninput={on_target_input}
                 />
-                <div class="route-actions">
+                <div class="actions-group">
                     <div class="checkbox-wrapper">
                         <input type="checkbox" id="route-all" checked={*all} onchange={on_all_change} />
                         <label for="route-all">{ "All" }</label>
@@ -113,7 +113,7 @@ pub fn route_lookup(props: &RouteLookupProps) -> Html {
             </form>
             {
                 if let Some(err) = &*error {
-                    html! { <div class="traceroute-error">{ err }</div> }
+                    html! { <div class="error-message">{ err }</div> }
                 } else {
                     html! {}
                 }

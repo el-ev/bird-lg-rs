@@ -200,9 +200,9 @@ pub fn traceroute_section(props: &TracerouteSectionProps) -> Html {
     };
 
     html! {
-        <section class="traceroute-section">
+        <section>
             <h3>{"Traceroute"}</h3>
-            <form class="traceroute-form" onsubmit={on_submit}>
+            <form class="control-bar" onsubmit={on_submit}>
                 <select value={(*traceroute_node).clone()} onchange={on_node_change}>
                     <option value="" selected=true>{"All Nodes"}</option>
                     { for nodes_for_form.iter().map(|n| {
@@ -215,7 +215,7 @@ pub fn traceroute_section(props: &TracerouteSectionProps) -> Html {
                     <option value="6">{"IPv6"}</option>
                 </select>
                 <input
-                    class="target-input"
+                    class="flex-grow-input"
                     type="text"
                     placeholder="Target IP/Hostname"
                     value={(*traceroute_target).clone()}
@@ -227,20 +227,20 @@ pub fn traceroute_section(props: &TracerouteSectionProps) -> Html {
             </form>
             {
                 if let Some(err) = &*traceroute_error {
-                    html! { <div class="traceroute-error">{ err }</div> }
+                    html! { <div class="error-message">{ err }</div> }
                 } else {
                     html! {}
                 }
             }
-            <div class="traceroute-results">
+            <div>
                 { for traceroute_results.iter().map(|(node_name, result)| {
                     html! {
-                        <details class="traceroute-node" open=true>
-                            <summary class="traceroute-summary"><h4>{ node_name }</h4></summary>
+                        <details class="expandable-item" open=true>
+                            <summary class="summary-header"><h4 class="item-title">{ node_name }</h4></summary>
                             {
                                 match result {
                                     NodeTracerouteResult::Hops(hops) => html! {
-                                        <table class="traceroute-table">
+                                        <table class="data-table">
                                             <thead>
                                                 <tr>
                                                     <th>{"Hop"}</th>
@@ -272,7 +272,7 @@ pub fn traceroute_section(props: &TracerouteSectionProps) -> Html {
                                         </table>
                                     },
                                     NodeTracerouteResult::Error(message) => html! {
-                                        <pre class="traceroute-node-error">{ message }</pre>
+                                        <pre class="status-message--error">{ message }</pre>
                                     },
                                 }
                             }
