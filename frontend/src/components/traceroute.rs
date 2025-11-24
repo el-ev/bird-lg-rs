@@ -1,10 +1,11 @@
+use futures::future::join_all;
 use serde_json::from_str;
 use wasm_bindgen_futures::spawn_local;
 use web_sys::HtmlInputElement;
 use yew::prelude::*;
-use futures::future::join_all;
 
-use crate::config::backend_api;
+use crate::components::shell::{ShellButton, ShellInput, ShellLine, ShellPrompt, ShellSelect};
+use crate::config::{backend_api, username};
 use crate::models::{NodeStatus, TracerouteHop};
 use crate::services::{log_error, stream_fetch};
 use crate::utils::validate_hostname_or_ip;
@@ -25,6 +26,8 @@ pub fn traceroute_section(props: &TracerouteSectionProps) -> Html {
     let traceroute_results = use_state(Vec::<(String, NodeTracerouteResult)>::new);
     let traceroute_results_cache = use_mut_ref(Vec::<(String, NodeTracerouteResult)>::new);
     let traceroute_target = use_state(String::new);
+    let last_traceroute_target = use_state(String::new);
+    let last_traceroute_version = use_state(String::new);
     let traceroute_node = use_state(String::new);
     let traceroute_version = use_state(|| "auto".to_string());
     let traceroute_loading = use_state(|| false);
@@ -48,12 +51,11 @@ pub fn traceroute_section(props: &TracerouteSectionProps) -> Html {
         })
     };
 
-    let on_target_input = {
+    let on_target_change = {
         let traceroute_target = traceroute_target.clone();
         let traceroute_error = traceroute_error.clone();
-        Callback::from(move |e: InputEvent| {
-            let target: HtmlInputElement = e.target_unchecked_into();
-            traceroute_target.set(target.value());
+        Callback::from(move |value: String| {
+            traceroute_target.set(value);
             traceroute_error.set(None);
         })
     };
@@ -61,6 +63,8 @@ pub fn traceroute_section(props: &TracerouteSectionProps) -> Html {
     let on_submit = {
         let traceroute_results = traceroute_results.clone();
         let traceroute_target = traceroute_target.clone();
+        let last_traceroute_target = last_traceroute_target.clone();
+        let last_traceroute_version = last_traceroute_version.clone();
         let traceroute_node = traceroute_node.clone();
         let traceroute_version = traceroute_version.clone();
         let traceroute_loading = traceroute_loading.clone();
@@ -78,6 +82,8 @@ pub fn traceroute_section(props: &TracerouteSectionProps) -> Html {
                 return;
             }
             traceroute_error_state.set(None);
+            last_traceroute_target.set(sanitized_target.clone());
+            last_traceroute_version.set((*traceroute_version).clone());
 
             traceroute_loading.set(true);
             {
@@ -149,8 +155,9 @@ pub fn traceroute_section(props: &TracerouteSectionProps) -> Html {
                                     if let Ok(hop) = from_str::<TracerouteHop>(&line) {
                                         node_hops.push(hop);
                                         let mut cache = cache_handle.borrow_mut();
-                                        if let Some((_, result)) =
-                                            cache.iter_mut().find(|(name, _)| name == &node_for_stream)
+                                        if let Some((_, result)) = cache
+                                            .iter_mut()
+                                            .find(|(name, _)| name == &node_for_stream)
                                         {
                                             *result = NodeTracerouteResult::Hops(node_hops.clone());
                                         } else {
@@ -202,28 +209,32 @@ pub fn traceroute_section(props: &TracerouteSectionProps) -> Html {
     html! {
         <section>
             <h3>{"Traceroute"}</h3>
-            <form class="control-bar" onsubmit={on_submit}>
-                <select value={(*traceroute_node).clone()} onchange={on_node_change}>
-                    <option value="" selected=true>{"All Nodes"}</option>
-                    { for nodes_for_form.iter().map(|n| {
-                        html! { <option value={n.name.clone()}>{ &n.name }</option> }
-                    }) }
-                </select>
-                <select value={(*traceroute_version).clone()} onchange={on_version_change}>
-                    <option value="auto" selected=true>{"Auto"}</option>
-                    <option value="4">{"IPv4"}</option>
-                    <option value="6">{"IPv6"}</option>
-                </select>
-                <input
-                    class="flex-grow-input"
-                    type="text"
-                    placeholder="Target IP/Hostname"
+            <form class="shell-line" onsubmit={on_submit}>
+                <ShellPrompt>
+                    {format!("{}@", username())}
+                    <ShellSelect class="node-select" value={(*traceroute_node).clone()} on_change={on_node_change}>
+                        <option value="" selected=true>{"(all)"}</option>
+                        { for nodes_for_form.iter().map(|n| {
+                            html! { <option value={n.name.clone()}>{ &n.name }</option> }
+                        }) }
+                    </ShellSelect>
+                    {"$ "}
+                </ShellPrompt>
+                { "traceroute " }
+                <ShellSelect value={(*traceroute_version).clone()} on_change={on_version_change}>
+                    <option value="auto" selected=true>{"  "}</option>
+                    <option value="4">{"-4"}</option>
+                    <option value="6">{"-6"}</option>
+                </ShellSelect>
+                <span>{ " " }</span>
+                <ShellInput
                     value={(*traceroute_target).clone()}
-                    oninput={on_target_input}
+                    on_change={on_target_change}
+                    placeholder="<target>"
                 />
-                <button type="submit" disabled={*traceroute_loading}>
-                    { if *traceroute_loading { "Running..." } else { "Run" } }
-                </button>
+                <ShellButton type_="submit" disabled={*traceroute_loading}>
+                    { if *traceroute_loading { "..." } else { "↵" } }
+                </ShellButton>
             </form>
             {
                 if let Some(err) = &*traceroute_error {
@@ -234,9 +245,19 @@ pub fn traceroute_section(props: &TracerouteSectionProps) -> Html {
             }
             <div>
                 { for traceroute_results.iter().map(|(node_name, result)| {
+                    let version_flag = match last_traceroute_version.as_str() {
+                        "4" => " -4",
+                        "6" => " -6",
+                        _ => "",
+                    };
                     html! {
                         <details class="expandable-item" open=true>
                             <summary class="summary-header"><h4 class="item-title">{ node_name }</h4></summary>
+                            <ShellLine
+                                prompt={format!("{}@{}$ ", username(), node_name)}
+                                command={format!("traceroute{} {}", version_flag, *last_traceroute_target)}
+                                style={"font-size: 0.9em;".to_string()}
+                            />
                             {
                                 match result {
                                     NodeTracerouteResult::Hops(hops) => html! {

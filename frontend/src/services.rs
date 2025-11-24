@@ -78,10 +78,6 @@ pub async fn sleep_ms(ms: i32) {
     let _ = wasm_bindgen_futures::JsFuture::from(promise).await;
 }
 
-pub fn log_info(message: &str) {
-    console::log_1(&JsValue::from_str(message));
-}
-
 pub fn log_error(message: &str) {
     console::error_1(&JsValue::from_str(message));
 }

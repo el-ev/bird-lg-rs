@@ -6,6 +6,7 @@ export default {
 
         if (url.pathname === CONFIG_PATH) {
             const backendUrl = env.BACKEND_URL;
+            const username = env.USERNAME;
             if (!backendUrl) {
                 return new Response(
                     JSON.stringify({ error: "BACKEND_URL is not configured" }),
@@ -14,7 +15,7 @@ export default {
             }
 
             return new Response(
-                JSON.stringify({ backend_url: backendUrl }),
+                JSON.stringify({ backend_url: backendUrl, username: username }),
             );
         }
 

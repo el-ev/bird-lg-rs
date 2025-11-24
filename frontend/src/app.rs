@@ -10,7 +10,7 @@ use crate::components::{
     content_modal::ContentModal, node_list::NodeList, route_lookup::RouteLookup,
     status_banner::StatusBanner, traceroute::TracerouteSection,
 };
-use crate::config::{backend_api, load_backend_origin};
+use crate::config::{backend_api, load_config, username};
 use crate::models::NodeStatus;
 use crate::services::{log_error, sleep_ms, stream_fetch};
 use crate::utils::filter_protocol_details;
@@ -20,6 +20,7 @@ pub fn app() -> Html {
     let nodes = use_state(Vec::<NodeStatus>::new);
     let modal_active = use_state(|| false);
     let modal_content = use_state(String::new);
+    let modal_command = use_state(|| None::<String>);
     let fetch_error = use_state(|| None::<String>);
     let data_ready = use_state(|| false);
     let config_ready = use_state(|| false);
@@ -29,7 +30,7 @@ pub fn app() -> Html {
         let fetch_error = fetch_error.clone();
         use_effect_with((), move |_| {
             spawn_local(async move {
-                match load_backend_origin().await {
+                match load_config().await {
                     Ok(_) => config_ready.set(true),
                     Err(err) => {
                         let message = format!("Configuration load failed: {}", err);
@@ -75,62 +76,31 @@ pub fn app() -> Html {
     let on_protocol_click = {
         let modal_active = modal_active.clone();
         let protocol_details = modal_content.clone();
+        let modal_command = modal_command.clone();
         Callback::from(move |(node, proto): (String, String)| {
-            let modal_active = modal_active.clone();
-            let protocol_state = protocol_details.clone();
-            modal_active.set(true);
-            protocol_state.set("Loading...".to_string());
-
-            spawn_local(async move {
-                let stream_handle = protocol_state.clone();
-                let url = backend_api(&format!("/api/node/{}/protocol/{}", node, proto));
-                let mut aggregated = String::new();
-                let result = stream_fetch(url, {
-                    let stream_state = stream_handle.clone();
-                    move |chunk| {
-                        aggregated.push_str(&chunk);
-                        let filtered = filter_protocol_details(&aggregated);
-                        stream_state.set(filtered);
-                    }
-                })
-                .await;
-
-                if let Err(err) = result {
-                    stream_handle.set(format!("Failed to load protocol details: {}", err));
-                }
-            });
+            handle_protocol_click(
+                node,
+                proto,
+                modal_active.clone(),
+                protocol_details.clone(),
+                modal_command.clone(),
+            );
         })
     };
 
     let on_route_lookup = {
         let modal_active = modal_active.clone();
         let protocol_details = modal_content.clone();
+        let modal_command = modal_command.clone();
         Callback::from(move |(node, target, all): (String, String, bool)| {
-            let modal_active = modal_active.clone();
-            let protocol_state = protocol_details.clone();
-            modal_active.set(true);
-            protocol_state.set("Loading...".to_string());
-
-            spawn_local(async move {
-                let stream_handle = protocol_state.clone();
-                let url = backend_api(&format!(
-                    "/api/route?node={}&target={}&all={}",
-                    node, target, all
-                ));
-                let mut aggregated = String::new();
-                let result = stream_fetch(url, {
-                    let stream_state = stream_handle.clone();
-                    move |chunk| {
-                        aggregated.push_str(&chunk);
-                        stream_state.set(aggregated.clone());
-                    }
-                })
-                .await;
-
-                if let Err(err) = result {
-                    stream_handle.set(format!("Failed to load route details: {}", err));
-                }
-            });
+            handle_route_lookup(
+                node,
+                target,
+                all,
+                modal_active.clone(),
+                protocol_details.clone(),
+                modal_command.clone(),
+            );
         })
     };
 
@@ -157,6 +127,7 @@ pub fn app() -> Html {
                 <ContentModal
                     visible={*modal_active}
                     content={(*modal_content).clone()}
+                    command={(*modal_command).clone()}
                     on_close={
                         let modal_active = modal_active.clone();
                         Callback::from(move |_| {
@@ -167,6 +138,83 @@ pub fn app() -> Html {
             </div>
         </main>
     }
+}
+
+fn handle_protocol_click(
+    node: String,
+    proto: String,
+    modal_active: UseStateHandle<bool>,
+    protocol_state: UseStateHandle<String>,
+    modal_command: UseStateHandle<Option<String>>,
+) {
+    modal_active.set(true);
+    protocol_state.set("Loading...".to_string());
+    modal_command.set(Some(format!(
+        "{}@{}$ birdc show protocols all {}",
+        username(),
+        node,
+        proto
+    )));
+
+    spawn_local(async move {
+        let stream_handle = protocol_state.clone();
+        let url = backend_api(&format!("/api/node/{}/protocol/{}", node, proto));
+        let mut aggregated = String::new();
+        let result = stream_fetch(url, {
+            let stream_state = stream_handle.clone();
+            move |chunk| {
+                aggregated.push_str(&chunk);
+                let filtered = filter_protocol_details(&aggregated);
+                stream_state.set(filtered);
+            }
+        })
+        .await;
+
+        if let Err(err) = result {
+            stream_handle.set(format!("Failed to load protocol details: {}", err));
+        }
+    });
+}
+
+fn handle_route_lookup(
+    node: String,
+    target: String,
+    all: bool,
+    modal_active: UseStateHandle<bool>,
+    protocol_state: UseStateHandle<String>,
+    modal_command: UseStateHandle<Option<String>>,
+) {
+    modal_active.set(true);
+    protocol_state.set("Loading...".to_string());
+    let all_flag = if all { " all" } else { "" };
+    modal_command.set(Some(format!(
+        "{}@{}$ birdc show route for {}{}",
+        username(),
+        node,
+        target,
+        all_flag
+    )));
+
+    spawn_local(async move {
+        let stream_handle = protocol_state.clone();
+        let url = backend_api(&format!(
+            "/api/route?node={}&target={}&all={}",
+            node, target, all
+        ));
+        let mut aggregated = String::new();
+        let result = stream_fetch(url, {
+            let stream_state = stream_handle.clone();
+            move |chunk| {
+                aggregated.push_str(&chunk);
+                stream_state.set(aggregated.clone());
+            }
+        })
+        .await;
+
+        if let Err(err) = result {
+            stream_handle.set(format!("Failed to load route details: {}", err));
+        }
+    });
 }
 
 async fn fetch_status(
