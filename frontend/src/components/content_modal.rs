@@ -2,28 +2,28 @@ use web_sys::{MouseEvent, window};
 use yew::prelude::*;
 
 #[derive(Properties, PartialEq)]
-pub struct ProtocolModalProps {
+pub struct ContentModalProps {
     pub visible: bool,
     pub content: String,
     pub on_close: Callback<()>,
 }
 
-#[function_component(ProtocolModal)]
-pub fn protocol_modal(props: &ProtocolModalProps) -> Html {
+#[function_component(ContentModal)]
+pub fn content_modal(props: &ContentModalProps) -> Html {
     {
         let visible = props.visible;
         use_effect_with(visible, move |visible| {
             if let Some(body) = window().and_then(|w| w.document()).and_then(|d| d.body()) {
                 if *visible {
-                    let _ = body.set_attribute("data-modal-locked", "true");
+                    let _ = body.set_attribute("content-modal-locked", "true");
                 } else {
-                    let _ = body.remove_attribute("data-modal-locked");
+                    let _ = body.remove_attribute("content-modal-locked");
                 }
             }
 
             move || {
                 if let Some(body) = window().and_then(|w| w.document()).and_then(|d| d.body()) {
-                    let _ = body.remove_attribute("data-modal-locked");
+                    let _ = body.remove_attribute("content-modal-locked");
                 }
             }
         });
@@ -39,7 +39,7 @@ pub fn protocol_modal(props: &ProtocolModalProps) -> Html {
     html! {
         <div class="modal-backdrop" onclick={move |_| on_close.emit(())}>
             <div class="modal-content" onclick={stop_click.clone()}>
-                <pre class="protocol-details">{ &props.content }</pre>
+                <pre>{ &props.content }</pre>
             </div>
         </div>
     }

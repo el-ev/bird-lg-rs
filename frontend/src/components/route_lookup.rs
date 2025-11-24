@@ -1,0 +1,121 @@
+use std::net::IpAddr;
+
+use ipnet::IpNet;
+use web_sys::HtmlInputElement;
+use yew::prelude::*;
+
+use crate::models::NodeStatus;
+
+#[derive(Properties, PartialEq)]
+pub struct RouteLookupProps {
+    pub nodes: Vec<NodeStatus>,
+    pub on_lookup: Callback<(String, String, bool)>,
+}
+
+#[function_component(RouteLookup)]
+pub fn route_lookup(props: &RouteLookupProps) -> Html {
+    let selected_node = use_state(String::new);
+    let target = use_state(String::new);
+    let all = use_state(|| false);
+    let error = use_state(|| None::<String>);
+
+    let on_node_change = {
+        let selected_node = selected_node.clone();
+        Callback::from(move |e: Event| {
+            let target: HtmlInputElement = e.target_unchecked_into();
+            selected_node.set(target.value());
+        })
+    };
+
+    let on_target_input = {
+        let target = target.clone();
+        let error = error.clone();
+        Callback::from(move |e: InputEvent| {
+            let input: HtmlInputElement = e.target_unchecked_into();
+            target.set(input.value());
+            error.set(None);
+        })
+    };
+
+    let on_all_change = {
+        let all = all.clone();
+        Callback::from(move |e: Event| {
+            let input: HtmlInputElement = e.target_unchecked_into();
+            all.set(input.checked());
+        })
+    };
+
+    let on_submit = {
+        let selected_node = selected_node.clone();
+        let target = target.clone();
+        let all = all.clone();
+        let error = error.clone();
+        let on_lookup = props.on_lookup.clone();
+        let nodes = props.nodes.clone();
+
+        Callback::from(move |e: SubmitEvent| {
+            e.prevent_default();
+
+            let node_val = (*selected_node).clone();
+            let target_val = (*target).trim().to_string();
+            let all_val = *all;
+
+            if target_val.is_empty() {
+                error.set(Some("Target is required".to_string()));
+                return;
+            }
+
+            if target_val.parse::<IpAddr>().is_err() && target_val.parse::<IpNet>().is_err() {
+                error.set(Some("Invalid IP or CIDR".to_string()));
+                return;
+            }
+
+            let final_node = if node_val.is_empty() {
+                if let Some(first) = nodes.first() {
+                    first.name.clone()
+                } else {
+                    error.set(Some("No nodes available".to_string()));
+                    return;
+                }
+            } else {
+                node_val
+            };
+
+            on_lookup.emit((final_node, target_val, all_val));
+        })
+    };
+
+    html! {
+        <section class="traceroute-section">
+            <h3>{"Route Lookup"}</h3>
+            <form class="traceroute-form" onsubmit={on_submit}>
+                <select value={(*selected_node).clone()} onchange={on_node_change}>
+                    { for props.nodes.iter().map(|n| html! {
+                        <option value={n.name.clone()}>{ &n.name }</option>
+                    }) }
+                </select>
+                <input
+                    class="target-input"
+                    type="text"
+                    placeholder="IP or Prefix (e.g. 1.1.1.1 or 1.1.1.0/24)"
+                    value={(*target).clone()}
+                    oninput={on_target_input}
+                />
+                <div style="display: flex; align-items: center; gap: 5px;">
+                    <input type="checkbox" id="route-all" checked={*all} onchange={on_all_change} />
+                    <label for="route-all">{ "All" }</label>
+                </div>
+                <button type="submit">
+                    { "Show Route" }
+                </button>
+            </form>
+            {
+                if let Some(err) = &*error {
+                    html! { <div class="traceroute-error">{ err }</div> }
+                } else {
+                    html! {}
+                }
+            }
+        </section>
+    }
+}
