@@ -143,6 +143,8 @@ pub fn build_traceroute_command(
     let bin = config.traceroute_bin.as_ref()?;
     let mut cmd = Command::new(bin);
 
+    cmd.arg(target);
+
     for arg in &config.tr_arglist {
         cmd.arg(arg);
     }
@@ -157,7 +159,6 @@ pub fn build_traceroute_command(
         IpVersion::Any => {}
     }
 
-    cmd.arg(target);
     cmd.stdout(Stdio::piped());
     cmd.stderr(Stdio::piped());
 

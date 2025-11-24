@@ -71,8 +71,6 @@ async fn run_traceroute(
         }
     };
 
-    // FIXME: stderr not handled
-    // TODO: report bad host
     info!(%target, version = ?version, "Executing traceroute");
     match cmd.spawn() {
         Ok(mut child) => {
@@ -85,24 +83,24 @@ async fn run_traceroute(
                     Some(first_line) => {
                         let combined_stream = tokio_stream::iter(vec![first_line]).chain(lines);
                         let stream_target = target.clone();
-                        let json_stream = combined_stream.map(move |line| match line {
-                            Ok(l) => match TracerouteEntry::try_from(l.as_str()) {
-                                Ok(entry) => match serde_json::to_string(&entry) {
-                                    Ok(json) => Ok::<_, std::io::Error>(json + "\n"),
-                                    Err(e) => {
-                                        error!(error = %e, %stream_target, "Failed to serialize traceroute entry");
-                                        Ok(String::new())
-                                    }
-                                },
-                                Err(e) => {
-                                    warn!(%stream_target, line = %l, "Failed to parse traceroute line: {}", e);
-                                    Ok(String::new())
-                                }
-                            },
-                            Err(e) => {
+
+                        let json_stream = combined_stream.map(move |line| {
+                            line.map_err(|e| {
                                 error!(error = %e, %stream_target, "Failed to read traceroute output");
-                                Ok(String::new())
-                            }
+                            })
+                            .and_then(|l| {
+                                TracerouteEntry::try_from(l.as_str()).map_err(|e| {
+                                    warn!(%stream_target, line = %l, "Failed to parse traceroute line: {}", e);
+                                })
+                            })
+                            .and_then(|entry| {
+                                serde_json::to_string(&entry)
+                                    .map(|json| json + "\n")
+                                    .map_err(|e| {
+                                        error!(error = %e, %stream_target, "Failed to serialize traceroute entry");
+                                    })
+                            })
+                            .or::<std::io::Error>(Ok(String::new()))
                         });
 
                         Body::from_stream(json_stream).into_response()
@@ -118,12 +116,7 @@ async fn run_traceroute(
                             }
                         }
 
-                        let trimmed = stderr_output.trim();
-                        let response_msg = if trimmed.is_empty() {
-                            "Traceroute failed before producing output".to_string()
-                        } else {
-                            trimmed.to_string()
-                        };
+                        let response_msg = stderr_output.trim().to_string();
 
                         if let Err(e) = child.wait().await {
                             error!(error = %e, %target, "Failed to wait for traceroute process");
@@ -131,10 +124,7 @@ async fn run_traceroute(
 
                         warn!(%target, stderr = %response_msg, "Traceroute produced stderr without stdout");
 
-                        (
-                            axum::http::StatusCode::INTERNAL_SERVER_ERROR,
-                            response_msg,
-                        )
+                        (axum::http::StatusCode::INTERNAL_SERVER_ERROR, response_msg)
                             .into_response()
                     }
                 }
