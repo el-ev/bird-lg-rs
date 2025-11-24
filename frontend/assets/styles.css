@@ -205,7 +205,7 @@ body[content-modal-locked="true"] {
 }
 
 .traceroute-form select,
-.traceroute-form input,
+.traceroute-form input:not([type="checkbox"]),
 .traceroute-form button {
     font-size: 0.95rem;
     font-family: inherit;
@@ -215,7 +215,7 @@ body[content-modal-locked="true"] {
 }
 
 .traceroute-form select,
-.traceroute-form input {
+.traceroute-form input:not([type="checkbox"]) {
     border: 1px solid var(--border);
     background: var(--card);
     color: var(--text);
@@ -232,12 +232,12 @@ body[content-modal-locked="true"] {
     background-size: 12px;
 }
 
-.traceroute-form input {
+.traceroute-form input:not([type="checkbox"]) {
     padding: 10px 12px;
 }
 
 .traceroute-form select:focus,
-.traceroute-form input:focus {
+.traceroute-form input:not([type="checkbox"]):focus {
     outline: none;
     border-color: var(--accent);
     box-shadow: 0 0 0 2px var(--shadow-focus);
@@ -298,6 +298,19 @@ body[content-modal-locked="true"] {
 .traceroute-table td {
     padding: 4px;
     border-bottom: 1px solid var(--bg-secondary);
+}
+
+.route-actions {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.checkbox-wrapper {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    white-space: nowrap;
 }
 
 @media (max-width: 720px) {

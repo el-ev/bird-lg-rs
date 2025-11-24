@@ -101,13 +101,15 @@ pub fn route_lookup(props: &RouteLookupProps) -> Html {
                     value={(*target).clone()}
                     oninput={on_target_input}
                 />
-                <div style="display: flex; align-items: center; gap: 5px;">
-                    <input type="checkbox" id="route-all" checked={*all} onchange={on_all_change} />
-                    <label for="route-all">{ "All" }</label>
+                <div class="route-actions">
+                    <div class="checkbox-wrapper">
+                        <input type="checkbox" id="route-all" checked={*all} onchange={on_all_change} />
+                        <label for="route-all">{ "All" }</label>
+                    </div>
+                    <button type="submit">
+                        { "Show Route" }
+                    </button>
                 </div>
-                <button type="submit">
-                    { "Show Route" }
-                </button>
             </form>
             {
                 if let Some(err) = &*error {
