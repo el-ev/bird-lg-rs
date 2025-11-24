@@ -235,8 +235,8 @@ pub fn traceroute_section(props: &TracerouteSectionProps) -> Html {
             <div class="traceroute-results">
                 { for traceroute_results.iter().map(|(node_name, result)| {
                     html! {
-                        <div class="traceroute-node">
-                            <h4>{ node_name }</h4>
+                        <details class="traceroute-node" open=true>
+                            <summary class="traceroute-summary"><h4>{ node_name }</h4></summary>
                             {
                                 match result {
                                     NodeTracerouteResult::Hops(hops) => html! {
@@ -276,7 +276,7 @@ pub fn traceroute_section(props: &TracerouteSectionProps) -> Html {
                                     },
                                 }
                             }
-                        </div>
+                        </details>
                     }
                 }) }
             </div>

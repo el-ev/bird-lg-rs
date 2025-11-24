@@ -107,6 +107,22 @@ body[content-modal-locked="true"] {
     flex-wrap: wrap;
     cursor: pointer;
     padding: 4px 0;
+    list-style: none;
+}
+
+.node-summary::-webkit-details-marker {
+    display: none;
+}
+
+.node-summary::before {
+    content: "▶";
+    display: inline-block;
+    font-size: 0.8em;
+    transition: transform 0.2s;
+}
+
+details[open] .node-summary::before {
+    transform: rotate(90deg);
 }
 
 .node-name {
@@ -281,6 +297,38 @@ body[content-modal-locked="true"] {
 
 .traceroute-node {
     margin-bottom: 20px;
+}
+
+.traceroute-summary {
+    cursor: pointer;
+    list-style: none;
+    display: flex;
+    align-items: center;
+}
+
+details[open] .traceroute-summary {
+    margin-bottom: 10px;
+}
+
+.traceroute-summary::-webkit-details-marker {
+    display: none;
+}
+
+.traceroute-summary h4 {
+    display: inline-block;
+    margin: 0;
+}
+
+.traceroute-summary::before {
+    content: "▶";
+    display: inline-block;
+    margin-right: 8px;
+    font-size: 0.8em;
+    transition: transform 0.2s;
+}
+
+details[open] .traceroute-summary::before {
+    transform: rotate(90deg);
 }
 
 .traceroute-table {
