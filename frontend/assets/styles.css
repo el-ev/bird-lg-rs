@@ -5,23 +5,27 @@
     --border: #dcdcdc;
     --muted: #6f6f6f;
     --accent: #111;
+    --border-light: #e0e0e0;
+    --text-secondary: #666;
+    --error: #d32f2f;
+    --bg-secondary: #eee;
+    --border-table: #ddd;
+    --scrollbar: #c7c7c7;
+    --backdrop: rgba(0, 0, 0, 0.5);
+    --disabled: #bfbfbf;
+    --hr: #bdc3c7;
+    --text-intro: #555;
+    --accent-hover: #000;
+    --shadow-focus: rgba(0, 0, 0, 0.05);
 }
 
 * {
     box-sizing: border-box;
 }
 
-/* @font-face {
-    src: url(/woff2/0-normal.woff2) format("woff2");
-    font-family: ml;
-    font-weight: 100 900;
-    font-style: normal;
-} */
-
 body {
     margin: 0;
     font-family:
-        /* monolisa, */
         ui-monospace,
         SFMono-Regular,
         "SF Mono",
@@ -57,7 +61,7 @@ body[data-modal-locked="true"] {
     top: 0;
     padding: 16px 0 8px;
     background: var(--bg);
-    border-bottom: 1px solid #e0e0e0;
+    border-bottom: 1px solid var(--border-light);
     z-index: 10;
 }
 
@@ -81,11 +85,11 @@ body[data-modal-locked="true"] {
 .status-message {
     margin-bottom: 15px;
     font-size: 0.9em;
-    color: #666;
+    color: var(--text-secondary);
 }
 
 .status-message--error {
-    color: #d32f2f;
+    color: var(--error);
 }
 
 .nodes {
@@ -112,7 +116,7 @@ body[data-modal-locked="true"] {
 
 .node-updated {
     font-size: 0.8em;
-    color: #666;
+    color: var(--text-secondary);
     display: inline-flex;
     align-items: center;
     gap: 6px;
@@ -121,7 +125,7 @@ body[data-modal-locked="true"] {
 .error-pill {
     display: inline-block;
     padding: 1px 6px;
-    background: #d32f2f;
+    background: var(--error);
     color: #fff;
     border-radius: 999px;
     font-size: 0.7em;
@@ -135,13 +139,13 @@ body[data-modal-locked="true"] {
 
 .node-table th {
     padding: 8px;
-    background: #eee;
+    background: var(--bg-secondary);
     text-align: left;
 }
 
 .node-table td {
     padding: 8px;
-    border-bottom: 1px solid #ddd;
+    border-bottom: 1px solid var(--border-table);
 }
 
 .table-scroll {
@@ -155,7 +159,7 @@ body[data-modal-locked="true"] {
 }
 
 .table-scroll::-webkit-scrollbar-thumb {
-    background: #c7c7c7;
+    background: var(--scrollbar);
     border-radius: 999px;
 }
 
@@ -169,7 +173,7 @@ body[data-modal-locked="true"] {
     left: 0;
     width: 100%;
     height: 100%;
-    background: rgba(0, 0, 0, 0.5);
+    background: var(--backdrop);
     display: flex;
     justify-content: center;
     align-items: center;
@@ -177,7 +181,7 @@ body[data-modal-locked="true"] {
 }
 
 .modal-content {
-    background: #fff;
+    background: var(--card);
     padding: 5px;
     border-radius: 8px;
     max-width: 800px;
@@ -187,15 +191,11 @@ body[data-modal-locked="true"] {
 }
 
 .protocol-details {
-    background: #f5f5f5;
+    background: var(--bg);
     padding: 10px;
     overflow-x: auto;
     margin: 2px;
 }
-
-/* .traceroute-section {
-    margin-top: 20px;
-} */
 
 .traceroute-form {
     display: flex;
@@ -240,7 +240,7 @@ body[data-modal-locked="true"] {
 .traceroute-form input:focus {
     outline: none;
     border-color: var(--accent);
-    box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.05);
+    box-shadow: 0 0 0 2px var(--shadow-focus);
 }
 
 .traceroute-form button {
@@ -254,13 +254,13 @@ body[data-modal-locked="true"] {
 }
 
 .traceroute-form button:hover:not(:disabled) {
-    background: #000;
+    background: var(--accent-hover);
 }
 
 .traceroute-form button:disabled {
     cursor: not-allowed;
-    background: #bfbfbf;
-    border-color: #bfbfbf;
+    background: var(--disabled);
+    border-color: var(--disabled);
     color: #f5f5f5;
 }
 
@@ -271,7 +271,7 @@ body[data-modal-locked="true"] {
 .traceroute-error {
     margin-top: -10px;
     margin-bottom: 20px;
-    color: #d32f2f;
+    color: var(--error);
     font-size: 0.9em;
 }
 
@@ -291,13 +291,13 @@ body[data-modal-locked="true"] {
 
 .traceroute-table th {
     padding: 4px;
-    background: #eee;
+    background: var(--bg-secondary);
     text-align: left;
 }
 
 .traceroute-table td {
     padding: 4px;
-    border-bottom: 1px solid #eee;
+    border-bottom: 1px solid var(--bg-secondary);
 }
 
 @media (max-width: 720px) {
@@ -324,7 +324,7 @@ body[data-modal-locked="true"] {
         grid-template-columns: repeat(2, minmax(0, 1fr));
         gap: 8px;
         padding: 12px;
-        border: 1px solid #eee;
+        border: 1px solid var(--bg-secondary);
         border-radius: 10px;
         background: var(--card);
     }
@@ -372,7 +372,7 @@ body[data-modal-locked="true"] {
 
 .hero hr {
     border: 0;
-    border-top: 1px solid #bdc3c7;
+    border-top: 1px solid var(--hr);
     margin-top: 5px;
     margin-bottom: 5px;
 }
@@ -385,7 +385,7 @@ body[data-modal-locked="true"] {
 
 .intro {
     margin: 0 0 6px 0;
-    color: #555;
+    color: var(--text-intro);
     max-width: 400px;
     white-space: normal;
     overflow-wrap: anywhere;
