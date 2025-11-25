@@ -4,6 +4,7 @@ use chrono::{DateTime, Utc};
 use reqwasm::http::Request;
 use wasm_bindgen_futures::spawn_local;
 use yew::prelude::*;
+use yew_router::prelude::*;
 
 use crate::components::node_list::handle_protocol_click;
 use crate::components::route_lookup::handle_route_lookup;
@@ -13,9 +14,122 @@ use crate::components::{
 };
 use crate::config::load_config;
 use crate::models::{NetworkInfo, NodeStatus};
+use crate::routes::Route;
 use crate::services::{log_error, sleep_ms};
 use crate::store::modal::ModalAction;
 use crate::store::{Action, AppState};
+
+#[derive(Properties, PartialEq)]
+pub struct MainViewProps {
+    pub node_name: Option<String>,
+    #[prop_or_default]
+    pub error: Option<String>,
+}
+
+#[function_component(MainView)]
+pub fn main_view(props: &MainViewProps) -> Html {
+    let state = use_context::<UseReducerHandle<AppState>>().expect("no app state found");
+
+    let (nodes, node_not_found_error) = if let Some(name) = &props.node_name {
+        let filtered: Vec<_> = state
+            .nodes
+            .iter()
+            .filter(|n| n.name == *name)
+            .cloned()
+            .collect();
+
+        if filtered.is_empty() && state.data_ready {
+            (filtered, Some(format!("Node '{}' not found", name)))
+        } else {
+            (filtered, None)
+        }
+    } else {
+        (state.nodes.clone(), None)
+    };
+
+    let on_protocol_click = {
+        let state = state.clone();
+        Callback::from(move |(node, proto): (String, String)| {
+            handle_protocol_click(node, proto, state.clone());
+        })
+    };
+
+    let on_route_lookup = {
+        let state = state.clone();
+        Callback::from(move |(node, target, all): (String, String, bool)| {
+            handle_route_lookup(node, target, all, state.clone());
+        })
+    };
+
+    let waiting_for_data = state.nodes.is_empty() && (!state.data_ready || !state.config_ready);
+    let fetch_error = props
+        .error
+        .clone()
+        .or(node_not_found_error)
+        .or(state.fetch_error.clone());
+
+    html! {
+        <main class="hero">
+            <div class="container">
+                <h2 class="title title-flex">
+                    <Link<Route> to={Route::Home} classes="title-link">{"Looking Glass"}</Link<Route>>
+                    {
+                        html! {
+                            <span class="title-footnote">
+                                if let Some(ref info) = state.network_info {
+                                    { " of " } { &info.name } { " " } { &info.asn } {" on DN42 "}
+                                }
+                                if let Some(name) = &props.node_name {
+                                    if !nodes.is_empty() {
+                                        { " / " } { name }
+                                    }
+                                }
+                            </span>
+                        }
+                    }
+                </h2>
+
+                <StatusBanner
+                    fetch_error={fetch_error}
+                    waiting_for_data={waiting_for_data}
+                />
+
+                if state.config_ready {
+                    <>
+                        <NodeList
+                            state={state.clone()}
+                            nodes={nodes.clone()}
+                            on_protocol_click={on_protocol_click}
+                        />
+
+                        <Traceroute
+                            state={state.clone()}
+                            nodes={nodes.clone()}
+                        />
+                        
+                        <RouteLookup
+                            state={state.clone()}
+                            nodes={nodes.clone()}
+                            on_lookup={on_route_lookup}
+                        />
+
+                        <ContentModal
+                            visible={state.modal.active}
+                            content={state.modal.content.clone()}
+                            command={state.modal.command.clone()}
+                            on_close={
+                                let state = state.clone();
+                                Callback::from(move |_| {
+                                    state.dispatch(Action::Modal(ModalAction::Close));
+                                })
+                            }
+                        />
+                    </>
+                }
+            </div>
+        </main>
+    }
+}
 
 #[function_component(App)]
 pub fn app() -> Html {
@@ -71,72 +185,25 @@ pub fn app() -> Html {
         });
     }
 
-    let on_protocol_click = {
-        let state = state.clone();
-        Callback::from(move |(node, proto): (String, String)| {
-            handle_protocol_click(node, proto, state.clone());
-        })
-    };
-
-    let on_route_lookup = {
-        let state = state.clone();
-        Callback::from(move |(node, target, all): (String, String, bool)| {
-            handle_route_lookup(node, target, all, state.clone());
-        })
-    };
-
-    let waiting_for_data = state.nodes.is_empty() && (!state.data_ready || !state.config_ready);
-
     html! {
-        <main class="hero">
-            <div class="container">
-                <h2 class="title title-flex">
-                    {"Looking Glass"}
-                    {
-                        if let Some(ref info) = state.network_info {
-                            html! {
-                                <span class="title-footnote">
-                                    { " of " } { &info.name } { " " } { &info.asn } {" on DN42 "}
-                                </span>
-                            }
-                        } else {
-                            html! {}
-                        }
-                    }
-                </h2>
+        <ContextProvider<UseReducerHandle<AppState>> context={state}>
+            <BrowserRouter>
+                <Switch<Route> render={switch} />
+            </BrowserRouter>
+        </ContextProvider<UseReducerHandle<AppState>>>
+    }
+}
 
-                <StatusBanner
-                    fetch_error={state.fetch_error.clone()}
-                    waiting_for_data={waiting_for_data}
-                />
-
-                if state.config_ready {
-                    <>
-                        <NodeList
-                            state={state.clone()}
-                            on_protocol_click={on_protocol_click}
-                        />
-
-                        <Traceroute state={state.clone()} />
-                        <RouteLookup
-                            state={state.clone()}
-                            on_lookup={on_route_lookup} />
-
-                        <ContentModal
-                            visible={state.modal.active}
-                            content={state.modal.content.clone()}
-                            command={state.modal.command.clone()}
-                            on_close={
-                                let state = state.clone();
-                                Callback::from(move |_| {
-                                    state.dispatch(Action::Modal(ModalAction::Close));
-                                })
-                            }
-                        />
-                    </>
-                }
-            </div>
-        </main>
+fn switch(routes: Route) -> Html {
+    match routes {
+        Route::Home => html! { <MainView node_name={None::<String>} /> },
+        Route::Node { name } => html! { <MainView node_name={Some(name)} /> },
+        Route::NotFound => html! {
+            <MainView
+                node_name={Some("".to_string())}
+                error={Some("Page not found".to_string())}
+            />
+        },
     }
 }
 

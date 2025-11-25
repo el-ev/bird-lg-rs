@@ -4,6 +4,7 @@ use yew::prelude::*;
 
 use crate::components::data_table::{DataTable, TableRow};
 use crate::components::shell::ShellLine;
+use crate::models::NodeStatus;
 use crate::services::stream_fetch;
 use crate::store::modal::ModalAction;
 use crate::store::{Action, AppState};
@@ -12,6 +13,7 @@ use crate::utils::filter_protocol_details;
 #[derive(Properties, PartialEq)]
 pub struct NodeListProps {
     pub state: UseReducerHandle<AppState>,
+    pub nodes: Vec<NodeStatus>,
     pub on_protocol_click: Callback<(String, String)>,
 }
 
@@ -20,7 +22,7 @@ pub fn node_list(props: &NodeListProps) -> Html {
     html! {
         <div>
             <h3>{"Protocols"}</h3>
-            { for props.state.nodes.iter().map(|node| {
+            { for props.nodes.iter().map(|node| {
                 let node_name = node.name.clone();
                 let on_protocol_click = props.on_protocol_click.clone();
                 html! {
