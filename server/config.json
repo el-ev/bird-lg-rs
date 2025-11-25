@@ -1,5 +1,9 @@
 {
     "listen": "127.0.0.1:3000",
+    "network": {
+        "name": "Your Network Name",
+        "asn": "424242xxxx"
+    },
     "nodes": [
         {
             "name": "local",

@@ -13,7 +13,7 @@ use tower_http::cors::CorsLayer;
 use crate::{
     cli::Cli,
     config::Config,
-    handlers::{protocol, route, status, traceroute},
+    handlers::{info, protocol, route, status, traceroute},
     services::poller,
     state::AppState,
 };
@@ -33,13 +33,19 @@ async fn main() -> anyhow::Result<()> {
     poller::spawn(state.clone(), config.clone());
 
     let app = Router::new()
-        .route("/api/status", get(status::get_status))
+        .route("/api/protocols", get(status::get_all_protocols))
         .route(
-            "/api/node/{node_name}/protocol/{protocol}",
+            "/api/protocols/{node_name}",
+            get(status::get_node_protocols),
+        )
+        .route(
+            "/api/protocols/{node_name}/{protocol}",
             get(protocol::get_protocol_details),
         )
         .route("/api/traceroute", get(traceroute::proxy_traceroute))
-        .route("/api/route", get(route::get_route))
+        .route("/api/routes/{node_name}", get(route::get_route))
+        .route("/api/info", get(info::get_network_info))
+        .route("/api/peering/{node_name}", get(info::get_node_peering))
         .layer(CorsLayer::permissive())
         .layer(Extension(state))
         .layer(Extension(config));

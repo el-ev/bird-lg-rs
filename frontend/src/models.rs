@@ -20,6 +20,12 @@ pub struct NodeStatus {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
+pub struct NetworkInfo {
+    pub name: String,
+    pub asn: String,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 pub struct TracerouteHop {
     pub hop: u32,
     pub address: Option<String>,
