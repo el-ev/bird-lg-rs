@@ -110,7 +110,7 @@ pub fn handle_protocol_click(node: String, proto: String, state: UseReducerHandl
     }));
 
     spawn_local(async move {
-        let url = backend_api(&format!("/api/node/{}/protocol/{}", node, proto));
+        let url = backend_api(&format!("/api/protocols/{}/{}", node, proto));
         let mut aggregated = String::new();
         let result = stream_fetch(url, {
             let state = state.clone();

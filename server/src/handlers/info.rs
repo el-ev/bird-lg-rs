@@ -4,21 +4,26 @@ use axum::{
     http::StatusCode,
     response::{IntoResponse, Response},
 };
+use std::sync::Arc;
 
-use crate::state::{AppState, NodeStatus};
+use crate::config::{Config, NetworkInfo};
+use crate::state::AppState;
 
-pub async fn get_all_protocols(Extension(state): Extension<AppState>) -> Json<Vec<NodeStatus>> {
-    Json(state.nodes.read().unwrap().clone())
+pub async fn get_network_info(
+    Extension(config): Extension<Arc<Config>>,
+) -> Json<Option<NetworkInfo>> {
+    Json(config.network.clone())
 }
 
-pub async fn get_node_protocols(
+pub async fn get_node_peering(
     Path(node_name): Path<String>,
     Extension(state): Extension<AppState>,
 ) -> Response {
+    // Get peering info from state (fetched from proxy)
     let nodes = state.nodes.read().unwrap();
 
     if let Some(node) = nodes.iter().find(|n| n.name == node_name) {
-        Json(node.clone()).into_response()
+        Json(node.peering.clone()).into_response()
     } else {
         (StatusCode::NOT_FOUND, "Node not found").into_response()
     }

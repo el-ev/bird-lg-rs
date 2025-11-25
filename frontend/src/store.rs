@@ -1,7 +1,7 @@
 use std::rc::Rc;
 use yew::prelude::*;
 
-use crate::models::NodeStatus;
+use crate::models::{NetworkInfo, NodeStatus};
 
 pub mod modal;
 pub mod traceroute;
@@ -19,6 +19,7 @@ pub struct AppState {
     pub data_ready: bool,
     pub config_ready: bool,
     pub traceroute: TracerouteState,
+    pub network_info: Option<NetworkInfo>,
 }
 
 pub enum Action {
@@ -29,6 +30,7 @@ pub enum Action {
     SetConfigReady(bool),
     Modal(ModalAction),
     Traceroute(TracerouteAction),
+    SetNetworkInfo(Option<NetworkInfo>),
 }
 
 impl Reducible for AppState {
@@ -58,6 +60,9 @@ impl Reducible for AppState {
             }
             Action::Traceroute(act) => {
                 next_state.traceroute.reduce(act);
+            }
+            Action::SetNetworkInfo(info) => {
+                next_state.network_info = info;
             }
         }
 

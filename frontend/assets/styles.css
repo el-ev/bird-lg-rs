@@ -127,9 +127,15 @@ hr {
 
 .title-flex {
     display: flex;
-    align-items: center;
+    align-items: baseline;
     gap: 10px;
     flex-wrap: wrap;
+}
+
+.title-footnote {
+    font-size: 0.8rem;
+    font-weight: normal;
+    color: var(--text-secondary);
 }
 
 /* ==========================================================================

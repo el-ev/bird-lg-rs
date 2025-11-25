@@ -1,8 +1,8 @@
-use std::{io, sync::Arc, net::IpAddr};
+use std::{io, net::IpAddr, sync::Arc};
 
 use axum::{
     body::Body,
-    extract::{Extension, Query},
+    extract::{Extension, Path, Query},
     http::StatusCode,
     response::{IntoResponse, Response},
 };
@@ -15,22 +15,22 @@ use crate::config::Config;
 
 #[derive(Deserialize)]
 pub struct RouteParams {
-    node: String,
     target: String,
     #[serde(default)]
     all: bool,
 }
 
 pub async fn get_route(
+    Path(node_name): Path<String>,
     Query(params): Query<RouteParams>,
     Extension(config): Extension<Arc<Config>>,
 ) -> Response {
-    if let Some(node) = config.nodes.iter().find(|n| n.name == params.node) {
+    if let Some(node) = config.nodes.iter().find(|n| n.name == node_name) {
         let target = params.target.trim();
         let is_valid_target = target.parse::<IpAddr>().is_ok() || target.parse::<IpNet>().is_ok();
 
         if !is_valid_target {
-             return (
+            return (
                 StatusCode::BAD_REQUEST,
                 "Invalid target format (must be IP or CIDR)",
             )
@@ -39,32 +39,24 @@ pub async fn get_route(
 
         let client = reqwest::Client::new();
         let url = format!("{}/bird", node.url);
-        
+
         let command = if params.all {
             format!("show route for {} all", params.target)
         } else {
             format!("show route for {}", params.target)
         };
 
-        match client
-            .post(&url)
-            .body(command)
-            .send()
-            .await
-        {
+        match client.post(&url).body(command).send().await {
             Ok(resp) => {
                 let status = resp.status();
                 if !status.is_success() {
                     warn!(
-                        node = %params.node,
+                        node = %node_name,
                         target = %params.target,
                         status = %status,
                         "Node returned non-success status for route request"
                     );
-                    return (
-                        StatusCode::BAD_GATEWAY,
-                        "Node rejected route request",
-                    )
+                    return (StatusCode::BAD_GATEWAY, "Node rejected route request")
                         .into_response();
                 }
 
@@ -76,7 +68,7 @@ pub async fn get_route(
             }
             Err(e) => {
                 warn!(
-                    node = %params.node,
+                    node = %node_name,
                     error = %e,
                     "Failed to contact node"
                 );

@@ -147,7 +147,7 @@ pub fn handle_route_lookup(
 
     spawn_local(async move {
         let url = backend_api(&format!(
-            "/api/route?node={}&target={}&all={}",
+            "/api/routes/{}?target={}&all={}",
             node, target, all
         ));
 

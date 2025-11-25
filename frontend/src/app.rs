@@ -12,7 +12,7 @@ use crate::components::{
     status_banner::StatusBanner, traceroute::Traceroute,
 };
 use crate::config::{backend_api, load_config};
-use crate::models::NodeStatus;
+use crate::models::{NetworkInfo, NodeStatus};
 use crate::services::{log_error, sleep_ms};
 use crate::store::modal::ModalAction;
 use crate::store::{Action, AppState};
@@ -43,12 +43,33 @@ pub fn app() -> Html {
         let state = state.clone();
         use_effect_with(state.config_ready, move |ready| {
             if *ready {
-                let state = state.clone();
+                let state1 = state.clone();
                 spawn_local(async move {
                     let mut last_known_updates = HashMap::new();
                     loop {
-                        fetch_status(&state, &mut last_known_updates).await;
+                        fetch_status(&state1, &mut last_known_updates).await;
                         sleep_ms(5000).await;
+                    }
+                });
+                spawn_local(async move {
+                    match Request::get(&backend_api("/api/info")).send().await {
+                        Ok(resp) if resp.ok() => match resp.json::<Option<NetworkInfo>>().await {
+                            Ok(info) => {
+                                state.dispatch(Action::SetNetworkInfo(info));
+                            }
+                            Err(err) => {
+                                log_error(&format!("Failed to parse network info: {}", err));
+                            }
+                        },
+                        Ok(resp) => {
+                            log_error(&format!(
+                                "Network info fetch failed with HTTP {}",
+                                resp.status()
+                            ));
+                        }
+                        Err(err) => {
+                            log_error(&format!("Network info request error: {}", err));
+                        }
                     }
                 });
             }
@@ -76,7 +97,20 @@ pub fn app() -> Html {
     html! {
         <main class="hero">
             <div class="container">
-                <h2 class="title title-flex">{"Looking Glass"}</h2>
+                <h2 class="title title-flex">
+                    {"Looking Glass"}
+                    {
+                        if let Some(ref info) = state.network_info {
+                            html! {
+                                <span class="title-footnote">
+                                    { " of " } { &info.name } { " " } { &info.asn } {" on DN42 "}
+                                </span>
+                            }
+                        } else {
+                            html! {}
+                        }
+                    }
+                </h2>
 
                 <StatusBanner
                     fetch_error={state.fetch_error.clone()}
@@ -115,7 +149,7 @@ async fn fetch_status(
     state: &UseReducerHandle<AppState>,
     last_known_updates: &mut HashMap<String, DateTime<Utc>>,
 ) {
-    match Request::get(&backend_api("/api/status")).send().await {
+    match Request::get(&backend_api("/api/protocols")).send().await {
         Ok(resp) if resp.ok() => match resp.json::<Vec<NodeStatus>>().await {
             Ok(mut data) => {
                 for node in data.iter_mut() {

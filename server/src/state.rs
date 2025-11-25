@@ -2,6 +2,8 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::sync::{Arc, RwLock};
 
+use crate::config::PeeringInfo;
+
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Protocol {
     pub name: String,
@@ -18,6 +20,8 @@ pub struct NodeStatus {
     pub protocols: Vec<Protocol>,
     pub last_updated: DateTime<Utc>,
     pub error: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub peering: Option<PeeringInfo>,
 }
 
 #[derive(Clone)]
