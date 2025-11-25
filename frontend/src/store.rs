@@ -20,6 +20,8 @@ pub struct AppState {
     pub config_ready: bool,
     pub traceroute: TracerouteState,
     pub network_info: Option<NetworkInfo>,
+    pub username: String,
+    pub backend_url: String,
 }
 
 pub enum Action {
@@ -31,6 +33,10 @@ pub enum Action {
     Modal(ModalAction),
     Traceroute(TracerouteAction),
     SetNetworkInfo(Option<NetworkInfo>),
+    SetConfig {
+        username: String,
+        backend_url: String,
+    },
 }
 
 impl Reducible for AppState {
@@ -63,6 +69,13 @@ impl Reducible for AppState {
             }
             Action::SetNetworkInfo(info) => {
                 next_state.network_info = info;
+            }
+            Action::SetConfig {
+                username,
+                backend_url,
+            } => {
+                next_state.username = username;
+                next_state.backend_url = backend_url;
             }
         }
 

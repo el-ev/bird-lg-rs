@@ -6,15 +6,13 @@ use web_sys::HtmlInputElement;
 use yew::prelude::*;
 
 use crate::components::shell::{ShellButton, ShellInput, ShellPrompt, ShellSelect, ShellToggle};
-use crate::config::{backend_api, username};
-use crate::models::NodeStatus;
 use crate::services::stream_fetch;
 use crate::store::modal::ModalAction;
 use crate::store::{Action, AppState};
 
 #[derive(Properties, PartialEq)]
 pub struct RouteLookupProps {
-    pub nodes: Vec<NodeStatus>,
+    pub state: UseReducerHandle<AppState>,
     pub on_lookup: Callback<(String, String, bool)>,
 }
 
@@ -53,7 +51,7 @@ pub fn route_lookup(props: &RouteLookupProps) -> Html {
         let all = all.clone();
         let error = error.clone();
         let on_lookup = props.on_lookup.clone();
-        let nodes = props.nodes.clone();
+        let nodes = props.state.nodes.clone();
 
         Callback::from(move |e: SubmitEvent| {
             e.prevent_default();
@@ -92,12 +90,12 @@ pub fn route_lookup(props: &RouteLookupProps) -> Html {
             <h3>{"Route Lookup"}</h3>
             <form class="shell-line" onsubmit={on_submit}>
                 <ShellPrompt>
-                    {format!("{}@", username())}
+                    {format!("{}@", props.state.username)}
                     <ShellSelect
                         value={(*selected_node).clone()}
                         on_change={on_node_change}
                     >
-                        { for props.nodes.iter().map(|n| html! {
+                        { for props.state.nodes.iter().map(|n| html! {
                             <option value={n.name.clone()}>{ &n.name }</option>
                         }) }
                     </ShellSelect>
@@ -135,9 +133,12 @@ pub fn handle_route_lookup(
     state: UseReducerHandle<AppState>,
 ) {
     let command = if all {
-        format!("{}@{}$ birdc show route {} all", username(), node, target)
+        format!(
+            "{}@{}$ birdc show route {} all",
+            state.username, node, target
+        )
     } else {
-        format!("{}@{}$ birdc show route {}", username(), node, target)
+        format!("{}@{}$ birdc show route {}", state.username, node, target)
     };
 
     state.dispatch(Action::Modal(ModalAction::Open {
@@ -146,10 +147,10 @@ pub fn handle_route_lookup(
     }));
 
     spawn_local(async move {
-        let url = backend_api(&format!(
-            "/api/routes/{}?target={}&all={}",
-            node, target, all
-        ));
+        let url = format!(
+            "{}/api/routes/{}?target={}&all={}",
+            state.backend_url, node, target, all
+        );
 
         let mut aggregated = String::new();
         let result = stream_fetch(url, {

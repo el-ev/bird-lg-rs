@@ -6,8 +6,7 @@ use yew::prelude::*;
 
 use crate::components::data_table::{DataTable, TableRow};
 use crate::components::shell::{ShellButton, ShellInput, ShellLine, ShellPrompt, ShellSelect};
-use crate::config::{backend_api, username};
-use crate::models::{NodeStatus, TracerouteHop};
+use crate::models::TracerouteHop;
 use crate::services::{log_error, stream_fetch};
 use crate::store::traceroute::TracerouteAction;
 use crate::store::{Action, AppState, NodeTracerouteResult};
@@ -15,7 +14,6 @@ use crate::utils::validate_hostname_or_ip;
 
 #[derive(Properties, PartialEq)]
 pub struct TracerouteProps {
-    pub nodes: Vec<NodeStatus>,
     pub state: UseReducerHandle<AppState>,
 }
 
@@ -24,7 +22,7 @@ pub fn traceroute_section(props: &TracerouteProps) -> Html {
     let state = props.state.clone();
     let traceroute_state = &state.traceroute;
 
-    let nodes_for_form = props.nodes.clone();
+    let nodes = props.state.nodes.clone();
 
     let on_node_change = {
         let state = state.clone();
@@ -55,7 +53,7 @@ pub fn traceroute_section(props: &TracerouteProps) -> Html {
 
     let on_submit = {
         let state = state.clone();
-        let nodes = nodes_for_form.clone();
+        let nodes = nodes.clone();
 
         Callback::from(move |e: SubmitEvent| {
             e.prevent_default();
@@ -103,10 +101,10 @@ pub fn traceroute_section(props: &TracerouteProps) -> Html {
                             _ => "",
                         };
 
-                        let url = backend_api(&format!(
-                            "/api/traceroute?node={}&target={}{}",
-                            node_name, target_value, version_param
-                        ));
+                        let url = format!(
+                            "{}/api/traceroute?node={}&target={}{}",
+                            state.backend_url, node_name, target_value, version_param
+                        );
 
                         state.dispatch(Action::Traceroute(TracerouteAction::InitResult(
                             node_name.clone(),
@@ -165,14 +163,14 @@ pub fn traceroute_section(props: &TracerouteProps) -> Html {
             <h3>{"Traceroute"}</h3>
             <form class="shell-line" onsubmit={on_submit}>
                 <ShellPrompt>
-                    {format!("{}@", username())}
+                    {format!("{}@", state.username)}
                     <ShellSelect
                         class="node-select"
                         value={traceroute_state.node.clone()}
                         on_change={on_node_change}
                     >
                         <option value="" selected=true>{"(all)"}</option>
-                        { for nodes_for_form.iter().map(|n| html! {
+                        { for nodes.iter().map(|n| html! {
                             <option value={n.name.clone()}>{ &n.name }</option>
                         }) }
                     </ShellSelect>
@@ -220,7 +218,7 @@ pub fn traceroute_section(props: &TracerouteProps) -> Html {
                                 <h4 class="item-title">{ node_name }</h4>
                             </summary>
                             <ShellLine
-                                prompt={format!("{}@{}$ ", username(), node_name)}
+                                prompt={format!("{}@{}$ ", state.username, node_name)}
                                 command={format!("traceroute{} {}", version_flag, traceroute_state.last_target)}
                                 style={"font-size: 0.9em;".to_string()}
                             />
