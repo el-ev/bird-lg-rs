@@ -20,19 +20,19 @@ pub struct NodeStatus {
     pub protocols: Vec<Protocol>,
     pub last_updated: DateTime<Utc>,
     pub error: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub peering: Option<PeeringInfo>,
 }
 
 #[derive(Clone)]
 pub struct AppState {
     pub nodes: Arc<RwLock<Vec<NodeStatus>>>,
+    pub peering: Arc<RwLock<std::collections::HashMap<String, PeeringInfo>>>,
 }
 
 impl AppState {
     pub fn new() -> Self {
         Self {
             nodes: Arc::new(RwLock::new(Vec::new())),
+            peering: Arc::new(RwLock::new(std::collections::HashMap::new())),
         }
     }
 }

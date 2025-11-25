@@ -13,7 +13,6 @@ pub struct PeeringInfo {
     pub link_local_ipv6: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub wg_pubkey_path: Option<String>,
-    #[serde(skip)]
     pub wg_pubkey: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub endpoint: Option<String>,
@@ -170,15 +169,15 @@ impl Config {
     }
 
     fn load_peering_pubkey(&mut self, errors: &mut Vec<String>) {
-        if let Some(ref mut peering) = self.peering {
-            if let Some(ref path) = peering.wg_pubkey_path {
-                match std::fs::read_to_string(path) {
-                    Ok(content) => {
-                        peering.wg_pubkey = Some(content.trim().to_string());
-                    }
-                    Err(e) => {
-                        errors.push(format!("Failed to read wg_pubkey_path '{}': {}", path, e));
-                    }
+        if let Some(ref mut peering) = self.peering
+            && let Some(ref path) = peering.wg_pubkey_path
+        {
+            match std::fs::read_to_string(path) {
+                Ok(content) => {
+                    peering.wg_pubkey = Some(content.trim().to_string());
+                }
+                Err(e) => {
+                    errors.push(format!("Failed to read wg_pubkey_path '{}': {}", path, e));
                 }
             }
         }

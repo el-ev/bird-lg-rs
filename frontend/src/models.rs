@@ -12,6 +12,15 @@ pub struct Protocol {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
+pub struct PeeringInfo {
+    pub ipv4: Option<String>,
+    pub ipv6: Option<String>,
+    pub link_local_ipv6: Option<String>,
+    pub wg_pubkey: Option<String>,
+    pub endpoint: Option<String>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 pub struct NodeStatus {
     pub name: String,
     pub protocols: Vec<Protocol>,

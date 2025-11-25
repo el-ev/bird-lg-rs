@@ -19,12 +19,11 @@ pub async fn get_node_peering(
     Path(node_name): Path<String>,
     Extension(state): Extension<AppState>,
 ) -> Response {
-    // Get peering info from state (fetched from proxy)
-    let nodes = state.nodes.read().unwrap();
+    let peering = state.peering.read().unwrap();
 
-    if let Some(node) = nodes.iter().find(|n| n.name == node_name) {
-        Json(node.peering.clone()).into_response()
+    if let Some(info) = peering.get(&node_name) {
+        Json(info.clone()).into_response()
     } else {
-        (StatusCode::NOT_FOUND, "Node not found").into_response()
+        (StatusCode::NOT_FOUND, "Node not found or no peering info").into_response()
     }
 }
