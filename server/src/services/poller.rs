@@ -39,27 +39,29 @@ async fn run(state: AppState, config: Arc<Config>) {
             }
             let resp = req.send().await;
 
+            // Check if we need to fetch peering info (if it's time or if we don't have it yet)
+            if should_fetch_peering || !state.peering.read().unwrap().contains_key(&node.name) {
+                if let Some(info) =
+                    fetch_peering_info(&client, &node.url, node.shared_secret.as_deref()).await
+                {
+                    state
+                        .peering
+                        .write()
+                        .unwrap()
+                        .insert(node.name.clone(), info);
+                }
+            }
+
             let status = match resp {
                 Ok(r) => match r.text().await {
                     Ok(text) => {
                         let protocols = parser::parse_protocols(&text);
-
-                        let peering = if should_fetch_peering {
-                            fetch_peering_info(&client, &node.url, node.shared_secret.as_deref())
-                                .await
-                        } else {
-                            current_nodes
-                                .iter()
-                                .find(|n| n.name == node.name)
-                                .and_then(|n| n.peering.clone())
-                        };
 
                         NodeStatus {
                             name: node.name.clone(),
                             protocols,
                             last_updated: Utc::now(),
                             error: None,
-                            peering,
                         }
                     }
                     Err(e) => {
@@ -72,7 +74,6 @@ async fn run(state: AppState, config: Arc<Config>) {
                             error: Some(
                                 "Received invalid response from node. Showing cached data.".into(),
                             ),
-                            peering: existing.and_then(|n| n.peering.clone()),
                         }
                     }
                 },
@@ -84,7 +85,6 @@ async fn run(state: AppState, config: Arc<Config>) {
                         protocols: existing.map(|n| n.protocols.clone()).unwrap_or_default(),
                         last_updated: Utc::now(),
                         error: Some("Unable to reach node. Showing cached data.".into()),
-                        peering: existing.and_then(|n| n.peering.clone()),
                     }
                 }
             };

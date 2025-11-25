@@ -9,11 +9,11 @@ use yew_router::prelude::*;
 use crate::components::node_list::handle_protocol_click;
 use crate::components::route_lookup::handle_route_lookup;
 use crate::components::{
-    content_modal::ContentModal, node_list::NodeList, route_lookup::RouteLookup,
-    status_banner::StatusBanner, traceroute::Traceroute,
+    content_modal::ContentModal, node_list::NodeList,
+    route_lookup::RouteLookup, status_banner::StatusBanner, traceroute::Traceroute,
 };
 use crate::config::load_config;
-use crate::models::{NetworkInfo, NodeStatus};
+use crate::models::{NetworkInfo, NodeStatus, PeeringInfo};
 use crate::routes::Route;
 use crate::services::{log_error, sleep_ms};
 use crate::store::modal::ModalAction;
@@ -185,6 +185,28 @@ pub fn app() -> Html {
         });
     }
 
+    {
+        let state = state.clone();
+        use_effect_with(state.nodes.clone(), move |nodes| {
+            if !nodes.is_empty() {
+                let backend_url = state.backend_url.clone();
+                for node in nodes.iter() {
+                    let state_peering = state.clone();
+                    let node_name = node.name.clone();
+                    let backend_url_clone = backend_url.clone();
+
+                    if !state.peering.contains_key(&node_name) {
+                        spawn_local(async move {
+                            fetch_peering(&state_peering, &backend_url_clone, &node_name).await;
+                        });
+                    }
+                }
+            }
+
+            || ()
+        });
+    }
+
     html! {
         <ContextProvider<UseReducerHandle<AppState>> context={state}>
             <BrowserRouter>
@@ -276,6 +298,47 @@ async fn fetch_network_info(state: &UseReducerHandle<AppState>, backend_url: &st
         }
         Err(err) => {
             log_error(&format!("Network info request error: {}", err));
+        }
+    }
+}
+
+async fn fetch_peering(state: &UseReducerHandle<AppState>, backend_url: &str, node_name: &str) {
+    match Request::get(&format!(
+        "{}/api/peering/{}",
+        backend_url.trim_end_matches('/'),
+        node_name
+    ))
+    .send()
+    .await
+    {
+        Ok(resp) if resp.ok() => match resp.json::<Option<PeeringInfo>>().await {
+            Ok(Some(info)) => {
+                state.dispatch(Action::SetPeeringInfo(node_name.to_string(), info));
+            }
+            Ok(None) => {
+                // No peering info for this node
+            }
+            Err(err) => {
+                log_error(&format!(
+                    "Failed to parse peering info for {}: {}",
+                    node_name, err
+                ));
+            }
+        },
+        Ok(resp) => {
+            if resp.status() != 404 {
+                log_error(&format!(
+                    "Peering info fetch failed for {} with HTTP {}",
+                    node_name,
+                    resp.status()
+                ));
+            }
+        }
+        Err(err) => {
+            log_error(&format!(
+                "Peering info request error for {}: {}",
+                node_name, err
+            ));
         }
     }
 }

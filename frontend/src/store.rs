@@ -1,7 +1,8 @@
+use std::collections::HashMap;
 use std::rc::Rc;
 use yew::prelude::*;
 
-use crate::models::{NetworkInfo, NodeStatus};
+use crate::models::{NetworkInfo, NodeStatus, PeeringInfo};
 
 pub mod modal;
 pub mod traceroute;
@@ -14,6 +15,7 @@ pub use traceroute::NodeTracerouteResult;
 #[derive(Clone, Debug, PartialEq, Default)]
 pub struct AppState {
     pub nodes: Vec<NodeStatus>,
+    pub peering: HashMap<String, PeeringInfo>,
     pub modal: ModalState,
     pub fetch_error: Option<String>,
     pub data_ready: bool,
@@ -26,6 +28,7 @@ pub struct AppState {
 
 pub enum Action {
     SetNodes(Vec<NodeStatus>),
+    SetPeeringInfo(String, PeeringInfo),
     SetError(String),
     ClearError,
     SetDataReady(bool),
@@ -48,6 +51,9 @@ impl Reducible for AppState {
         match action {
             Action::SetNodes(nodes) => {
                 next_state.nodes = nodes;
+            }
+            Action::SetPeeringInfo(node, info) => {
+                next_state.peering.insert(node, info);
             }
             Action::SetError(err) => {
                 next_state.fetch_error = Some(err);
