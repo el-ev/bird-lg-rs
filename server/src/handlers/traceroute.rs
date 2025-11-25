@@ -44,7 +44,12 @@ pub async fn proxy_traceroute(
         };
         let url = format!("{}/{}?target={}", node_config.url, endpoint, target);
 
-        match client.get(&url).send().await {
+        let mut req = client.get(&url);
+        if let Some(secret) = &node_config.shared_secret {
+            req = req.header("x-shared-secret", secret);
+        }
+
+        match req.send().await {
             Ok(resp) => {
                 let status = resp.status();
                 if status.is_success() {
