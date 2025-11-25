@@ -6,7 +6,7 @@ use yew::prelude::*;
 
 use crate::components::data_table::{DataTable, TableRow};
 use crate::components::shell::{ShellButton, ShellInput, ShellLine, ShellPrompt, ShellSelect};
-use crate::models::TracerouteHop;
+use crate::models::{NodeStatus, TracerouteHop};
 use crate::services::{log_error, stream_fetch};
 use crate::store::traceroute::TracerouteAction;
 use crate::store::{Action, AppState, NodeTracerouteResult};
@@ -15,6 +15,7 @@ use crate::utils::validate_hostname_or_ip;
 #[derive(Properties, PartialEq)]
 pub struct TracerouteProps {
     pub state: UseReducerHandle<AppState>,
+    pub nodes: Vec<NodeStatus>,
 }
 
 #[function_component(Traceroute)]
@@ -22,7 +23,7 @@ pub fn traceroute_section(props: &TracerouteProps) -> Html {
     let state = props.state.clone();
     let traceroute_state = &state.traceroute;
 
-    let nodes = props.state.nodes.clone();
+    let nodes = props.nodes.clone();
 
     let on_node_change = {
         let state = state.clone();
@@ -169,7 +170,13 @@ pub fn traceroute_section(props: &TracerouteProps) -> Html {
                         value={traceroute_state.node.clone()}
                         on_change={on_node_change}
                     >
-                        <option value="" selected=true>{"(all)"}</option>
+                        {
+                            if nodes.len() > 1 {
+                                html! { <option value="" selected=true>{"(all)"}</option> }
+                            } else {
+                                html! {}
+                            }
+                        }
                         { for nodes.iter().map(|n| html! {
                             <option value={n.name.clone()}>{ &n.name }</option>
                         }) }

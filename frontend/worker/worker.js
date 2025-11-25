@@ -20,7 +20,15 @@ export default {
         }
 
         try {
-            return await env.ASSETS.fetch(request);
+            let response = await env.ASSETS.fetch(request);
+            if (response.status === 404) {
+                const indexUrl = new URL("/index.html", request.url);
+                const indexResponse = await env.ASSETS.fetch(indexUrl);
+                if (indexResponse.status === 200) {
+                    return indexResponse;
+                }
+            }
+            return response;
         } catch (error) {
             console.error("Static asset fetch failed", error);
             return new Response("Not Found", { status: 404 });

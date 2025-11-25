@@ -2,6 +2,7 @@ mod app;
 mod components;
 mod config;
 mod models;
+mod routes;
 mod services;
 mod store;
 mod utils;

@@ -13,6 +13,7 @@ use crate::store::{Action, AppState};
 #[derive(Properties, PartialEq)]
 pub struct RouteLookupProps {
     pub state: UseReducerHandle<AppState>,
+    pub nodes: Vec<crate::models::NodeStatus>,
     pub on_lookup: Callback<(String, String, bool)>,
 }
 
@@ -51,7 +52,7 @@ pub fn route_lookup(props: &RouteLookupProps) -> Html {
         let all = all.clone();
         let error = error.clone();
         let on_lookup = props.on_lookup.clone();
-        let nodes = props.state.nodes.clone();
+        let nodes = props.nodes.clone();
 
         Callback::from(move |e: SubmitEvent| {
             e.prevent_default();
@@ -95,7 +96,7 @@ pub fn route_lookup(props: &RouteLookupProps) -> Html {
                         value={(*selected_node).clone()}
                         on_change={on_node_change}
                     >
-                        { for props.state.nodes.iter().map(|n| html! {
+                        { for props.nodes.iter().map(|n| html! {
                             <option value={n.name.clone()}>{ &n.name }</option>
                         }) }
                     </ShellSelect>
