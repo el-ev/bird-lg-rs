@@ -6,6 +6,9 @@ pub struct ShellSelectProps {
     pub on_change: Callback<Event>,
     #[prop_or_default]
     pub class: Classes,
+    #[prop_or_default]
+    pub options: Option<Vec<String>>,
+    #[prop_or_default]
     pub children: Children,
 }
 
@@ -17,7 +20,17 @@ pub fn shell_select(props: &ShellSelectProps) -> Html {
             value={props.value.clone()}
             onchange={props.on_change.clone()}
         >
-            { for props.children.iter() }
+            {
+                if let Some(options) = &props.options {
+                    html! {
+                        { for options.iter().map(|opt| html! {
+                            <option value={opt.clone()}>{ opt }</option>
+                        }) }
+                    }
+                } else {
+                    html! { { for props.children.iter() } }
+                }
+            }
         </select>
     }
 }

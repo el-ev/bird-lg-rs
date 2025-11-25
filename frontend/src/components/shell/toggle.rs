@@ -4,6 +4,9 @@ use yew::prelude::*;
 pub struct ShellToggleProps {
     pub active: bool,
     pub on_toggle: Callback<()>,
+    #[prop_or_default]
+    pub label: Option<String>,
+    #[prop_or_default]
     pub children: Children,
 }
 
@@ -28,7 +31,13 @@ pub fn shell_toggle(props: &ShellToggleProps) -> Html {
             tabindex="0"
             onkeydown={onkeydown}
         >
-            { for props.children.iter() }
+            {
+                if let Some(label) = &props.label {
+                    html! { { label } }
+                } else {
+                    html! { { for props.children.iter() } }
+                }
+            }
         </span>
     }
 }

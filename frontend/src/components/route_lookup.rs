@@ -113,12 +113,9 @@ pub fn route_lookup(props: &RouteLookupProps) -> Html {
                 <ShellToggle
                     active={*all}
                     on_toggle={on_all_toggle}
-                >
-                    { "all" }
-                </ShellToggle>
-                <ShellButton type_="submit">
-                    { "↵" }
-                </ShellButton>
+                    label="all"
+                />
+                <ShellButton type_="submit" text="↵" />
             </form>
             {
                 if let Some(err) = &*error {
