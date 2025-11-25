@@ -46,7 +46,12 @@ pub async fn get_route(
             format!("show route for {}", params.target)
         };
 
-        match client.post(&url).body(command).send().await {
+        let mut req = client.post(&url).body(command);
+        if let Some(secret) = &node.shared_secret {
+            req = req.header("x-shared-secret", secret);
+        }
+
+        match req.send().await {
             Ok(resp) => {
                 let status = resp.status();
                 if !status.is_success() {

@@ -19,12 +19,15 @@ pub async fn get_protocol_details(
         let client = reqwest::Client::new();
         let url = format!("{}/bird", node.url);
 
-        match client
+        let mut req = client
             .post(&url)
-            .body(format!("show protocols all {}", protocol))
-            .send()
-            .await
-        {
+            .body(format!("show protocols all {}", protocol));
+
+        if let Some(secret) = &node.shared_secret {
+            req = req.header("x-shared-secret", secret);
+        }
+
+        match req.send().await {
             Ok(resp) => {
                 let status = resp.status();
                 if !status.is_success() {

@@ -59,13 +59,11 @@ pub async fn auth_middleware(
         }
     }
 
-    for net in config.allowed_nets.iter() {
-        if let Some(addr) = client_addr {
+    if let Some(addr) = client_addr {
+        for net in config.allowed_nets.iter() {
             if net.contains(&addr) {
                 return next.run(req).await;
             }
-        } else {
-            break;
         }
     }
 

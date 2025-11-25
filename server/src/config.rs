@@ -34,6 +34,8 @@ pub struct Config {
 pub struct NodeConfig {
     pub name: String,
     pub url: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub shared_secret: Option<String>,
 }
 
 impl Config {

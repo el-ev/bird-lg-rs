@@ -33,7 +33,11 @@ async fn run(state: AppState, config: Arc<Config>) {
 
         for node in &config.nodes {
             let url = format!("{}/bird", node.url);
-            let resp = client.post(&url).body("show protocols").send().await;
+            let mut req = client.post(&url).body("show protocols");
+            if let Some(secret) = &node.shared_secret {
+                req = req.header("x-shared-secret", secret);
+            }
+            let resp = req.send().await;
 
             let status = match resp {
                 Ok(r) => match r.text().await {
@@ -41,7 +45,8 @@ async fn run(state: AppState, config: Arc<Config>) {
                         let protocols = parser::parse_protocols(&text);
 
                         let peering = if should_fetch_peering {
-                            fetch_peering_info(&client, &node.url).await
+                            fetch_peering_info(&client, &node.url, node.shared_secret.as_deref())
+                                .await
                         } else {
                             current_nodes
                                 .iter()
@@ -97,10 +102,19 @@ async fn run(state: AppState, config: Arc<Config>) {
     }
 }
 
-async fn fetch_peering_info(client: &reqwest::Client, node_url: &str) -> Option<PeeringInfo> {
+async fn fetch_peering_info(
+    client: &reqwest::Client,
+    node_url: &str,
+    secret: Option<&str>,
+) -> Option<PeeringInfo> {
     let peering_url = format!("{}/peering", node_url);
 
-    match client.get(&peering_url).send().await {
+    let mut req = client.get(&peering_url);
+    if let Some(secret) = secret {
+        req = req.header("x-shared-secret", secret);
+    }
+
+    match req.send().await {
         Ok(resp) if resp.status().is_success() => match resp.json::<Option<PeeringInfo>>().await {
             Ok(peering) => peering,
             Err(e) => {

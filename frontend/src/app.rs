@@ -106,7 +106,7 @@ pub fn main_view(props: &MainViewProps) -> Html {
                             state={state.clone()}
                             nodes={nodes.clone()}
                         />
-                        
+
                         <RouteLookup
                             state={state.clone()}
                             nodes={nodes.clone()}
