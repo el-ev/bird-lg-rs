@@ -4,8 +4,6 @@ use yew::prelude::*;
 
 use crate::components::data_table::{DataTable, TableRow};
 use crate::components::shell::ShellLine;
-use crate::config::{backend_api, username};
-use crate::models::NodeStatus;
 use crate::services::stream_fetch;
 use crate::store::modal::ModalAction;
 use crate::store::{Action, AppState};
@@ -13,7 +11,7 @@ use crate::utils::filter_protocol_details;
 
 #[derive(Properties, PartialEq)]
 pub struct NodeListProps {
-    pub nodes: Vec<NodeStatus>,
+    pub state: UseReducerHandle<AppState>,
     pub on_protocol_click: Callback<(String, String)>,
 }
 
@@ -22,7 +20,7 @@ pub fn node_list(props: &NodeListProps) -> Html {
     html! {
         <div>
             <h3>{"Protocols"}</h3>
-            { for props.nodes.iter().map(|node| {
+            { for props.state.nodes.iter().map(|node| {
                 let node_name = node.name.clone();
                 let on_protocol_click = props.on_protocol_click.clone();
                 html! {
@@ -49,7 +47,7 @@ pub fn node_list(props: &NodeListProps) -> Html {
                             </span>
                         </summary>
                         <ShellLine
-                            prompt={format!("{}@{}$ ", username(), node.name)}
+                            prompt={format!("{}@{}$ ", props.state.username, node.name)}
                             command={"birdc show protocols".to_string()}
                             style={"font-size: 0.9em;".to_string()}
                         />
@@ -103,14 +101,12 @@ pub fn handle_protocol_click(node: String, proto: String, state: UseReducerHandl
         content: "Loading...".to_string(),
         command: Some(format!(
             "{}@{}$ birdc show protocols all {}",
-            username(),
-            node,
-            proto
+            state.username, node, proto
         )),
     }));
 
     spawn_local(async move {
-        let url = backend_api(&format!("/api/protocols/{}/{}", node, proto));
+        let url = format!("{}/api/protocols/{}/{}", state.backend_url, node, proto);
         let mut aggregated = String::new();
         let result = stream_fetch(url, {
             let state = state.clone();
