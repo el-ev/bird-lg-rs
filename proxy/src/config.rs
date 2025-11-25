@@ -4,6 +4,22 @@ use std::net::{IpAddr, SocketAddr};
 use std::path::Path;
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct PeeringInfo {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub ipv4: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub ipv6: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub link_local_ipv6: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub wg_pubkey_path: Option<String>,
+    #[serde(skip)]
+    pub wg_pubkey: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub endpoint: Option<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Config {
     pub bind_socket: String,
     pub listen: String,
@@ -15,6 +31,8 @@ pub struct Config {
     traceroute_args: Option<String>,
     #[serde(skip)]
     pub tr_arglist: Vec<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub peering: Option<PeeringInfo>,
 }
 
 impl Config {
@@ -42,6 +60,7 @@ impl Config {
         self.validate_listen(&mut errors);
         self.validate_allowed_ips(&mut errors);
         self.validate_traceroute_bin(&mut errors);
+        self.load_peering_pubkey(&mut errors);
 
         if errors.is_empty() {
             Ok(self)
@@ -148,5 +167,20 @@ impl Config {
             .as_ref()
             .map(|s| s.split_whitespace().map(|s| s.to_string()).collect())
             .unwrap_or_default();
+    }
+
+    fn load_peering_pubkey(&mut self, errors: &mut Vec<String>) {
+        if let Some(ref mut peering) = self.peering {
+            if let Some(ref path) = peering.wg_pubkey_path {
+                match std::fs::read_to_string(path) {
+                    Ok(content) => {
+                        peering.wg_pubkey = Some(content.trim().to_string());
+                    }
+                    Err(e) => {
+                        errors.push(format!("Failed to read wg_pubkey_path '{}': {}", path, e));
+                    }
+                }
+            }
+        }
     }
 }

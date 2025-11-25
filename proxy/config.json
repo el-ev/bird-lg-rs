@@ -6,5 +6,12 @@
     ],
     "shared_secret": null,
     "traceroute_bin": "/usr/sbin/traceroute",
-    "traceroute_args": "-q1 -N32 -w1"
+    "traceroute_args": "-q1 -N32 -w1",
+    "peering": {
+        "ipv4": "172.20.0.0",
+        "ipv6": "fd00::1",
+        "link_local_ipv6": "fe80::1",
+        "wg_pubkey_path": "/etc/wireguard/publickey",
+        "endpoint": "your.endpoint.domain"
+    }
 }

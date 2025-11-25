@@ -35,6 +35,7 @@ async fn main() -> anyhow::Result<()> {
         .route("/traceroute", get(handlers::traceroute::traceroute))
         .route("/traceroute4", get(handlers::traceroute::traceroute4))
         .route("/traceroute6", get(handlers::traceroute::traceroute6))
+        .route("/peering", get(handlers::peering::get_peering_info))
         .layer(CorsLayer::permissive())
         .layer(axum::middleware::from_fn(auth_middleware))
         .layer(Extension(config));
