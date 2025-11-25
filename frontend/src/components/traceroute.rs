@@ -9,114 +9,92 @@ use crate::components::shell::{ShellButton, ShellInput, ShellLine, ShellPrompt, 
 use crate::config::{backend_api, username};
 use crate::models::{NodeStatus, TracerouteHop};
 use crate::services::{log_error, stream_fetch};
+use crate::store::traceroute::TracerouteAction;
+use crate::store::{Action, AppState, NodeTracerouteResult};
 use crate::utils::validate_hostname_or_ip;
 
 #[derive(Properties, PartialEq)]
 pub struct TracerouteProps {
     pub nodes: Vec<NodeStatus>,
-}
-
-#[derive(Clone, PartialEq)]
-enum NodeTracerouteResult {
-    Hops(Vec<TracerouteHop>),
-    Error(String),
+    pub state: UseReducerHandle<AppState>,
 }
 
 #[function_component(Traceroute)]
 pub fn traceroute_section(props: &TracerouteProps) -> Html {
-    let traceroute_results = use_state(Vec::<(String, NodeTracerouteResult)>::new);
-    let traceroute_results_cache = use_mut_ref(Vec::<(String, NodeTracerouteResult)>::new);
-    let traceroute_target = use_state(String::new);
-    let last_traceroute_target = use_state(String::new);
-    let last_traceroute_version = use_state(String::new);
-    let traceroute_node = use_state(String::new);
-    let traceroute_version = use_state(|| "auto".to_string());
-    let traceroute_loading = use_state(|| false);
-    let traceroute_error = use_state(|| None::<String>);
+    let state = props.state.clone();
+    let traceroute_state = &state.traceroute;
 
     let nodes_for_form = props.nodes.clone();
 
     let on_node_change = {
-        let traceroute_node = traceroute_node.clone();
+        let state = state.clone();
         Callback::from(move |e: Event| {
             let target: HtmlInputElement = e.target_unchecked_into();
-            traceroute_node.set(target.value());
+            state.dispatch(Action::Traceroute(TracerouteAction::SetNode(
+                target.value(),
+            )));
         })
     };
 
     let on_version_change = {
-        let traceroute_version = traceroute_version.clone();
+        let state = state.clone();
         Callback::from(move |e: Event| {
             let target: HtmlInputElement = e.target_unchecked_into();
-            traceroute_version.set(target.value());
+            state.dispatch(Action::Traceroute(TracerouteAction::SetVersion(
+                target.value(),
+            )));
         })
     };
 
     let on_target_change = {
-        let traceroute_target = traceroute_target.clone();
-        let traceroute_error = traceroute_error.clone();
+        let state = state.clone();
         Callback::from(move |value: String| {
-            traceroute_target.set(value);
-            traceroute_error.set(None);
+            state.dispatch(Action::Traceroute(TracerouteAction::SetTarget(value)));
         })
     };
 
     let on_submit = {
-        let traceroute_results = traceroute_results.clone();
-        let traceroute_target = traceroute_target.clone();
-        let last_traceroute_target = last_traceroute_target.clone();
-        let last_traceroute_version = last_traceroute_version.clone();
-        let traceroute_node = traceroute_node.clone();
-        let traceroute_version = traceroute_version.clone();
-        let traceroute_loading = traceroute_loading.clone();
-        let traceroute_error_state = traceroute_error.clone();
+        let state = state.clone();
         let nodes = nodes_for_form.clone();
-        let results_cache = traceroute_results_cache.clone();
 
         Callback::from(move |e: SubmitEvent| {
             e.prevent_default();
 
-            let raw_target = (*traceroute_target).clone();
+            let raw_target = state.traceroute.target.clone();
             let sanitized_target = raw_target.trim().to_string();
             if let Err(err) = validate_hostname_or_ip(&sanitized_target) {
-                traceroute_error_state.set(Some(err));
+                state.dispatch(Action::Traceroute(TracerouteAction::SetError(err)));
                 return;
             }
-            traceroute_error_state.set(None);
-            last_traceroute_target.set(sanitized_target.clone());
-            last_traceroute_version.set((*traceroute_version).clone());
+            state.dispatch(Action::Traceroute(TracerouteAction::ClearError));
+            state.dispatch(Action::Traceroute(TracerouteAction::SetLastParams(
+                sanitized_target.clone(),
+                state.traceroute.version.clone(),
+            )));
 
-            traceroute_loading.set(true);
-            {
-                let mut cache = results_cache.borrow_mut();
-                cache.clear();
-            }
-            traceroute_results.set(Vec::new());
+            state.dispatch(Action::Traceroute(TracerouteAction::Start));
 
             let validated_target = sanitized_target;
             let nodes = nodes.clone();
-            let traceroute_results = traceroute_results.clone();
-            let traceroute_node = traceroute_node.clone();
-            let traceroute_version = traceroute_version.clone();
-            let traceroute_loading = traceroute_loading.clone();
-            let results_cache = results_cache.clone();
+            let traceroute_node = state.traceroute.node.clone();
+            let traceroute_version = state.traceroute.version.clone();
+            let state = state.clone();
 
             spawn_local(async move {
-                let selected_node = (*traceroute_node).clone();
+                let selected_node = traceroute_node;
                 let target_nodes = if selected_node.is_empty() {
                     nodes.iter().map(|n| n.name.clone()).collect::<Vec<_>>()
                 } else {
                     vec![selected_node.clone()]
                 };
 
-                let version_value = (*traceroute_version).clone();
+                let version_value = traceroute_version;
                 let target_value = validated_target;
 
                 let futures = target_nodes.into_iter().map(|node_name| {
                     let version_value = version_value.clone();
                     let target_value = target_value.clone();
-                    let results_cache = results_cache.clone();
-                    let traceroute_results = traceroute_results.clone();
+                    let state = state.clone();
 
                     async move {
                         let version_param = match version_value.as_str() {
@@ -130,21 +108,15 @@ pub fn traceroute_section(props: &TracerouteProps) -> Html {
                             node_name, target_value, version_param
                         ));
 
-                        {
-                            let mut cache = results_cache.borrow_mut();
-                            cache.retain(|(name, _)| name != &node_name);
-                            cache.push((node_name.clone(), NodeTracerouteResult::Hops(Vec::new())));
-                            traceroute_results.set(cache.clone());
-                        }
+                        state.dispatch(Action::Traceroute(TracerouteAction::InitResult(
+                            node_name.clone(),
+                        )));
 
-                        let stream_state = traceroute_results.clone();
-                        let cache_handle = results_cache.clone();
                         let mut buffer = String::new();
                         let mut node_hops: Vec<TracerouteHop> = Vec::new();
                         let stream_result = stream_fetch(url, {
-                            let stream_state = stream_state.clone();
-                            let cache_handle = cache_handle.clone();
-                            let node_for_stream = node_name.clone();
+                            let state = state.clone();
+                            let node_name = node_name.clone();
                             move |chunk| {
                                 buffer.push_str(&chunk);
                                 while let Some(idx) = buffer.find('\n') {
@@ -155,21 +127,12 @@ pub fn traceroute_section(props: &TracerouteProps) -> Html {
                                     }
                                     if let Ok(hop) = from_str::<TracerouteHop>(&line) {
                                         node_hops.push(hop);
-                                        let mut cache = cache_handle.borrow_mut();
-                                        if let Some((_, result)) = cache
-                                            .iter_mut()
-                                            .find(|(name, _)| name == &node_for_stream)
-                                        {
-                                            *result = NodeTracerouteResult::Hops(node_hops.clone());
-                                        } else {
-                                            cache.push((
-                                                node_for_stream.clone(),
+                                        state.dispatch(Action::Traceroute(
+                                            TracerouteAction::UpdateResult(
+                                                node_name.clone(),
                                                 NodeTracerouteResult::Hops(node_hops.clone()),
-                                            ));
-                                        }
-                                        let snapshot = cache.clone();
-                                        drop(cache);
-                                        stream_state.set(snapshot);
+                                            ),
+                                        ));
                                     }
                                 }
                             }
@@ -181,28 +144,18 @@ pub fn traceroute_section(props: &TracerouteProps) -> Html {
                                 "Traceroute stream failed for {}: {}",
                                 node_name, err
                             ));
-                            let mut cache = results_cache.borrow_mut();
                             let message = format!("Traceroute failed: {}", err);
-                            if let Some((_, result)) =
-                                cache.iter_mut().find(|(name, _)| name == &node_name)
-                            {
-                                *result = NodeTracerouteResult::Error(message.clone());
-                            } else {
-                                cache.push((
-                                    node_name.clone(),
-                                    NodeTracerouteResult::Error(message.clone()),
-                                ));
-                            }
-                            let snapshot = cache.clone();
-                            drop(cache);
-                            stream_state.set(snapshot);
+                            state.dispatch(Action::Traceroute(TracerouteAction::UpdateResult(
+                                node_name,
+                                NodeTracerouteResult::Error(message),
+                            )));
                         }
                     }
                 });
 
                 join_all(futures).await;
 
-                traceroute_loading.set(false);
+                state.dispatch(Action::Traceroute(TracerouteAction::End));
             });
         })
     };
@@ -215,7 +168,7 @@ pub fn traceroute_section(props: &TracerouteProps) -> Html {
                     {format!("{}@", username())}
                     <ShellSelect
                         class="node-select"
-                        value={(*traceroute_node).clone()}
+                        value={traceroute_state.node.clone()}
                         on_change={on_node_change}
                     >
                         <option value="" selected=true>{"(all)"}</option>
@@ -227,7 +180,7 @@ pub fn traceroute_section(props: &TracerouteProps) -> Html {
                 </ShellPrompt>
                 { "traceroute " }
                 <ShellSelect
-                    value={(*traceroute_version).clone()}
+                    value={traceroute_state.version.clone()}
                     on_change={on_version_change}
                 >
                     <option value="auto" selected=true>{"  "}</option>
@@ -236,27 +189,27 @@ pub fn traceroute_section(props: &TracerouteProps) -> Html {
                 </ShellSelect>
                 <span>{ " " }</span>
                 <ShellInput
-                    value={(*traceroute_target).clone()}
+                    value={traceroute_state.target.clone()}
                     on_change={on_target_change}
                     placeholder="<target>"
                 />
                 <ShellButton
                     type_="submit"
-                    disabled={*traceroute_loading}
+                    disabled={traceroute_state.loading}
                 >
-                    { if *traceroute_loading { "..." } else { "↵" } }
+                    { if traceroute_state.loading { "..." } else { "↵" } }
                 </ShellButton>
             </form>
             {
-                if let Some(err) = &*traceroute_error {
+                if let Some(err) = &traceroute_state.error {
                     html! { <div class="error-message">{ err }</div> }
                 } else {
                     html! {}
                 }
             }
             <div>
-                { for traceroute_results.iter().map(|(node_name, result)| {
-                    let version_flag = match last_traceroute_version.as_str() {
+                { for traceroute_state.results.iter().map(|(node_name, result)| {
+                    let version_flag = match traceroute_state.last_version.as_str() {
                         "4" => " -4",
                         "6" => " -6",
                         _ => "",
@@ -268,7 +221,7 @@ pub fn traceroute_section(props: &TracerouteProps) -> Html {
                             </summary>
                             <ShellLine
                                 prompt={format!("{}@{}$ ", username(), node_name)}
-                                command={format!("traceroute{} {}", version_flag, *last_traceroute_target)}
+                                command={format!("traceroute{} {}", version_flag, traceroute_state.last_target)}
                                 style={"font-size: 0.9em;".to_string()}
                             />
                             {

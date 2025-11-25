@@ -31,8 +31,7 @@ pub fn data_table(props: &DataTableProps) -> Html {
                             } else {
                                 ""
                             }
-                        }
-                        onclick={on_click}>
+                        } onclick={on_click}>
                             { for row.cells.iter().map(|cell| html! { <td>{ cell.clone() }</td> }) }
                         </tr>
                     }

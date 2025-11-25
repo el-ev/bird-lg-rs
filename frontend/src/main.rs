@@ -3,6 +3,7 @@ mod components;
 mod config;
 mod models;
 mod services;
+mod store;
 mod utils;
 
 fn main() {

@@ -1,12 +1,16 @@
 use std::net::IpAddr;
 
 use ipnet::IpNet;
+use wasm_bindgen_futures::spawn_local;
 use web_sys::HtmlInputElement;
 use yew::prelude::*;
 
 use crate::components::shell::{ShellButton, ShellInput, ShellPrompt, ShellSelect, ShellToggle};
-use crate::config::username;
+use crate::config::{backend_api, username};
 use crate::models::NodeStatus;
+use crate::services::stream_fetch;
+use crate::store::modal::ModalAction;
+use crate::store::{Action, AppState};
 
 #[derive(Properties, PartialEq)]
 pub struct RouteLookupProps {
@@ -125,4 +129,48 @@ pub fn route_lookup(props: &RouteLookupProps) -> Html {
             }
         </section>
     }
+}
+
+pub fn handle_route_lookup(
+    node: String,
+    target: String,
+    all: bool,
+    state: UseReducerHandle<AppState>,
+) {
+    let command = if all {
+        format!("{}@{}$ birdc show route {} all", username(), node, target)
+    } else {
+        format!("{}@{}$ birdc show route {}", username(), node, target)
+    };
+
+    state.dispatch(Action::Modal(ModalAction::Open {
+        content: "Loading...".to_string(),
+        command: Some(command),
+    }));
+
+    spawn_local(async move {
+        let url = backend_api(&format!(
+            "/api/route?node={}&target={}&all={}",
+            node, target, all
+        ));
+
+        let mut aggregated = String::new();
+        let result = stream_fetch(url, {
+            let state = state.clone();
+            move |chunk| {
+                aggregated.push_str(&chunk);
+                state.dispatch(Action::Modal(ModalAction::UpdateContent(
+                    aggregated.clone(),
+                )));
+            }
+        })
+        .await;
+
+        if let Err(err) = result {
+            state.dispatch(Action::Modal(ModalAction::UpdateContent(format!(
+                "Failed to load route details: {}",
+                err
+            ))));
+        }
+    });
 }

@@ -1,10 +1,15 @@
 use chrono::Local;
+use wasm_bindgen_futures::spawn_local;
 use yew::prelude::*;
 
 use crate::components::data_table::{DataTable, TableRow};
 use crate::components::shell::ShellLine;
-use crate::config::username;
+use crate::config::{backend_api, username};
 use crate::models::NodeStatus;
+use crate::services::stream_fetch;
+use crate::store::modal::ModalAction;
+use crate::store::{Action, AppState};
+use crate::utils::filter_protocol_details;
 
 #[derive(Properties, PartialEq)]
 pub struct NodeListProps {
@@ -91,4 +96,37 @@ pub fn node_list(props: &NodeListProps) -> Html {
             }) }
         </div>
     }
+}
+
+pub fn handle_protocol_click(node: String, proto: String, state: UseReducerHandle<AppState>) {
+    state.dispatch(Action::Modal(ModalAction::Open {
+        content: "Loading...".to_string(),
+        command: Some(format!(
+            "{}@{}$ birdc show protocols all {}",
+            username(),
+            node,
+            proto
+        )),
+    }));
+
+    spawn_local(async move {
+        let url = backend_api(&format!("/api/node/{}/protocol/{}", node, proto));
+        let mut aggregated = String::new();
+        let result = stream_fetch(url, {
+            let state = state.clone();
+            move |chunk| {
+                aggregated.push_str(&chunk);
+                let filtered = filter_protocol_details(&aggregated);
+                state.dispatch(Action::Modal(ModalAction::UpdateContent(filtered)));
+            }
+        })
+        .await;
+
+        if let Err(err) = result {
+            state.dispatch(Action::Modal(ModalAction::UpdateContent(format!(
+                "Failed to load protocol details: {}",
+                err
+            ))));
+        }
+    });
 }
