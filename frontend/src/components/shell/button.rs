@@ -8,6 +8,9 @@ pub struct ShellButtonProps {
     pub onclick: Callback<MouseEvent>,
     #[prop_or_default]
     pub disabled: bool,
+    #[prop_or_default]
+    pub text: Option<String>,
+    #[prop_or_default]
     pub children: Children,
 }
 
@@ -20,7 +23,13 @@ pub fn shell_button(props: &ShellButtonProps) -> Html {
             onclick={props.onclick.clone()}
             disabled={props.disabled}
         >
-            { for props.children.iter() }
+            {
+                if let Some(text) = &props.text {
+                    html! { { text } }
+                } else {
+                    html! { { for props.children.iter() } }
+                }
+            }
         </button>
     }
 }
