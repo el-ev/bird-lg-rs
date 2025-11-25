@@ -1,6 +1,7 @@
 use chrono::Local;
 use yew::prelude::*;
 
+use crate::components::data_table::{DataTable, TableRow};
 use crate::components::shell::ShellLine;
 use crate::config::username;
 use crate::models::NodeStatus;
@@ -15,6 +16,7 @@ pub struct NodeListProps {
 pub fn node_list(props: &NodeListProps) -> Html {
     html! {
         <div>
+            <h3>{"Protocols"}</h3>
             { for props.nodes.iter().map(|node| {
                 let node_name = node.name.clone();
                 let on_protocol_click = props.on_protocol_click.clone();
@@ -46,38 +48,44 @@ pub fn node_list(props: &NodeListProps) -> Html {
                             command={"birdc show protocols".to_string()}
                             style={"font-size: 0.9em;".to_string()}
                         />
-                        <table class="data-table">
-                            <thead>
-                                <tr>
-                                    <th>{ "Proto" }</th>
-                                    <th>{ "Name" }</th>
-                                    <th>{ "Table" }</th>
-                                    <th>{ "State" }</th>
-                                    <th>{ "Since" }</th>
-                                    <th>{ "Info" }</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                { for node.protocols.iter().map(|p| {
+                        <DataTable
+                            headers={
+                                [
+                                    "Proto",
+                                    "Name",
+                                    "Table",
+                                    "State",
+                                    "Since",
+                                    "Info",
+                                ]
+                                .map(str::to_string)
+                                .to_vec()
+                            }
+                            rows={
+                                node.protocols.iter().map(|p| {
                                     let name_for_click = node_name.clone();
                                     let proto_name = p.name.clone();
                                     let on_row_click = on_protocol_click.clone();
-                                    html! {
-                                        <tr
-                                            class="clickable-row"
-                                            onclick={move |_| on_row_click.emit((name_for_click.clone(), proto_name.clone()))}
-                                        >
-                                            <td>{ &p.proto }</td>
-                                            <td>{ &p.name }</td>
-                                            <td>{ &p.table }</td>
-                                            <td>{ &p.state }</td>
-                                            <td>{ &p.since }</td>
-                                            <td>{ &p.info }</td>
-                                        </tr>
+                                    TableRow {
+                                        cells: vec![
+                                            html! { &p.proto },
+                                            html! { &p.name },
+                                            html! { &p.table },
+                                            html! { &p.state },
+                                            html! { &p.since },
+                                            html! { &p.info },
+                                        ],
+                                        on_click: Some(Callback::from(move |_| {
+                                            on_row_click.emit((
+                                                name_for_click.clone(),
+                                                proto_name.clone(),
+                                            ));
+                                        })),
                                     }
-                                }) }
-                            </tbody>
-                        </table>
+                                })
+                                .collect::<Vec<_>>()
+                            }
+                        />
                     </details>
                 }
             }) }

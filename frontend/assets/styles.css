@@ -66,7 +66,8 @@ body[content-modal-locked="true"] {
     overflow: hidden;
 }
 
-a, a:visited {
+a,
+a:visited {
     color: var(--text);
     text-decoration: none;
 }
@@ -99,7 +100,7 @@ hr {
     margin: 0 auto;
     display: flex;
     flex-direction: column;
-    gap: var(--spacing-xl);
+    /* gap: var(--spacing-xl); */
 }
 
 /* ==========================================================================
@@ -406,12 +407,18 @@ details[open] .summary-header {
 
 .shell-toggle:hover {
     opacity: 0.8;
-    text-decoration: none;
 }
 
 @keyframes blink {
-    0%, 100% { opacity: 1; }
-    50% { opacity: 0; }
+
+    0%,
+    100% {
+        opacity: 1;
+    }
+
+    50% {
+        opacity: 0;
+    }
 }
 
 /* Modals */

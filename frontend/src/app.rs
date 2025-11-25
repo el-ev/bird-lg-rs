@@ -8,7 +8,7 @@ use yew::prelude::*;
 
 use crate::components::{
     content_modal::ContentModal, node_list::NodeList, route_lookup::RouteLookup,
-    status_banner::StatusBanner, traceroute::TracerouteSection,
+    status_banner::StatusBanner, traceroute::Traceroute,
 };
 use crate::config::{backend_api, load_config, username};
 use crate::models::NodeStatus;
@@ -116,25 +116,29 @@ pub fn app() -> Html {
                     waiting_for_data={waiting_for_data}
                 />
 
-                <NodeList
-                    nodes={(*nodes).clone()}
-                    on_protocol_click={on_protocol_click}
-                />
+                if *config_ready {
+                    <>
+                        <NodeList
+                            nodes={(*nodes).clone()}
+                            on_protocol_click={on_protocol_click}
+                        />
 
-                <TracerouteSection nodes={(*nodes).clone()} />
-                <RouteLookup nodes={(*nodes).clone()} on_lookup={on_route_lookup} />
+                        <Traceroute nodes={(*nodes).clone()} />
+                        <RouteLookup nodes={(*nodes).clone()} on_lookup={on_route_lookup} />
 
-                <ContentModal
-                    visible={*modal_active}
-                    content={(*modal_content).clone()}
-                    command={(*modal_command).clone()}
-                    on_close={
-                        let modal_active = modal_active.clone();
-                        Callback::from(move |_| {
-                            modal_active.set(false);
-                        })
-                    }
-                />
+                        <ContentModal
+                            visible={*modal_active}
+                            content={(*modal_content).clone()}
+                            command={(*modal_command).clone()}
+                            on_close={
+                                let modal_active = modal_active.clone();
+                                Callback::from(move |_| {
+                                    modal_active.set(false);
+                                })
+                            }
+                        />
+                    </>
+                }
             </div>
         </main>
     }

@@ -9,16 +9,17 @@ pub struct ShellToggleProps {
 
 #[function_component(ShellToggle)]
 pub fn shell_toggle(props: &ShellToggleProps) -> Html {
-    let on_toggle = props.on_toggle.clone();
-    let onclick = Callback::from(move |_| on_toggle.emit(()));
+    let onclick = props.on_toggle.reform(|_: MouseEvent| ());
 
-    let on_toggle_key = props.on_toggle.clone();
-    let onkeydown = Callback::from(move |e: KeyboardEvent| {
-        if e.key() == "Enter" || e.key() == " " {
-            e.prevent_default();
-            on_toggle_key.emit(());
-        }
-    });
+    let onkeydown = {
+        let cb = props.on_toggle.clone();
+        Callback::from(move |e: KeyboardEvent| {
+            if matches!(e.key().as_str(), "Enter" | " ") {
+                e.prevent_default();
+                cb.emit(());
+            }
+        })
+    };
 
     html! {
         <span

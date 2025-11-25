@@ -87,8 +87,15 @@ pub fn content_modal(props: &ContentModalProps) -> Html {
     };
 
     html! {
-        <div class="modal-backdrop" onclick={move |_| on_close.emit(())} tabindex="0">
-            <div class="modal-content" onclick={stop_click.clone()}>
+        <div
+            class="modal-backdrop"
+            onclick={move |_| on_close.emit(())}
+            tabindex="0"
+        >
+            <div
+                class="modal-content"
+                onclick={stop_click.clone()}
+            >
                 {
                     if props.command.is_some() {
                         html! {
@@ -102,7 +109,15 @@ pub fn content_modal(props: &ContentModalProps) -> Html {
                         html! {}
                     }
                 }
-                <pre style={if props.command.is_some() { "margin: 0; border: 1px solid var(--border); border-top: none; border-radius: 0 0 4px 4px;" } else { "" }}>
+                <pre
+                    style={
+                        if props.command.is_some() {
+                            "margin: 0; border: 1px solid var(--border); border-top: none; border-radius: 0 0 4px 4px;"
+                        } else {
+                            ""
+                        }
+                    }
+                >
                     { &props.content }
                 </pre>
             </div>
