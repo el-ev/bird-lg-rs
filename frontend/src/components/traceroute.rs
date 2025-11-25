@@ -4,6 +4,7 @@ use wasm_bindgen_futures::spawn_local;
 use web_sys::HtmlInputElement;
 use yew::prelude::*;
 
+use crate::components::data_table::{DataTable, TableRow};
 use crate::components::shell::{ShellButton, ShellInput, ShellLine, ShellPrompt, ShellSelect};
 use crate::config::{backend_api, username};
 use crate::models::{NodeStatus, TracerouteHop};
@@ -11,7 +12,7 @@ use crate::services::{log_error, stream_fetch};
 use crate::utils::validate_hostname_or_ip;
 
 #[derive(Properties, PartialEq)]
-pub struct TracerouteSectionProps {
+pub struct TracerouteProps {
     pub nodes: Vec<NodeStatus>,
 }
 
@@ -21,8 +22,8 @@ enum NodeTracerouteResult {
     Error(String),
 }
 
-#[function_component(TracerouteSection)]
-pub fn traceroute_section(props: &TracerouteSectionProps) -> Html {
+#[function_component(Traceroute)]
+pub fn traceroute_section(props: &TracerouteProps) -> Html {
     let traceroute_results = use_state(Vec::<(String, NodeTracerouteResult)>::new);
     let traceroute_results_cache = use_mut_ref(Vec::<(String, NodeTracerouteResult)>::new);
     let traceroute_target = use_state(String::new);
@@ -212,16 +213,23 @@ pub fn traceroute_section(props: &TracerouteSectionProps) -> Html {
             <form class="shell-line" onsubmit={on_submit}>
                 <ShellPrompt>
                     {format!("{}@", username())}
-                    <ShellSelect class="node-select" value={(*traceroute_node).clone()} on_change={on_node_change}>
+                    <ShellSelect
+                        class="node-select"
+                        value={(*traceroute_node).clone()}
+                        on_change={on_node_change}
+                    >
                         <option value="" selected=true>{"(all)"}</option>
-                        { for nodes_for_form.iter().map(|n| {
-                            html! { <option value={n.name.clone()}>{ &n.name }</option> }
+                        { for nodes_for_form.iter().map(|n| html! {
+                            <option value={n.name.clone()}>{ &n.name }</option>
                         }) }
                     </ShellSelect>
                     {"$ "}
                 </ShellPrompt>
                 { "traceroute " }
-                <ShellSelect value={(*traceroute_version).clone()} on_change={on_version_change}>
+                <ShellSelect
+                    value={(*traceroute_version).clone()}
+                    on_change={on_version_change}
+                >
                     <option value="auto" selected=true>{"  "}</option>
                     <option value="4">{"-4"}</option>
                     <option value="6">{"-6"}</option>
@@ -232,7 +240,10 @@ pub fn traceroute_section(props: &TracerouteSectionProps) -> Html {
                     on_change={on_target_change}
                     placeholder="<target>"
                 />
-                <ShellButton type_="submit" disabled={*traceroute_loading}>
+                <ShellButton
+                    type_="submit"
+                    disabled={*traceroute_loading}
+                >
                     { if *traceroute_loading { "..." } else { "↵" } }
                 </ShellButton>
             </form>
@@ -252,7 +263,9 @@ pub fn traceroute_section(props: &TracerouteSectionProps) -> Html {
                     };
                     html! {
                         <details class="expandable-item" open=true>
-                            <summary class="summary-header"><h4 class="item-title">{ node_name }</h4></summary>
+                            <summary class="summary-header">
+                                <h4 class="item-title">{ node_name }</h4>
+                            </summary>
                             <ShellLine
                                 prompt={format!("{}@{}$ ", username(), node_name)}
                                 command={format!("traceroute{} {}", version_flag, *last_traceroute_target)}
@@ -261,36 +274,44 @@ pub fn traceroute_section(props: &TracerouteSectionProps) -> Html {
                             {
                                 match result {
                                     NodeTracerouteResult::Hops(hops) => html! {
-                                        <table class="data-table">
-                                            <thead>
-                                                <tr>
-                                                    <th>{"Hop"}</th>
-                                                    <th>{"Host"}</th>
-                                                    <th>{"IP"}</th>
-                                                    <th>{"RTTs"}</th>
-                                                </tr>
-                                            </thead>
-                                            <tbody>
-                                                { for hops.iter().map(|hop| {
-                                                    html! {
-                                                        <tr>
-                                                            <td>{ hop.hop }</td>
-                                                            <td>{ hop.hostname.clone().unwrap_or_default() }</td>
-                                                            <td>{ hop.address.clone().unwrap_or_default() }</td>
-                                                            <td>
+                                        <DataTable
+                                            headers={
+                                                [
+                                                    "Hop",
+                                                    "Host",
+                                                    "IP",
+                                                    "RTTs",
+                                                ]
+                                                .map(str::to_string)
+                                                .to_vec()
+                                            }
+                                            rows={
+                                                hops.iter().map(|hop| {
+                                                    TableRow {
+                                                        cells: vec![
+                                                            html! { hop.hop },
+                                                            html! { hop.hostname.clone().unwrap_or_default() },
+                                                            html! { hop.address.clone().unwrap_or_default() },
+                                                            html! {
                                                                 {
                                                                     if let Some(rtts) = &hop.rtts {
-                                                                        rtts.iter().map(|r| format!("{:.2}ms", r)).collect::<Vec<_>>().join(" / ")
+                                                                        rtts
+                                                                            .iter()
+                                                                            .map(|r| format!("{:.2}ms", r))
+                                                                            .collect::<Vec<_>>()
+                                                                            .join(" / ")
                                                                     } else {
                                                                         "*".to_string()
                                                                     }
                                                                 }
-                                                            </td>
-                                                        </tr>
+                                                            },
+                                                        ],
+                                                        on_click: None,
                                                     }
-                                                }) }
-                                            </tbody>
-                                        </table>
+                                                })
+                                                .collect::<Vec<_>>()
+                                            }
+                                        />
                                     },
                                     NodeTracerouteResult::Error(message) => html! {
                                         <pre class="status-message--error">{ message }</pre>

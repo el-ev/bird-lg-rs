@@ -89,7 +89,10 @@ pub fn route_lookup(props: &RouteLookupProps) -> Html {
             <form class="shell-line" onsubmit={on_submit}>
                 <ShellPrompt>
                     {format!("{}@", username())}
-                    <ShellSelect value={(*selected_node).clone()} on_change={on_node_change}>
+                    <ShellSelect
+                        value={(*selected_node).clone()}
+                        on_change={on_node_change}
+                    >
                         { for props.nodes.iter().map(|n| html! {
                             <option value={n.name.clone()}>{ &n.name }</option>
                         }) }
