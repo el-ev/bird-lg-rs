@@ -50,3 +50,53 @@ pub struct TracerouteHop {
     pub hostname: Option<String>,
     pub rtts: Option<Vec<f32>>,
 }
+
+#[derive(Deserialize)]
+pub struct TracerouteParams {
+    pub target: String,
+    #[serde(default)]
+    pub version: String,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(tag = "type", content = "payload")]
+pub enum WsRequest {
+    GetProtocols,
+    Traceroute {
+        node: String,
+        target: String,
+    },
+    RouteLookup {
+        node: String,
+        target: String,
+        #[serde(default)]
+        all: bool,
+    },
+    ProtocolDetails {
+        node: String,
+        protocol: String,
+    },
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(tag = "type", content = "payload")]
+pub enum WsResponse {
+    Protocols(Vec<NodeStatus>),
+    NoChange {
+        last_updated: DateTime<Utc>,
+    },
+    TracerouteResult {
+        node: String,
+        result: String,
+    },
+    RouteLookupResult {
+        node: String,
+        result: String,
+    },
+    ProtocolDetailsResult {
+        node: String,
+        protocol: String,
+        details: String,
+    },
+    Error(String),
+}

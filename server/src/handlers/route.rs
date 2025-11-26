@@ -1,4 +1,4 @@
-use std::{io, net::IpAddr, sync::Arc};
+use std::{net::IpAddr, sync::Arc};
 
 use axum::{
     body::Body,
@@ -6,12 +6,11 @@ use axum::{
     http::StatusCode,
     response::{IntoResponse, Response},
 };
-use futures_util::StreamExt;
 use ipnet::IpNet;
 use serde::Deserialize;
 use tracing::warn;
 
-use crate::{config::Config, state::AppState};
+use crate::{config::Config, services::request::post_stream, state::AppState};
 
 #[derive(Deserialize)]
 pub struct RouteParams {
@@ -38,46 +37,22 @@ pub async fn get_route(
                 .into_response();
         }
 
-        let url = format!("{}/bird", node.url);
-
         let command = if params.all {
             format!("show route for {} all", params.target)
         } else {
             format!("show route for {}", params.target)
         };
 
-        let mut req = state.http_client.post(&url).body(command);
-        if let Some(secret) = &node.shared_secret {
-            req = req.header("x-shared-secret", secret);
-        }
-
-        match req.send().await {
-            Ok(resp) => {
-                let status = resp.status();
-                if !status.is_success() {
-                    warn!(
-                        node = %node_name,
-                        target = %params.target,
-                        status = %status,
-                        "Node returned non-success status for route request"
-                    );
-                    return (StatusCode::BAD_GATEWAY, "Node rejected route request")
-                        .into_response();
-                }
-
-                let stream = resp
-                    .bytes_stream()
-                    .map(|chunk| chunk.map_err(io::Error::other));
-
-                Body::from_stream(stream).into_response()
-            }
-            Err(e) => {
+        match post_stream(&state.http_client, node, "/bird", &command).await {
+            Ok(stream) => Body::from_stream(stream).into_response(),
+            Err(err_msg) => {
                 warn!(
                     node = %node_name,
-                    error = %e,
-                    "Failed to contact node"
+                    target = %params.target,
+                    error = %err_msg,
+                    "Failed to fetch route information"
                 );
-                (StatusCode::BAD_GATEWAY, "Failed to contact node").into_response()
+                (StatusCode::BAD_GATEWAY, err_msg).into_response()
             }
         }
     } else {

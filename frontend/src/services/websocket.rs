@@ -1,53 +1,64 @@
-use futures::StreamExt;
-use gloo_net::websocket::{Message, futures::WebSocket};
+use futures::{SinkExt, StreamExt, channel::mpsc, future::Either};
+use reqwasm::websocket::{Message, futures::WebSocket};
 use wasm_bindgen_futures::spawn_local;
 use yew::prelude::*;
 
-use crate::models::NodeStatus;
-use crate::store::{Action, AppState};
-use crate::utils::{fetch_json, log_error};
-use crate::utils::sleep_ms;
+use crate::store::traceroute::TracerouteAction;
+use crate::store::{Action, AppState, NodeTracerouteResult};
+use crate::utils::{fetch_json, log_error, sleep_ms};
+use common::models::{NodeStatus, TracerouteHop, WsRequest, WsResponse};
 
 pub struct WebSocketService;
 
 impl WebSocketService {
     pub fn connect(backend_url: String, state: UseReducerHandle<AppState>) {
         spawn_local(async move {
-            let ws_url = Self::construct_ws_url(&backend_url);
-
+            let ws_url = backend_url
+                .trim_end_matches('/')
+                .replace("http://", "ws://")
+                .replace("https://", "wss://")
+                + "/api/ws";
             let mut ws_failed_count = 0;
             const MAX_WS_FAILURES: u32 = 3;
 
             loop {
+                let (tx, rx) = mpsc::channel::<WsRequest>(100);
+
+                let callback = Callback::from(move |req: WsRequest| {
+                    let mut tx = tx.clone();
+                    spawn_local(async move {
+                        let _ = tx.send(req).await;
+                    });
+                });
+                state.dispatch(Action::SetWsSender(callback));
+
                 if ws_failed_count < MAX_WS_FAILURES {
                     match WebSocket::open(&ws_url) {
                         Ok(ws) => {
-                            let (_, mut read) = ws.split();
+                            let (mut write, read) = ws.split();
+                            let mut combined = futures::stream::select(
+                                read.map(Either::Left),
+                                rx.map(Either::Right),
+                            );
 
-                            while let Some(msg) = read.next().await {
-                                match msg {
-                                    Ok(Message::Text(text)) => {
-                                        if let Ok(nodes) =
-                                            serde_json::from_str::<Vec<NodeStatus>>(&text)
-                                        {
-                                            state.dispatch(Action::SetDataReady(true));
-                                            state.dispatch(Action::ClearError);
-                                            state.dispatch(Action::SetNodes(nodes));
+                            while let Some(item) = combined.next().await {
+                                match item {
+                                    Either::Left(msg) => match msg {
+                                        Ok(Message::Text(text)) => {
+                                            Self::handle_message(&text, &state);
                                         }
-                                    }
-                                    Err(_) => {
-                                        ws_failed_count += 1;
-                                        if ws_failed_count >= MAX_WS_FAILURES {
-                                            log_error(
-                                                "WebSocket failed 3 times, falling back to HTTP polling",
-                                            );
-                                            state.dispatch(Action::SetError(
-                                                "Websocket connection failed".to_string(),
-                                            ));
+                                        Ok(Message::Bytes(_)) => {}
+                                        Err(_) => {
+                                            ws_failed_count += 1;
                                             break;
                                         }
+                                    },
+                                    Either::Right(req) => {
+                                        if let Ok(json) = serde_json::to_string(&req)
+                                            && write.send(Message::Text(json)).await.is_err() {
+                                                break;
+                                            }
                                     }
-                                    _ => {}
                                 }
                             }
                         }
@@ -70,14 +81,49 @@ impl WebSocketService {
         });
     }
 
-    fn construct_ws_url(backend_url: &str) -> String {
-        let url = backend_url.trim_end_matches('/');
-        if let Some(rest) = url.strip_prefix("https://") {
-            format!("wss://{}/api/ws", rest)
-        } else if let Some(rest) = url.strip_prefix("http://") {
-            format!("ws://{}/api/ws", rest)
-        } else {
-            unreachable!()
+    fn handle_message(text: &str, state: &UseReducerHandle<AppState>) {
+        if let Ok(response) = serde_json::from_str::<WsResponse>(text) {
+            match response {
+                WsResponse::Protocols(nodes) => {
+                    state.dispatch(Action::SetDataReady(true));
+                    state.dispatch(Action::ClearError);
+                    state.dispatch(Action::SetNodes(nodes));
+                }
+                WsResponse::NoChange { last_updated } => {
+                    state.dispatch(Action::UpdateTimestamp(last_updated));
+                }
+                WsResponse::TracerouteResult { node, result } => {
+                    let hops: Vec<TracerouteHop> = result
+                        .lines()
+                        .filter(|line| !line.is_empty())
+                        .filter_map(|line| serde_json::from_str(line).ok())
+                        .collect();
+
+                    state.dispatch(Action::Traceroute(TracerouteAction::UpdateResult(
+                        node,
+                        NodeTracerouteResult::Hops(hops),
+                    )));
+                }
+                WsResponse::RouteLookupResult { node: _, result } => {
+                    state.dispatch(Action::RouteLookupResult(result));
+                }
+                WsResponse::ProtocolDetailsResult {
+                    node: _,
+                    protocol: _,
+                    details,
+                } => {
+                    let filtered = common::utils::filter_protocol_details(&details);
+                    state.dispatch(Action::ProtocolDetailsResult(filtered));
+                }
+                WsResponse::Error(e) => {
+                    log_error(&format!("WS Error: {}", e));
+                }
+            }
+        } else if let Ok(nodes) = serde_json::from_str::<Vec<NodeStatus>>(text) {
+            // Legacy/Fallback
+            state.dispatch(Action::SetDataReady(true));
+            state.dispatch(Action::ClearError);
+            state.dispatch(Action::SetNodes(nodes));
         }
     }
 

@@ -1,3 +1,4 @@
+use common::models::WsRequest;
 use common::validate_target;
 use futures::future::join_all;
 use serde_json::from_str;
@@ -8,9 +9,9 @@ use yew::prelude::*;
 use crate::components::data_table::{DataTable, TableRow};
 use crate::components::shell::{ShellButton, ShellInput, ShellLine, ShellPrompt, ShellSelect};
 use crate::models::{NodeStatus, TracerouteHop};
-use crate::utils::{log_error, stream_fetch};
 use crate::store::traceroute::TracerouteAction;
 use crate::store::{Action, AppState, NodeTracerouteResult};
+use crate::utils::{log_error, stream_fetch};
 
 #[derive(Properties, PartialEq)]
 pub struct TracerouteProps {
@@ -95,58 +96,64 @@ pub fn traceroute_section(props: &TracerouteProps) -> Html {
                     let state = state.clone();
 
                     async move {
-                        let version_param = match version_value.as_str() {
-                            "4" => "&version=4",
-                            "6" => "&version=6",
-                            _ => "",
-                        };
-
-                        let url = format!(
-                            "{}/api/traceroute?node={}&target={}{}",
-                            state.backend_url, node_name, target_value, version_param
-                        );
-
                         state.dispatch(Action::Traceroute(TracerouteAction::InitResult(
                             node_name.clone(),
                         )));
 
-                        let mut buffer = String::new();
-                        let mut node_hops: Vec<TracerouteHop> = Vec::new();
-                        let stream_result = stream_fetch(url, {
-                            let state = state.clone();
-                            let node_name = node_name.clone();
-                            move |chunk| {
-                                buffer.push_str(&chunk);
-                                while let Some(idx) = buffer.find('\n') {
-                                    let line = buffer[..idx].trim().to_string();
-                                    buffer.drain(..=idx);
-                                    if line.is_empty() {
-                                        continue;
-                                    }
-                                    if let Ok(hop) = from_str::<TracerouteHop>(&line) {
-                                        node_hops.push(hop);
-                                        state.dispatch(Action::Traceroute(
-                                            TracerouteAction::UpdateResult(
-                                                node_name.clone(),
-                                                NodeTracerouteResult::Hops(node_hops.clone()),
-                                            ),
-                                        ));
+                        if let Some(sender) = &state.ws_sender {
+                            sender.emit(WsRequest::Traceroute {
+                                node: node_name.clone(),
+                                target: target_value.clone(),
+                            })
+                        } else {
+                            let version_param = match version_value.as_str() {
+                                "4" => "&version=4",
+                                "6" => "&version=6",
+                                _ => "",
+                            };
+
+                            let url = format!(
+                                "{}/api/traceroute?node={}&target={}{}",
+                                state.backend_url, node_name, target_value, version_param
+                            );
+                            let mut buffer = String::new();
+                            let mut node_hops: Vec<TracerouteHop> = Vec::new();
+                            let stream_result = stream_fetch(url, {
+                                let state = state.clone();
+                                let node_name = node_name.clone();
+                                move |chunk| {
+                                    buffer.push_str(&chunk);
+                                    while let Some(idx) = buffer.find('\n') {
+                                        let line = buffer[..idx].trim().to_string();
+                                        buffer.drain(..=idx);
+                                        if line.is_empty() {
+                                            continue;
+                                        }
+                                        if let Ok(hop) = from_str::<TracerouteHop>(&line) {
+                                            node_hops.push(hop);
+                                            state.dispatch(Action::Traceroute(
+                                                TracerouteAction::UpdateResult(
+                                                    node_name.clone(),
+                                                    NodeTracerouteResult::Hops(node_hops.clone()),
+                                                ),
+                                            ));
+                                        }
                                     }
                                 }
-                            }
-                        })
-                        .await;
+                            })
+                            .await;
 
-                        if let Err(err) = stream_result {
-                            log_error(&format!(
-                                "Traceroute stream failed for {}: {}",
-                                node_name, err
-                            ));
-                            let message = format!("Traceroute failed: {}", err);
-                            state.dispatch(Action::Traceroute(TracerouteAction::UpdateResult(
-                                node_name,
-                                NodeTracerouteResult::Error(message),
-                            )));
+                            if let Err(err) = stream_result {
+                                log_error(&format!(
+                                    "Traceroute stream failed for {}: {}",
+                                    node_name, err
+                                ));
+                                let message = format!("Traceroute failed: {}", err);
+                                state.dispatch(Action::Traceroute(TracerouteAction::UpdateResult(
+                                    node_name,
+                                    NodeTracerouteResult::Error(message),
+                                )));
+                            }
                         }
                     }
                 });
