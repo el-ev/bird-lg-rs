@@ -28,7 +28,6 @@ pub struct AppState {
 
 pub enum Action {
     SetNodes(Vec<NodeStatus>),
-    SetPeeringInfo(String, PeeringInfo),
     SetError(String),
     ClearError,
     SetDataReady(bool),
@@ -51,9 +50,6 @@ impl Reducible for AppState {
         match action {
             Action::SetNodes(nodes) => {
                 next_state.nodes = nodes;
-            }
-            Action::SetPeeringInfo(node, info) => {
-                next_state.peering.insert(node, info);
             }
             Action::SetError(err) => {
                 next_state.fetch_error = Some(err);

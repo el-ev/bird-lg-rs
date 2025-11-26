@@ -1,12 +1,12 @@
 use futures::StreamExt;
 use gloo_net::websocket::{Message, futures::WebSocket};
-use reqwasm::http::Request;
 use wasm_bindgen_futures::spawn_local;
 use yew::prelude::*;
 
 use crate::models::NodeStatus;
 use crate::store::{Action, AppState};
-use crate::utils::{log_error, sleep_ms};
+use crate::utils::{fetch_json, log_error};
+use crate::utils::sleep_ms;
 
 pub struct WebSocketService;
 
@@ -84,19 +84,11 @@ impl WebSocketService {
     async fn poll_http(backend_url: &str, state: &UseReducerHandle<AppState>) {
         let url = format!("{}/api/protocols", backend_url.trim_end_matches('/'));
 
-        match Request::get(&url).send().await {
-            Ok(resp) if resp.ok() => {
-                if let Ok(nodes) = resp.json::<Vec<NodeStatus>>().await {
-                    state.dispatch(Action::SetDataReady(true));
-                    state.dispatch(Action::ClearError);
-                    state.dispatch(Action::SetNodes(nodes));
-                }
-            }
-            Ok(resp) => {
-                log_error(&format!(
-                    "HTTP polling failed with status {}",
-                    resp.status()
-                ));
+        match fetch_json::<Vec<NodeStatus>>(&url).await {
+            Ok(nodes) => {
+                state.dispatch(Action::SetDataReady(true));
+                state.dispatch(Action::ClearError);
+                state.dispatch(Action::SetNodes(nodes));
             }
             Err(e) => {
                 log_error(&format!("HTTP polling error: {}", e));

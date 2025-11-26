@@ -1,4 +1,3 @@
-use reqwasm::http::Request;
 use wasm_bindgen_futures::spawn_local;
 use yew::prelude::*;
 use yew_router::prelude::*;
@@ -10,12 +9,11 @@ use crate::components::{
     status_banner::StatusBanner, traceroute::Traceroute,
 };
 use crate::config::load_config;
-use crate::models::{NetworkInfo, PeeringInfo};
 use crate::routes::Route;
 use crate::services::websocket::WebSocketService;
 use crate::store::modal::ModalAction;
 use crate::store::{Action, AppState};
-use crate::utils::log_error;
+use crate::utils::{fetch_json, log_error};
 
 #[derive(Properties, PartialEq)]
 pub struct MainViewProps {
@@ -178,28 +176,6 @@ pub fn app() -> Html {
         });
     }
 
-    {
-        let state = state.clone();
-        use_effect_with(state.nodes.clone(), move |nodes| {
-            if !nodes.is_empty() {
-                let backend_url = state.backend_url.clone();
-                for node in nodes.iter() {
-                    let state_peering = state.clone();
-                    let node_name = node.name.clone();
-                    let backend_url_clone = backend_url.clone();
-
-                    if !state.peering.contains_key(&node_name) {
-                        spawn_local(async move {
-                            fetch_peering(&state_peering, &backend_url_clone, &node_name).await;
-                        });
-                    }
-                }
-            }
-
-            || ()
-        });
-    }
-
     html! {
         <ContextProvider<UseReducerHandle<AppState>> context={state}>
             <BrowserRouter>
@@ -223,67 +199,13 @@ fn switch(routes: Route) -> Html {
 }
 
 async fn fetch_network_info(state: &UseReducerHandle<AppState>, backend_url: &str) {
-    match Request::get(&format!("{}/api/info", backend_url.trim_end_matches('/')))
-        .send()
-        .await
-    {
-        Ok(resp) if resp.ok() => match resp.json::<Option<NetworkInfo>>().await {
-            Ok(info) => {
-                state.dispatch(Action::SetNetworkInfo(info));
-            }
-            Err(err) => {
-                log_error(&format!("Failed to parse network info: {}", err));
-            }
-        },
-        Ok(resp) => {
-            log_error(&format!(
-                "Network info fetch failed with HTTP {}",
-                resp.status()
-            ));
+    let url = format!("{}/api/info", backend_url.trim_end_matches('/'));
+    match fetch_json(&url).await {
+        Ok(info) => {
+            state.dispatch(Action::SetNetworkInfo(info));
         }
         Err(err) => {
-            log_error(&format!("Network info request error: {}", err));
-        }
-    }
-}
-
-async fn fetch_peering(state: &UseReducerHandle<AppState>, backend_url: &str, node_name: &str) {
-    match Request::get(&format!(
-        "{}/api/peering/{}",
-        backend_url.trim_end_matches('/'),
-        node_name
-    ))
-    .send()
-    .await
-    {
-        Ok(resp) if resp.ok() => match resp.json::<Option<PeeringInfo>>().await {
-            Ok(Some(info)) => {
-                state.dispatch(Action::SetPeeringInfo(node_name.to_string(), info));
-            }
-            Ok(None) => {
-                // No peering info for this node
-            }
-            Err(err) => {
-                log_error(&format!(
-                    "Failed to parse peering info for {}: {}",
-                    node_name, err
-                ));
-            }
-        },
-        Ok(resp) => {
-            if resp.status() != 404 {
-                log_error(&format!(
-                    "Peering info fetch failed for {} with HTTP {}",
-                    node_name,
-                    resp.status()
-                ));
-            }
-        }
-        Err(err) => {
-            log_error(&format!(
-                "Peering info request error for {}: {}",
-                node_name, err
-            ));
+            log_error(&err);
         }
     }
 }
