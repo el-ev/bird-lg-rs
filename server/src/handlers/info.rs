@@ -11,8 +11,16 @@ use crate::state::AppState;
 
 pub async fn get_network_info(
     Extension(config): Extension<Arc<Config>>,
+    Extension(state): Extension<AppState>,
 ) -> Json<Option<NetworkInfo>> {
-    Json(config.network.clone())
+    if let Some(network) = &config.network {
+        let peering = state.peering.read().unwrap();
+        let mut info = network.clone();
+        info.peering = peering.clone();
+        Json(Some(info))
+    } else {
+        Json(None)
+    }
 }
 
 pub async fn get_node_peering(
