@@ -11,6 +11,7 @@ pub async fn ws_handler(
     ws: WebSocketUpgrade,
     Extension(state): Extension<AppState>,
 ) -> impl IntoResponse {
+    state.record_request();
     ws.on_upgrade(|socket| handle_socket(socket, state))
 }
 

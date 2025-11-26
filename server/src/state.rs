@@ -1,7 +1,10 @@
 use std::{
     collections::HashMap,
-    sync::{Arc, RwLock},
-    time::Duration,
+    sync::{
+        Arc, RwLock,
+        atomic::{AtomicBool, Ordering},
+    },
+    time::{Duration, Instant},
 };
 
 use tokio::sync::broadcast;
@@ -18,6 +21,9 @@ pub struct AppState {
 
     pub http_client: reqwest::Client,
     pub tx: broadcast::Sender<Vec<NodeStatus>>,
+
+    pub last_request_time: Arc<RwLock<Option<Instant>>>,
+    pub is_polling_active: Arc<AtomicBool>,
 }
 
 impl AppState {
@@ -38,6 +44,13 @@ impl AppState {
             peering: Arc::new(RwLock::new(HashMap::new())),
             http_client: client,
             tx,
+            last_request_time: Arc::new(RwLock::new(None)),
+            is_polling_active: Arc::new(AtomicBool::new(true)),
         }
+    }
+
+    pub fn record_request(&self) {
+        *self.last_request_time.write().unwrap() = Some(Instant::now());
+        self.is_polling_active.store(true, Ordering::Relaxed);
     }
 }

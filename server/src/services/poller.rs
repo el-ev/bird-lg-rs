@@ -26,7 +26,38 @@ async fn run(state: AppState, config: Arc<Config>) {
 
     let mut poll_counter = 0u32;
     const PEERING_POLL_INTERVAL: u32 = 180;
+
     loop {
+        if let Some(idle_timeout_secs) = config.poll_idle_timeout {
+            let should_pause = {
+                let last_req = state.last_request_time.read().unwrap();
+                last_req
+                    .map(|t| t.elapsed().as_secs() > idle_timeout_secs)
+                    .unwrap_or(false)
+            };
+
+            if should_pause
+                && state
+                    .is_polling_active
+                    .load(std::sync::atomic::Ordering::Relaxed)
+            {
+                state
+                    .is_polling_active
+                    .store(false, std::sync::atomic::Ordering::Relaxed);
+                tracing::info!(idle_timeout_secs, "Pausing polling due to inactivity");
+            }
+
+            if !state
+                .is_polling_active
+                .load(std::sync::atomic::Ordering::Relaxed)
+            {
+                sleep(Duration::from_secs(5)).await;
+                continue;
+            } else if should_pause {
+                tracing::info!("Resuming polling after request activity");
+            }
+        }
+
         let mut new_statuses = Vec::new();
         let current_nodes = { state.nodes.read().unwrap().clone() };
 

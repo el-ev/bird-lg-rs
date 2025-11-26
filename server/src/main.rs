@@ -6,9 +6,6 @@ mod state;
 
 use std::sync::Arc;
 
-use axum::{Extension, Router, routing::get};
-use tower_http::cors::CorsLayer;
-
 use crate::{
     cli::Cli,
     config::Config,
@@ -16,6 +13,15 @@ use crate::{
     services::poller,
     state::AppState,
 };
+
+use axum::{
+    Extension, Router,
+    extract::Request,
+    middleware::{self, Next},
+    response::Response,
+    routing::get,
+};
+use tower_http::cors::CorsLayer;
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
@@ -47,6 +53,7 @@ async fn main() -> anyhow::Result<()> {
         .route("/api/peering/{node_name}", get(info::get_node_peering))
         .route("/api/ws", get(ws::ws_handler))
         .layer(CorsLayer::permissive())
+        .layer(middleware::from_fn(track_request))
         .layer(Extension(state))
         .layer(Extension(config));
 
@@ -55,4 +62,13 @@ async fn main() -> anyhow::Result<()> {
     axum::serve(listener, app).await?;
 
     Ok(())
+}
+
+async fn track_request(
+    Extension(state): Extension<AppState>,
+    request: Request,
+    next: Next,
+) -> Response {
+    state.record_request();
+    next.run(request).await
 }
