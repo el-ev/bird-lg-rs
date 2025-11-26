@@ -1,7 +1,6 @@
 use common::models::WsRequest;
 use common::validate_target;
 use futures::future::join_all;
-use serde_json::from_str;
 use wasm_bindgen_futures::spawn_local;
 use web_sys::HtmlInputElement;
 use yew::prelude::*;
@@ -11,7 +10,7 @@ use crate::components::shell::{ShellButton, ShellInput, ShellLine, ShellPrompt, 
 use crate::models::{NodeStatus, TracerouteHop};
 use crate::store::traceroute::TracerouteAction;
 use crate::store::{Action, AppState, NodeTracerouteResult};
-use crate::utils::{log_error, stream_fetch};
+use crate::utils::{log_error, parse_traceroute_line, stream_fetch};
 
 #[derive(Properties, PartialEq)]
 pub struct TracerouteProps {
@@ -129,7 +128,7 @@ pub fn traceroute_section(props: &TracerouteProps) -> Html {
                                         if line.is_empty() {
                                             continue;
                                         }
-                                        if let Ok(hop) = from_str::<TracerouteHop>(&line) {
+                                        if let Some(hop) = parse_traceroute_line(&line) {
                                             node_hops.push(hop);
                                             state.dispatch(Action::Traceroute(
                                                 TracerouteAction::UpdateResult(
