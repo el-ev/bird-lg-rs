@@ -1,5 +1,7 @@
 mod http;
+mod traceroute;
 pub use http::*;
+pub use traceroute::*;
 
 use wasm_bindgen::JsValue;
 use web_sys::console;

@@ -6,6 +6,7 @@ use axum::{
     extract::Query,
     response::{IntoResponse, Response},
 };
+use common::validate_target;
 use serde::Deserialize;
 use tokio::io::AsyncReadExt;
 use tokio_stream::StreamExt;
@@ -13,9 +14,7 @@ use tokio_util::codec::{FramedRead, LinesCodec};
 use tracing::{error, info, warn};
 
 use crate::config::Config;
-use crate::services::traceroute::{
-    IpVersion, TracerouteEntry, build_traceroute_command, validate_target,
-};
+use crate::services::traceroute::{IpVersion, build_traceroute_command};
 
 #[derive(Deserialize)]
 pub struct TracerouteQuery {
@@ -43,7 +42,6 @@ pub async fn traceroute6(
     run_traceroute(config, params, IpVersion::V6).await
 }
 
-// FIXME: Doesn't work on macOS
 async fn run_traceroute(
     config: Arc<Config>,
     params: TracerouteQuery,
@@ -84,47 +82,31 @@ async fn run_traceroute(
                         let combined_stream = tokio_stream::iter(vec![first_line]).chain(lines);
                         let stream_target = target.clone();
 
-                        let json_stream = combined_stream.map(move |line| {
-                            line.map_err(|e| {
+                        let text_stream = combined_stream.map(move |line| match line {
+                            Ok(mut raw_line) => {
+                                if !raw_line.ends_with('\n') {
+                                    raw_line.push('\n');
+                                }
+                                Ok::<_, std::io::Error>(raw_line)
+                            }
+                            Err(e) => {
                                 error!(error = %e, %stream_target, "Failed to read traceroute output");
-                            })
-                            .and_then(|l| {
-                                TracerouteEntry::try_from(l.as_str()).map_err(|e| {
-                                    warn!(%stream_target, line = %l, "Failed to parse traceroute line: {}", e);
-                                })
-                            })
-                            .and_then(|entry| {
-                                serde_json::to_string(&entry)
-                                    .map(|json| json + "\n")
-                                    .map_err(|e| {
-                                        error!(error = %e, %stream_target, "Failed to serialize traceroute entry");
-                                    })
-                            })
-                            .or::<std::io::Error>(Ok(String::new()))
+                                Ok(String::new())
+                            }
                         });
 
-                        Body::from_stream(json_stream).into_response()
+                        Body::from_stream(text_stream).into_response()
                     }
                     None => {
                         let mut stderr_output = String::new();
-                        if let Some(stderr_reader) = stderr.as_mut() {
-                            match stderr_reader.read_to_string(&mut stderr_output).await {
-                                Ok(_) => {}
-                                Err(e) => {
-                                    error!(error = %e, %target, "Failed to read traceroute stderr");
-                                }
-                            }
+                        if let Some(ref mut stderr_reader) = stderr {
+                            let _ = stderr_reader.read_to_string(&mut stderr_output).await;
                         }
+                        let _ = child.wait().await;
 
-                        let response_msg = stderr_output.trim().to_string();
+                        warn!(%target, stderr = %stderr_output.trim(), "Traceroute produced no stdout");
 
-                        if let Err(e) = child.wait().await {
-                            error!(error = %e, %target, "Failed to wait for traceroute process");
-                        }
-
-                        warn!(%target, stderr = %response_msg, "Traceroute produced stderr without stdout");
-
-                        (axum::http::StatusCode::INTERNAL_SERVER_ERROR, response_msg)
+                        (axum::http::StatusCode::INTERNAL_SERVER_ERROR, stderr_output)
                             .into_response()
                     }
                 }
