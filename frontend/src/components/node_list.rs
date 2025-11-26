@@ -1,4 +1,5 @@
 use chrono::Local;
+use common::utils::filter_protocol_details;
 use wasm_bindgen_futures::spawn_local;
 use yew::prelude::*;
 
@@ -8,7 +9,6 @@ use crate::models::NodeStatus;
 use crate::services::stream_fetch;
 use crate::store::modal::ModalAction;
 use crate::store::{Action, AppState};
-use crate::utils::filter_protocol_details;
 
 #[derive(Properties, PartialEq)]
 pub struct NodeListProps {

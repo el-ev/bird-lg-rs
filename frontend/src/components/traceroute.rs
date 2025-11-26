@@ -1,3 +1,4 @@
+use common::validate_target;
 use futures::future::join_all;
 use serde_json::from_str;
 use wasm_bindgen_futures::spawn_local;
@@ -10,7 +11,6 @@ use crate::models::{NodeStatus, TracerouteHop};
 use crate::services::{log_error, stream_fetch};
 use crate::store::traceroute::TracerouteAction;
 use crate::store::{Action, AppState, NodeTracerouteResult};
-use crate::utils::validate_hostname_or_ip;
 
 #[derive(Properties, PartialEq)]
 pub struct TracerouteProps {
@@ -59,21 +59,20 @@ pub fn traceroute_section(props: &TracerouteProps) -> Html {
         Callback::from(move |e: SubmitEvent| {
             e.prevent_default();
 
-            let raw_target = state.traceroute.target.clone();
-            let sanitized_target = raw_target.trim().to_string();
-            if let Err(err) = validate_hostname_or_ip(&sanitized_target) {
+            let target = state.traceroute.target.clone().trim().to_string();
+            if let Err(err) = validate_target(&target) {
                 state.dispatch(Action::Traceroute(TracerouteAction::SetError(err)));
                 return;
             }
             state.dispatch(Action::Traceroute(TracerouteAction::ClearError));
             state.dispatch(Action::Traceroute(TracerouteAction::SetLastParams(
-                sanitized_target.clone(),
+                target.clone(),
                 state.traceroute.version.clone(),
             )));
 
             state.dispatch(Action::Traceroute(TracerouteAction::Start));
 
-            let validated_target = sanitized_target;
+            let validated_target = target;
             let nodes = nodes.clone();
             let traceroute_node = state.traceroute.node.clone();
             let traceroute_version = state.traceroute.version.clone();

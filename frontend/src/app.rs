@@ -9,8 +9,8 @@ use yew_router::prelude::*;
 use crate::components::node_list::handle_protocol_click;
 use crate::components::route_lookup::handle_route_lookup;
 use crate::components::{
-    content_modal::ContentModal, node_list::NodeList,
-    route_lookup::RouteLookup, status_banner::StatusBanner, traceroute::Traceroute,
+    content_modal::ContentModal, node_list::NodeList, route_lookup::RouteLookup,
+    status_banner::StatusBanner, traceroute::Traceroute,
 };
 use crate::config::load_config;
 use crate::models::{NetworkInfo, NodeStatus, PeeringInfo};

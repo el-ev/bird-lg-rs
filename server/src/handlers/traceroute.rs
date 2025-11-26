@@ -6,11 +6,12 @@ use axum::{
     http::StatusCode,
     response::{IntoResponse, Response},
 };
+use common::validate_target;
 use futures_util::StreamExt;
 use serde::Deserialize;
 use tracing::warn;
 
-use crate::{config::Config, services::traceroute::validate_target};
+use crate::config::Config;
 
 #[derive(Deserialize)]
 pub struct TracerouteParams {

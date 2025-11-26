@@ -1,26 +1,8 @@
 use anyhow::Result;
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 use std::fs;
 
-#[derive(Deserialize, Serialize, Clone, Debug)]
-pub struct NetworkInfo {
-    pub name: String,
-    pub asn: String,
-}
-
-#[derive(Deserialize, Serialize, Clone, Debug)]
-pub struct PeeringInfo {
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub ipv4: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub ipv6: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub link_local_ipv6: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub wg_pubkey: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub endpoint: Option<String>,
-}
+pub use common::models::{NetworkInfo, PeeringInfo};
 
 #[derive(Deserialize, Clone, Debug)]
 pub struct Config {

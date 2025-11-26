@@ -1,12 +1,13 @@
 use std::{sync::Arc, time::Duration};
 
 use chrono::Utc;
+use common::Protocol;
+use regex::Regex;
 use tokio::time::sleep;
 use tracing::warn;
 
 use crate::{
     config::{Config, PeeringInfo},
-    parser,
     state::{AppState, NodeStatus},
 };
 
@@ -39,23 +40,21 @@ async fn run(state: AppState, config: Arc<Config>) {
             }
             let resp = req.send().await;
 
-            // Check if we need to fetch peering info (if it's time or if we don't have it yet)
-            if should_fetch_peering || !state.peering.read().unwrap().contains_key(&node.name) {
-                if let Some(info) =
+            if (should_fetch_peering || !state.peering.read().unwrap().contains_key(&node.name))
+                && let Some(info) =
                     fetch_peering_info(&client, &node.url, node.shared_secret.as_deref()).await
-                {
-                    state
-                        .peering
-                        .write()
-                        .unwrap()
-                        .insert(node.name.clone(), info);
-                }
+            {
+                state
+                    .peering
+                    .write()
+                    .unwrap()
+                    .insert(node.name.clone(), info);
             }
 
             let status = match resp {
                 Ok(r) => match r.text().await {
                     Ok(text) => {
-                        let protocols = parser::parse_protocols(&text);
+                        let protocols = parse_protocols(&text);
 
                         NodeStatus {
                             name: node.name.clone(),
@@ -131,4 +130,35 @@ async fn fetch_peering_info(
             None
         }
     }
+}
+
+fn parse_protocols(output: &str) -> Vec<Protocol> {
+    let mut protocols = Vec::new();
+    let re = Regex::new(r"^(\S+)\s+(\S+)\s+(\S+)\s+(\S+)\s+(\S+)\s*(.*)$").unwrap();
+
+    for line in output.lines() {
+        let line = line.trim();
+        if line.is_empty() {
+            continue;
+        }
+
+        if ["Name", "Proto", "Table", "State", "Since", "Info"]
+            .iter()
+            .all(|&header| line.contains(header))
+        {
+            continue;
+        }
+
+        if let Some(caps) = re.captures(line) {
+            protocols.push(Protocol {
+                name: caps[1].to_string(),
+                proto: caps[2].to_string(),
+                table: caps[3].to_string(),
+                state: caps[4].to_string(),
+                since: caps[5].to_string(),
+                info: caps[6].to_string(),
+            });
+        }
+    }
+    protocols
 }

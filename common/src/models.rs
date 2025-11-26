@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
@@ -13,10 +15,15 @@ pub struct Protocol {
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 pub struct PeeringInfo {
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub ipv4: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub ipv6: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub link_local_ipv6: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub wg_pubkey: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub endpoint: Option<String>,
 }
 
@@ -32,6 +39,8 @@ pub struct NodeStatus {
 pub struct NetworkInfo {
     pub name: String,
     pub asn: String,
+    #[serde(default, skip_serializing_if = "HashMap::is_empty")]
+    pub peering: HashMap<String, PeeringInfo>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
