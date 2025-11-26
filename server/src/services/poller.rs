@@ -93,8 +93,9 @@ async fn run(state: AppState, config: Arc<Config>) {
 
         {
             let mut w = state.nodes.write().unwrap();
-            *w = new_statuses;
+            *w = new_statuses.clone();
         }
+        let _ = state.tx.send(new_statuses);
 
         poll_counter = poll_counter.wrapping_add(1);
         sleep(Duration::from_secs(10)).await;

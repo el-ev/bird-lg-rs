@@ -4,6 +4,7 @@ mod config;
 mod routes;
 mod services;
 mod store;
+mod utils;
 
 pub use common::models;
 

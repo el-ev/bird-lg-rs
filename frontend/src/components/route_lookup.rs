@@ -6,7 +6,7 @@ use web_sys::HtmlInputElement;
 use yew::prelude::*;
 
 use crate::components::shell::{ShellButton, ShellInput, ShellPrompt, ShellSelect, ShellToggle};
-use crate::services::stream_fetch;
+use crate::utils::stream_fetch;
 use crate::store::modal::ModalAction;
 use crate::store::{Action, AppState};
 

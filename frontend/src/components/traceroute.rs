@@ -8,7 +8,7 @@ use yew::prelude::*;
 use crate::components::data_table::{DataTable, TableRow};
 use crate::components::shell::{ShellButton, ShellInput, ShellLine, ShellPrompt, ShellSelect};
 use crate::models::{NodeStatus, TracerouteHop};
-use crate::services::{log_error, stream_fetch};
+use crate::utils::{log_error, stream_fetch};
 use crate::store::traceroute::TracerouteAction;
 use crate::store::{Action, AppState, NodeTracerouteResult};
 
