@@ -6,9 +6,10 @@ use yew::prelude::*;
 use crate::components::data_table::{DataTable, TableRow};
 use crate::components::shell::ShellLine;
 use crate::models::NodeStatus;
-use crate::utils::stream_fetch;
 use crate::store::modal::ModalAction;
 use crate::store::{Action, AppState};
+use crate::utils::stream_fetch;
+use common::models::WsRequest;
 
 #[derive(Properties, PartialEq)]
 pub struct NodeListProps {
@@ -109,24 +110,31 @@ pub fn handle_protocol_click(node: String, proto: String, state: UseReducerHandl
         )),
     }));
 
-    spawn_local(async move {
-        let url = format!("{}/api/protocols/{}/{}", state.backend_url, node, proto);
-        let mut aggregated = String::new();
-        let result = stream_fetch(url, {
-            let state = state.clone();
-            move |chunk| {
-                aggregated.push_str(&chunk);
-                let filtered = filter_protocol_details(&aggregated);
-                state.dispatch(Action::Modal(ModalAction::UpdateContent(filtered)));
-            }
-        })
-        .await;
+    if let Some(sender) = &state.ws_sender {
+        sender.emit(WsRequest::ProtocolDetails {
+            node,
+            protocol: proto,
+        });
+    } else {
+        spawn_local(async move {
+            let url = format!("{}/api/protocols/{}/{}", state.backend_url, node, proto);
+            let mut aggregated = String::new();
+            let result = stream_fetch(url, {
+                let state = state.clone();
+                move |chunk| {
+                    aggregated.push_str(&chunk);
+                    let filtered = filter_protocol_details(&aggregated);
+                    state.dispatch(Action::Modal(ModalAction::UpdateContent(filtered)));
+                }
+            })
+            .await;
 
-        if let Err(err) = result {
-            state.dispatch(Action::Modal(ModalAction::UpdateContent(format!(
-                "Failed to load protocol details: {}",
-                err
-            ))));
-        }
-    });
+            if let Err(err) = result {
+                state.dispatch(Action::Modal(ModalAction::UpdateContent(format!(
+                    "Failed to load protocol details: {}",
+                    err
+                ))));
+            }
+        });
+    }
 }

@@ -6,9 +6,10 @@ use web_sys::HtmlInputElement;
 use yew::prelude::*;
 
 use crate::components::shell::{ShellButton, ShellInput, ShellPrompt, ShellSelect, ShellToggle};
-use crate::utils::stream_fetch;
 use crate::store::modal::ModalAction;
 use crate::store::{Action, AppState};
+use crate::utils::stream_fetch;
+use common::models::WsRequest;
 
 #[derive(Properties, PartialEq)]
 pub struct RouteLookupProps {
@@ -147,29 +148,33 @@ pub fn handle_route_lookup(
         command: Some(command),
     }));
 
-    spawn_local(async move {
-        let url = format!(
-            "{}/api/routes/{}?target={}&all={}",
-            state.backend_url, node, target, all
-        );
+    if let Some(sender) = &state.ws_sender {
+        sender.emit(WsRequest::RouteLookup { node, target, all });
+    } else {
+        spawn_local(async move {
+            let url = format!(
+                "{}/api/routes/{}?target={}&all={}",
+                state.backend_url, node, target, all
+            );
 
-        let mut aggregated = String::new();
-        let result = stream_fetch(url, {
-            let state = state.clone();
-            move |chunk| {
-                aggregated.push_str(&chunk);
-                state.dispatch(Action::Modal(ModalAction::UpdateContent(
-                    aggregated.clone(),
-                )));
+            let mut aggregated = String::new();
+            let result = stream_fetch(url, {
+                let state = state.clone();
+                move |chunk| {
+                    aggregated.push_str(&chunk);
+                    state.dispatch(Action::Modal(ModalAction::UpdateContent(
+                        aggregated.clone(),
+                    )));
+                }
+            })
+            .await;
+
+            if let Err(err) = result {
+                state.dispatch(Action::Modal(ModalAction::UpdateContent(format!(
+                    "Failed to load route details: {}",
+                    err
+                ))));
             }
-        })
-        .await;
-
-        if let Err(err) = result {
-            state.dispatch(Action::Modal(ModalAction::UpdateContent(format!(
-                "Failed to load route details: {}",
-                err
-            ))));
-        }
-    });
+        });
+    }
 }

@@ -1,4 +1,4 @@
-use std::{io, sync::Arc};
+use std::sync::Arc;
 
 use axum::{
     body::Body,
@@ -6,10 +6,9 @@ use axum::{
     http::StatusCode,
     response::{IntoResponse, Response},
 };
-use futures_util::StreamExt;
 use tracing::warn;
 
-use crate::{config::Config, state::AppState};
+use crate::{config::Config, services::request::post_stream, state::AppState};
 
 pub async fn get_protocol_details(
     Path((node_name, protocol)): Path<(String, String)>,
@@ -17,47 +16,18 @@ pub async fn get_protocol_details(
     Extension(state): Extension<AppState>,
 ) -> Response {
     if let Some(node) = config.nodes.iter().find(|n| n.name == node_name) {
-        let url = format!("{}/bird", node.url);
+        let command = format!("show protocols all {}", protocol);
 
-        let mut req = state
-            .http_client
-            .post(&url)
-            .body(format!("show protocols all {}", protocol));
-
-        if let Some(secret) = &node.shared_secret {
-            req = req.header("x-shared-secret", secret);
-        }
-
-        match req.send().await {
-            Ok(resp) => {
-                let status = resp.status();
-                if !status.is_success() {
-                    warn!(
-                        node = %node_name,
-                        protocol = %protocol,
-                        status = %status,
-                        "Node returned non-success status for protocol details"
-                    );
-                    return (
-                        StatusCode::BAD_GATEWAY,
-                        "Node rejected protocol details request",
-                    )
-                        .into_response();
-                }
-
-                let stream = resp
-                    .bytes_stream()
-                    .map(|chunk| chunk.map_err(io::Error::other));
-
-                Body::from_stream(stream).into_response()
-            }
-            Err(e) => {
-                warn!(node = %node_name, error = ?e, "Failed to fetch protocol details");
-                (
-                    StatusCode::BAD_GATEWAY,
-                    "Unable to reach the node at the moment. Please check back soon.",
-                )
-                    .into_response()
+        match post_stream(&state.http_client, node, "/bird", &command).await {
+            Ok(stream) => Body::from_stream(stream).into_response(),
+            Err(err_msg) => {
+                warn!(
+                    node = %node_name,
+                    protocol = %protocol,
+                    error = %err_msg,
+                    "Failed to fetch protocol details"
+                );
+                (StatusCode::BAD_GATEWAY, err_msg).into_response()
             }
         }
     } else {

@@ -47,7 +47,10 @@ async fn main() -> anyhow::Result<()> {
             "/api/protocols/{node_name}/{protocol}",
             get(protocol::get_protocol_details),
         )
-        .route("/api/traceroute", get(traceroute::proxy_traceroute))
+        .route(
+            "/api/traceroute/{node_name}",
+            get(traceroute::proxy_traceroute),
+        )
         .route("/api/routes/{node_name}", get(route::get_route))
         .route("/api/info", get(info::get_network_info))
         .route("/api/peering/{node_name}", get(info::get_node_peering))

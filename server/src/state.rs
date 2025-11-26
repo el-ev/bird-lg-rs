@@ -12,7 +12,7 @@ use tokio::sync::broadcast;
 use tracing::warn;
 
 use crate::config::PeeringInfo;
-pub use common::models::NodeStatus;
+pub use common::models::{NodeStatus, WsRequest, WsResponse};
 
 #[derive(Clone)]
 pub struct AppState {
@@ -20,7 +20,7 @@ pub struct AppState {
     pub peering: Arc<RwLock<HashMap<String, PeeringInfo>>>,
 
     pub http_client: reqwest::Client,
-    pub tx: broadcast::Sender<Vec<NodeStatus>>,
+    pub tx: broadcast::Sender<WsResponse>,
 
     pub last_request_time: Arc<RwLock<Option<Instant>>>,
     pub is_polling_active: Arc<AtomicBool>,

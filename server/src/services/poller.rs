@@ -7,8 +7,9 @@ use tokio::time::sleep;
 use tracing::warn;
 
 use crate::{
-    config::{Config, PeeringInfo},
-    state::{AppState, NodeStatus},
+    config::{Config, NodeConfig, PeeringInfo},
+    services::request::{build_get, build_post},
+    state::{AppState, NodeStatus, WsResponse},
 };
 
 pub fn spawn(state: AppState, config: Arc<Config>) {
@@ -64,16 +65,12 @@ async fn run(state: AppState, config: Arc<Config>) {
         let should_fetch_peering = poll_counter.is_multiple_of(PEERING_POLL_INTERVAL);
 
         for node in &config.nodes {
-            let url = format!("{}/bird", node.url);
-            let mut req = client.post(&url).body("show protocols");
-            if let Some(secret) = &node.shared_secret {
-                req = req.header("x-shared-secret", secret);
-            }
+            let command = "show protocols";
+            let req = build_post(&client, node, "/bird", command);
             let resp = req.send().await;
 
             if (should_fetch_peering || !state.peering.read().unwrap().contains_key(&node.name))
-                && let Some(info) =
-                    fetch_peering_info(&client, &node.url, node.shared_secret.as_deref()).await
+                && let Some(info) = fetch_peering_info(&client, node).await
             {
                 state
                     .peering
@@ -122,43 +119,52 @@ async fn run(state: AppState, config: Arc<Config>) {
             new_statuses.push(status);
         }
 
+        let changed = if new_statuses.len() != current_nodes.len() {
+            true
+        } else {
+            new_statuses
+                .iter()
+                .zip(current_nodes.iter())
+                .any(|(new, old)| {
+                    new.name != old.name || new.protocols != old.protocols || new.error != old.error
+                })
+        };
+
         {
             let mut w = state.nodes.write().unwrap();
             *w = new_statuses.clone();
         }
-        let _ = state.tx.send(new_statuses);
+
+        if changed {
+            let _ = state.tx.send(WsResponse::Protocols(new_statuses));
+        } else {
+            let _ = state.tx.send(WsResponse::NoChange {
+                last_updated: Utc::now(),
+            });
+        }
 
         poll_counter = poll_counter.wrapping_add(1);
         sleep(Duration::from_secs(10)).await;
     }
 }
 
-async fn fetch_peering_info(
-    client: &reqwest::Client,
-    node_url: &str,
-    secret: Option<&str>,
-) -> Option<PeeringInfo> {
-    let peering_url = format!("{}/peering", node_url);
-
-    let mut req = client.get(&peering_url);
-    if let Some(secret) = secret {
-        req = req.header("x-shared-secret", secret);
-    }
+async fn fetch_peering_info(client: &reqwest::Client, node: &NodeConfig) -> Option<PeeringInfo> {
+    let req = build_get(client, node, "/peering");
 
     match req.send().await {
         Ok(resp) if resp.status().is_success() => match resp.json::<Option<PeeringInfo>>().await {
             Ok(peering) => peering,
             Err(e) => {
-                warn!(url = %peering_url, error = ?e, "Failed to parse peering info");
+                warn!(node = %node.name, error = ?e, "Failed to parse peering info");
                 None
             }
         },
         Ok(resp) => {
-            warn!(url = %peering_url, status = %resp.status(), "Peering endpoint returned non-success status");
+            warn!(node = %node.name, status = %resp.status(), "Peering endpoint returned non-success status");
             None
         }
         Err(e) => {
-            warn!(url = %peering_url, error = ?e, "Failed to fetch peering info");
+            warn!(node = %node.name, error = ?e, "Failed to fetch peering info");
             None
         }
     }

@@ -12,6 +12,8 @@ use traceroute::{TracerouteAction, TracerouteState};
 
 pub use traceroute::NodeTracerouteResult;
 
+use common::models::WsRequest;
+
 #[derive(Clone, Debug, PartialEq, Default)]
 pub struct AppState {
     pub nodes: Vec<NodeStatus>,
@@ -24,6 +26,7 @@ pub struct AppState {
     pub network_info: Option<NetworkInfo>,
     pub username: String,
     pub backend_url: String,
+    pub ws_sender: Option<Callback<WsRequest>>,
 }
 
 pub enum Action {
@@ -39,6 +42,10 @@ pub enum Action {
         username: String,
         backend_url: String,
     },
+    SetWsSender(Callback<WsRequest>),
+    UpdateTimestamp(chrono::DateTime<chrono::Utc>),
+    RouteLookupResult(String),
+    ProtocolDetailsResult(String),
 }
 
 impl Reducible for AppState {
@@ -78,6 +85,22 @@ impl Reducible for AppState {
             } => {
                 next_state.username = username;
                 next_state.backend_url = backend_url;
+            }
+            Action::SetWsSender(sender) => {
+                next_state.ws_sender = Some(sender);
+            }
+            Action::UpdateTimestamp(ts) => {
+                for node in &mut next_state.nodes {
+                    if node.error.is_none() {
+                        node.last_updated = ts;
+                    }
+                }
+            }
+            Action::RouteLookupResult(result) => {
+                next_state.modal.content = result;
+            }
+            Action::ProtocolDetailsResult(result) => {
+                next_state.modal.content = result;
             }
         }
 
