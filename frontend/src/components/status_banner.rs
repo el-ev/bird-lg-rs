@@ -8,10 +8,10 @@ pub struct StatusBannerProps {
 
 #[function_component(StatusBanner)]
 pub fn status_banner(props: &StatusBannerProps) -> Html {
-    if props.fetch_error.is_some() {
+    if let Some(e) = &props.fetch_error {
         return html! {
             <div class="status-message status-message--error">
-                { "Error connecting to backend" }
+                 { e.to_owned() }
             </div>
         };
     }
