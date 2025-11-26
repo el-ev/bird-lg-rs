@@ -10,6 +10,8 @@ pub struct Config {
     pub nodes: Vec<NodeConfig>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub network: Option<NetworkInfo>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub poll_idle_timeout: Option<u64>,
 }
 
 #[derive(Deserialize, Clone, Debug)]
