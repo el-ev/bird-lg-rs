@@ -12,7 +12,7 @@ use tower_http::cors::CorsLayer;
 use crate::{
     cli::Cli,
     config::Config,
-    handlers::{info, protocol, route, status, traceroute},
+    handlers::{info, protocol, route, status, traceroute, ws},
     services::poller,
     state::AppState,
 };
@@ -45,6 +45,7 @@ async fn main() -> anyhow::Result<()> {
         .route("/api/routes/{node_name}", get(route::get_route))
         .route("/api/info", get(info::get_network_info))
         .route("/api/peering/{node_name}", get(info::get_node_peering))
+        .route("/api/ws", get(ws::ws_handler))
         .layer(CorsLayer::permissive())
         .layer(Extension(state))
         .layer(Extension(config));

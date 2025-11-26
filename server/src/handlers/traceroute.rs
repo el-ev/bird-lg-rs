@@ -11,7 +11,7 @@ use futures_util::StreamExt;
 use serde::Deserialize;
 use tracing::warn;
 
-use crate::config::Config;
+use crate::{config::Config, state::AppState};
 
 #[derive(Deserialize)]
 pub struct TracerouteParams {
@@ -24,6 +24,7 @@ pub struct TracerouteParams {
 pub async fn proxy_traceroute(
     Query(params): Query<TracerouteParams>,
     Extension(config): Extension<Arc<Config>>,
+    Extension(state): Extension<AppState>,
 ) -> Response {
     let TracerouteParams {
         node,
@@ -37,7 +38,6 @@ pub async fn proxy_traceroute(
     }
 
     if let Some(node_config) = config.nodes.iter().find(|n| n.name == node) {
-        let client = reqwest::Client::new();
         let endpoint = match version.as_str() {
             "4" => "traceroute4",
             "6" => "traceroute6",
@@ -45,7 +45,7 @@ pub async fn proxy_traceroute(
         };
         let url = format!("{}/{}?target={}", node_config.url, endpoint, target);
 
-        let mut req = client.get(&url);
+        let mut req = state.http_client.get(&url);
         if let Some(secret) = &node_config.shared_secret {
             req = req.header("x-shared-secret", secret);
         }

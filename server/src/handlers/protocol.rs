@@ -9,17 +9,18 @@ use axum::{
 use futures_util::StreamExt;
 use tracing::warn;
 
-use crate::config::Config;
+use crate::{config::Config, state::AppState};
 
 pub async fn get_protocol_details(
     Path((node_name, protocol)): Path<(String, String)>,
     Extension(config): Extension<Arc<Config>>,
+    Extension(state): Extension<AppState>,
 ) -> Response {
     if let Some(node) = config.nodes.iter().find(|n| n.name == node_name) {
-        let client = reqwest::Client::new();
         let url = format!("{}/bird", node.url);
 
-        let mut req = client
+        let mut req = state
+            .http_client
             .post(&url)
             .body(format!("show protocols all {}", protocol));
 

@@ -11,7 +11,7 @@ use ipnet::IpNet;
 use serde::Deserialize;
 use tracing::warn;
 
-use crate::config::Config;
+use crate::{config::Config, state::AppState};
 
 #[derive(Deserialize)]
 pub struct RouteParams {
@@ -24,6 +24,7 @@ pub async fn get_route(
     Path(node_name): Path<String>,
     Query(params): Query<RouteParams>,
     Extension(config): Extension<Arc<Config>>,
+    Extension(state): Extension<AppState>,
 ) -> Response {
     if let Some(node) = config.nodes.iter().find(|n| n.name == node_name) {
         let target = params.target.trim();
@@ -37,7 +38,6 @@ pub async fn get_route(
                 .into_response();
         }
 
-        let client = reqwest::Client::new();
         let url = format!("{}/bird", node.url);
 
         let command = if params.all {
@@ -46,7 +46,7 @@ pub async fn get_route(
             format!("show route for {}", params.target)
         };
 
-        let mut req = client.post(&url).body(command);
+        let mut req = state.http_client.post(&url).body(command);
         if let Some(secret) = &node.shared_secret {
             req = req.header("x-shared-secret", secret);
         }

@@ -6,7 +6,7 @@ use yew::prelude::*;
 use crate::components::data_table::{DataTable, TableRow};
 use crate::components::shell::ShellLine;
 use crate::models::NodeStatus;
-use crate::services::stream_fetch;
+use crate::utils::stream_fetch;
 use crate::store::modal::ModalAction;
 use crate::store::{Action, AppState};
 
