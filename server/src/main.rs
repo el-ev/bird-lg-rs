@@ -1,7 +1,6 @@
 mod cli;
 mod config;
 mod handlers;
-mod parser;
 mod services;
 mod state;
 

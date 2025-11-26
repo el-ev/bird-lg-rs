@@ -1,6 +1,14 @@
 use std::net::IpAddr;
 
-pub fn validate_hostname_or_ip(target: &str) -> Result<(), String> {
+pub fn filter_protocol_details(raw: &str) -> String {
+    const PROTOCOL_HEADERS: [&str; 6] = ["Name", "Proto", "Table", "State", "Since", "Info"];
+    raw.lines()
+        .filter(|line| PROTOCOL_HEADERS.iter().any(|header| !line.contains(header)))
+        .collect::<Vec<_>>()
+        .join("\n")
+}
+
+pub fn validate_target(target: &str) -> Result<(), String> {
     let target = target.trim();
 
     if target.is_empty() {
@@ -31,12 +39,4 @@ pub fn validate_hostname_or_ip(target: &str) -> Result<(), String> {
     }
 
     Ok(())
-}
-
-pub fn filter_protocol_details(raw: &str) -> String {
-    const PROTOCOL_HEADERS: [&str; 6] = ["Name", "Proto", "Table", "State", "Since", "Info"];
-    raw.lines()
-        .filter(|line| PROTOCOL_HEADERS.iter().any(|header| !line.contains(header)))
-        .collect::<Vec<_>>()
-        .join("\n")
 }
