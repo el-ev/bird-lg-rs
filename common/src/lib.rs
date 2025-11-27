@@ -1,5 +1,7 @@
 pub mod models;
 pub mod utils;
 
-pub use models::{NetworkInfo, NodeStatus, PeeringInfo, Protocol, TracerouteHop};
-pub use utils::{filter_protocol_details, validate_target};
+pub use models::{HopRange, NetworkInfo, NodeStatus, PeeringInfo, Protocol, TracerouteHop};
+pub use utils::{
+    filter_protocol_details, fold_consecutive_timeouts, parse_traceroute_line, validate_target,
+};

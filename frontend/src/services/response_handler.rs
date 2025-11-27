@@ -1,7 +1,7 @@
 use crate::store::traceroute::TracerouteAction;
 use crate::store::{Action, AppState, NodeTracerouteResult};
-use crate::utils::{log_error, parse_traceroute_line};
-use common::models::{AppResponse, TracerouteHop};
+use crate::utils::log_error;
+use common::models::AppResponse;
 use yew::prelude::*;
 
 pub fn handle_app_response(response: AppResponse, state: &UseReducerHandle<AppState>) {
@@ -12,28 +12,39 @@ pub fn handle_app_response(response: AppResponse, state: &UseReducerHandle<AppSt
         AppResponse::NoChange { last_updated } => {
             state.dispatch(Action::UpdateTimestamp(last_updated));
         }
-        AppResponse::TracerouteResult { node, result } => {
-            let hops: Vec<TracerouteHop> = result
-                .lines()
-                .filter(|line| !line.trim().is_empty())
-                .filter_map(parse_traceroute_line)
-                .collect();
-
+        AppResponse::TracerouteInit { node } => {
+            state.dispatch(Action::Traceroute(TracerouteAction::InitResult(node)));
+        }
+        AppResponse::TracerouteUpdate { node, hop } => {
             state.dispatch(Action::Traceroute(TracerouteAction::UpdateResult(
                 node,
-                NodeTracerouteResult::Hops(hops),
+                NodeTracerouteResult::Hops(vec![hop]),
             )));
         }
-        AppResponse::RouteLookupResult { node: _, result } => {
-            state.dispatch(Action::RouteLookupResult(result));
+        AppResponse::TracerouteError { node, error } => {
+            state.dispatch(Action::Traceroute(TracerouteAction::UpdateResult(
+                node,
+                NodeTracerouteResult::Error(error),
+            )));
         }
-        AppResponse::ProtocolDetailsResult {
+        AppResponse::RouteLookupInit { node: _ } => {
+            state.dispatch(Action::RouteLookupInit(String::new()));
+        }
+        AppResponse::RouteLookupUpdate { node: _, line } => {
+            state.dispatch(Action::RouteLookupUpdate(line));
+        }
+        AppResponse::ProtocolDetailsInit {
             node: _,
             protocol: _,
-            details,
         } => {
-            let filtered = common::utils::filter_protocol_details(&details);
-            state.dispatch(Action::ProtocolDetailsResult(filtered));
+            state.dispatch(Action::ProtocolDetailsInit(String::new()));
+        }
+        AppResponse::ProtocolDetailsUpdate {
+            node: _,
+            protocol: _,
+            line,
+        } => {
+            state.dispatch(Action::ProtocolDetailsUpdate(line));
         }
         AppResponse::NetworkInfo(info) => {
             state.dispatch(Action::SetNetworkInfo(info));

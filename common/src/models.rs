@@ -43,9 +43,38 @@ pub struct NetworkInfo {
     pub peering: HashMap<String, PeeringInfo>,
 }
 
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq)]
+pub enum HopRange {
+    Single(u32),
+    Range(u32, u32),
+}
+
+impl HopRange {
+    pub fn start(&self) -> u32 {
+        match self {
+            HopRange::Single(n) | HopRange::Range(n, _) => *n,
+        }
+    }
+
+    pub fn end(&self) -> u32 {
+        match self {
+            HopRange::Single(n) | HopRange::Range(_, n) => *n,
+        }
+    }
+}
+
+impl std::fmt::Display for HopRange {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            HopRange::Single(n) => write!(f, "{}", n),
+            HopRange::Range(start, end) => write!(f, "{}-{}", start, end),
+        }
+    }
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 pub struct TracerouteHop {
-    pub hop: u32,
+    pub hop: HopRange,
     pub address: Option<String>,
     pub hostname: Option<String>,
     pub rtts: Option<Vec<f32>>,
@@ -61,45 +90,49 @@ pub struct TracerouteParams {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(tag = "t")]
 pub enum AppRequest {
+    #[serde(rename = "gp")]
     GetProtocols,
-    Traceroute {
-        node: String,
-        target: String,
-    },
+    #[serde(rename = "tr")]
+    Traceroute { node: String, target: String },
+    #[serde(rename = "rl")]
     RouteLookup {
         node: String,
         target: String,
         #[serde(default)]
         all: bool,
     },
-    ProtocolDetails {
-        node: String,
-        protocol: String,
-    },
+    #[serde(rename = "pd")]
+    ProtocolDetails { node: String, protocol: String },
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(untagged)]
+#[serde(tag = "t")]
 pub enum AppResponse {
-    Protocols {
-        data: Vec<NodeStatus>,
-    },
-    NoChange {
-        last_updated: DateTime<Utc>,
-    },
-    TracerouteResult {
-        node: String,
-        result: String,
-    },
-    RouteLookupResult {
-        node: String,
-        result: String,
-    },
-    ProtocolDetailsResult {
+    #[serde(rename = "pr")]
+    Protocols { data: Vec<NodeStatus> },
+    #[serde(rename = "nc")]
+    NoChange { last_updated: DateTime<Utc> },
+    #[serde(rename = "tri")]
+    TracerouteInit { node: String },
+    #[serde(rename = "tru")]
+    TracerouteUpdate { node: String, hop: TracerouteHop },
+    #[serde(rename = "tre")]
+    TracerouteError { node: String, error: String },
+    #[serde(rename = "rli")]
+    RouteLookupInit { node: String },
+    // TODO send batch lines
+    #[serde(rename = "rlu")]
+    RouteLookupUpdate { node: String, line: String },
+    #[serde(rename = "pdi")]
+    ProtocolDetailsInit { node: String, protocol: String },
+    #[serde(rename = "pdu")]
+    ProtocolDetailsUpdate {
         node: String,
         protocol: String,
-        details: String,
+        line: String,
     },
+    #[serde(rename = "ni")]
     NetworkInfo(NetworkInfo),
+    #[serde(rename = "e")]
     Error(String),
 }

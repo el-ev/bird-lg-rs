@@ -43,8 +43,10 @@ pub enum Action {
     SetWsSender(Callback<AppRequest>),
     ClearWsSender,
     UpdateTimestamp(DateTime<Utc>),
-    RouteLookupResult(String),
-    ProtocolDetailsResult(String),
+    RouteLookupInit(String),
+    RouteLookupUpdate(String),
+    ProtocolDetailsInit(String),
+    ProtocolDetailsUpdate(String),
 }
 
 impl Reducible for AppState {
@@ -92,11 +94,17 @@ impl Reducible for AppState {
                     }
                 }
             }
-            Action::RouteLookupResult(result) => {
+            Action::RouteLookupInit(result) => {
                 next_state.modal.content = result;
             }
-            Action::ProtocolDetailsResult(result) => {
+            Action::RouteLookupUpdate(result) => {
+                next_state.modal.content = self.modal.content.clone() + "\n" + &result; 
+            }
+            Action::ProtocolDetailsInit(result) => {
                 next_state.modal.content = result;
+            }
+            Action::ProtocolDetailsUpdate(result) => {
+                next_state.modal.content = self.modal.content.clone() + "\n" + &result; 
             }
         }
 
