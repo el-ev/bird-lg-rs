@@ -6,8 +6,8 @@ use yew::prelude::*;
 
 pub fn handle_app_response(response: AppResponse, state: &UseReducerHandle<AppState>) {
     match response {
-        AppResponse::Protocols(nodes) => {
-            state.dispatch(Action::SetNodes(nodes));
+        AppResponse::Protocols { data } => {
+            state.dispatch(Action::SetNodes(data));
         }
         AppResponse::NoChange { last_updated } => {
             state.dispatch(Action::UpdateTimestamp(last_updated));

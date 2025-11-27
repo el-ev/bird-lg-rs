@@ -167,7 +167,7 @@ fn broadcast_updates(
     }
 
     if changed {
-        let _ = state.tx.send(AppResponse::Protocols(new_statuses));
+        let _ = state.tx.send(AppResponse::Protocols { data: new_statuses });
     } else {
         let _ = state.tx.send(AppResponse::NoChange {
             last_updated: Utc::now(),

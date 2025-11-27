@@ -3,10 +3,7 @@ use std::collections::HashMap;
 use std::rc::Rc;
 use yew::prelude::*;
 
-use crate::{
-    models::{NetworkInfo, NodeStatus, PeeringInfo},
-    services::api::Api,
-};
+use crate::models::{NetworkInfo, NodeStatus, PeeringInfo};
 
 pub mod modal;
 pub mod traceroute;
@@ -31,7 +28,6 @@ pub struct AppState {
     pub username: String,
     pub backend_url: String,
     pub ws_sender: Option<Callback<AppRequest>>,
-    pub api_client: Api,
 }
 
 pub enum Action {
