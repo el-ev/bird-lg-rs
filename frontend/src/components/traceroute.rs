@@ -1,4 +1,4 @@
-use common::validate_target;
+use common::{fold_timeouts, validate_target};
 use futures::future::join_all;
 use wasm_bindgen_futures::spawn_local;
 use web_sys::HtmlInputElement;
@@ -191,7 +191,7 @@ pub fn traceroute_section(props: &TracerouteProps) -> Html {
                                                 .to_vec()
                                             }
                                             rows={
-                                                hops.iter().map(|hop| {
+                                                fold_timeouts(hops).iter().map(|hop| {
                                                     TableRow {
                                                         cells: vec![
                                                             html! { hop.hop.to_string() },

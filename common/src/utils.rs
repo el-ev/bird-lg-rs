@@ -118,84 +118,61 @@ pub fn parse_traceroute_line(line: &str) -> Option<TracerouteHop> {
     })
 }
 
-pub fn fold_consecutive_timeouts(hops: Vec<TracerouteHop>) -> Vec<TracerouteHop> {
-    if hops.is_empty() {
-        return hops;
-    }
-
-    let mut result = Vec::new();
-    let mut timeout_start: Option<u32> = None;
-    let mut timeout_end: Option<u32> = None;
-
-    for hop in hops {
-        let is_timeout = hop.address.is_none() && hop.hostname.is_none();
-
-        if is_timeout {
-            let hop_num = hop.hop.start();
-            match timeout_start {
-                None => {
-                    // Start of a new timeout sequence
-                    timeout_start = Some(hop_num);
-                    timeout_end = Some(hop_num);
-                }
-                Some(_) => {
-                    // Continue the timeout sequence
-                    timeout_end = Some(hop_num);
-                }
-            }
-        } else {
-            // Not a timeout - flush any pending timeout range
-            if let (Some(start), Some(end)) = (timeout_start, timeout_end) {
-                if start == end {
-                    result.push(TracerouteHop {
-                        hop: HopRange::Single(start),
-                        address: None,
-                        hostname: None,
-                        rtts: None,
-                    });
-                } else {
-                    result.push(TracerouteHop {
-                        hop: HopRange::Range(start, end),
-                        address: None,
-                        hostname: None,
-                        rtts: None,
-                    });
-                }
-                timeout_start = None;
-                timeout_end = None;
-            }
-
-            // Add the current non-timeout hop
-            result.push(hop);
-        }
-    }
-
-    // Flush any remaining timeout range at the end
-    if let (Some(start), Some(end)) = (timeout_start, timeout_end) {
-        if start == end {
-            result.push(TracerouteHop {
-                hop: HopRange::Single(start),
-                address: None,
-                hostname: None,
-                rtts: None,
-            });
-        } else {
-            result.push(TracerouteHop {
-                hop: HopRange::Range(start, end),
-                address: None,
-                hostname: None,
-                rtts: None,
-            });
-        }
-    }
-
-    result
-}
-
 fn parse_ip(value: &str) -> String {
     value
         .trim_matches(&['(', ')'][..])
         .parse::<IpAddr>()
         .map(|ip| ip.to_string())
         .unwrap_or_else(|_| value.to_string())
+}
+
+pub fn fold_timeouts(hops: &[TracerouteHop]) -> Vec<TracerouteHop> {
+    if hops.is_empty() {
+        return Vec::new();
+    }
+
+    let mut result = Vec::new();
+    let mut pending_timeout: Option<(u32, u32)> = None;
+
+    let flush_timeout = |(start, end): (u32, u32), res: &mut Vec<TracerouteHop>| {
+        let hop_enum = if start == end {
+            HopRange::Single(start)
+        } else {
+            HopRange::Range(start, end)
+        };
+
+        res.push(TracerouteHop {
+            hop: hop_enum,
+            address: None,
+            hostname: None,
+            rtts: None,
+        });
+    };
+
+    for hop in hops {
+        let is_timeout = hop.address.is_none() && hop.hostname.is_none();
+        let hop_num = hop.hop.start();
+
+        if is_timeout {
+            match pending_timeout {
+                Some((start, _)) => {
+                    pending_timeout = Some((start, hop_num));
+                }
+                None => {
+                    pending_timeout = Some((hop_num, hop_num));
+                }
+            }
+        } else {
+            if let Some(range) = pending_timeout.take() {
+                flush_timeout(range, &mut result);
+            }
+            result.push(hop.clone());
+        }
+    }
+
+    if let Some(range) = pending_timeout {
+        flush_timeout(range, &mut result);
+    }
+
+    result
 }

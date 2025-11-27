@@ -2,8 +2,8 @@ use crate::config::NodeConfig;
 use axum::body::Bytes;
 use futures_util::StreamExt;
 use reqwest::{Body, Client, RequestBuilder};
-use tracing::info;
 use std::io;
+use tracing::info;
 
 pub fn build_get(client: &Client, node: &NodeConfig, endpoint: impl AsRef<str>) -> RequestBuilder {
     let url = format!("{}{}", node.url.trim_end_matches('/'), endpoint.as_ref());
