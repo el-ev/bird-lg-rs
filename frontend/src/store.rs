@@ -1,8 +1,12 @@
+use chrono::{DateTime, Utc};
 use std::collections::HashMap;
 use std::rc::Rc;
 use yew::prelude::*;
 
-use crate::models::{NetworkInfo, NodeStatus, PeeringInfo};
+use crate::{
+    models::{NetworkInfo, NodeStatus, PeeringInfo},
+    services::api::Api,
+};
 
 pub mod modal;
 pub mod traceroute;
@@ -12,7 +16,7 @@ use traceroute::{TracerouteAction, TracerouteState};
 
 pub use traceroute::NodeTracerouteResult;
 
-use common::models::WsRequest;
+use common::models::AppRequest;
 
 #[derive(Clone, Debug, PartialEq, Default)]
 pub struct AppState {
@@ -26,24 +30,23 @@ pub struct AppState {
     pub network_info: Option<NetworkInfo>,
     pub username: String,
     pub backend_url: String,
-    pub ws_sender: Option<Callback<WsRequest>>,
+    pub ws_sender: Option<Callback<AppRequest>>,
+    pub api_client: Api,
 }
 
 pub enum Action {
     SetNodes(Vec<NodeStatus>),
     SetError(String),
-    ClearError,
-    SetDataReady(bool),
-    SetConfigReady(bool),
     Modal(ModalAction),
     Traceroute(TracerouteAction),
-    SetNetworkInfo(Option<NetworkInfo>),
+    SetNetworkInfo(NetworkInfo),
     SetConfig {
         username: String,
         backend_url: String,
     },
-    SetWsSender(Callback<WsRequest>),
-    UpdateTimestamp(chrono::DateTime<chrono::Utc>),
+    SetWsSender(Callback<AppRequest>),
+    ClearWsSender,
+    UpdateTimestamp(DateTime<Utc>),
     RouteLookupResult(String),
     ProtocolDetailsResult(String),
 }
@@ -57,18 +60,11 @@ impl Reducible for AppState {
         match action {
             Action::SetNodes(nodes) => {
                 next_state.nodes = nodes;
+                next_state.data_ready = true;
+                next_state.fetch_error = None;
             }
             Action::SetError(err) => {
                 next_state.fetch_error = Some(err);
-            }
-            Action::ClearError => {
-                next_state.fetch_error = None;
-            }
-            Action::SetDataReady(ready) => {
-                next_state.data_ready = ready;
-            }
-            Action::SetConfigReady(ready) => {
-                next_state.config_ready = ready;
             }
             Action::Modal(act) => {
                 next_state.modal.reduce(act);
@@ -77,7 +73,7 @@ impl Reducible for AppState {
                 next_state.traceroute.reduce(act);
             }
             Action::SetNetworkInfo(info) => {
-                next_state.network_info = info;
+                next_state.network_info = Some(info);
             }
             Action::SetConfig {
                 username,
@@ -85,9 +81,13 @@ impl Reducible for AppState {
             } => {
                 next_state.username = username;
                 next_state.backend_url = backend_url;
+                next_state.config_ready = true;
             }
             Action::SetWsSender(sender) => {
                 next_state.ws_sender = Some(sender);
+            }
+            Action::ClearWsSender => {
+                next_state.ws_sender = None;
             }
             Action::UpdateTimestamp(ts) => {
                 for node in &mut next_state.nodes {

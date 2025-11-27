@@ -1,25 +1,29 @@
 use std::sync::Arc;
 
-use axum::{
-    body::Body,
-    extract::{Extension, Path},
-    http::StatusCode,
-    response::{IntoResponse, Response},
-};
+use axum::extract::{Extension, Path};
 use tracing::warn;
 
-use crate::{config::Config, services::request::post_stream, state::AppState};
+use crate::{
+    config::Config,
+    services::request::post_text,
+    state::{AppState, AppResponse},
+};
+use axum::Json;
 
 pub async fn get_protocol_details(
     Path((node_name, protocol)): Path<(String, String)>,
     Extension(config): Extension<Arc<Config>>,
     Extension(state): Extension<AppState>,
-) -> Response {
+) -> Json<AppResponse> {
     if let Some(node) = config.nodes.iter().find(|n| n.name == node_name) {
         let command = format!("show protocols all {}", protocol);
 
-        match post_stream(&state.http_client, node, "/bird", &command).await {
-            Ok(stream) => Body::from_stream(stream).into_response(),
+        match post_text(&state.http_client, node, "/bird", &command).await {
+            Ok(text) => Json(AppResponse::ProtocolDetailsResult {
+                node: node_name,
+                protocol,
+                details: text,
+            }),
             Err(err_msg) => {
                 warn!(
                     node = %node_name,
@@ -27,10 +31,10 @@ pub async fn get_protocol_details(
                     error = %err_msg,
                     "Failed to fetch protocol details"
                 );
-                (StatusCode::BAD_GATEWAY, err_msg).into_response()
+                Json(AppResponse::Error(err_msg))
             }
         }
     } else {
-        (StatusCode::NOT_FOUND, "Node not found").into_response()
+        Json(AppResponse::Error("Node not found".into()))
     }
 }
