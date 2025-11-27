@@ -1,15 +1,11 @@
 use std::net::IpAddr;
 
 use ipnet::IpNet;
-use wasm_bindgen_futures::spawn_local;
 use web_sys::HtmlInputElement;
 use yew::prelude::*;
 
 use crate::components::shell::{ShellButton, ShellInput, ShellPrompt, ShellSelect, ShellToggle};
-use crate::store::modal::ModalAction;
-use crate::store::{Action, AppState};
-use crate::utils::stream_fetch;
-use common::models::WsRequest;
+use crate::store::AppState;
 
 #[derive(Properties, PartialEq)]
 pub struct RouteLookupProps {
@@ -125,56 +121,5 @@ pub fn route_lookup(props: &RouteLookupProps) -> Html {
                 }
             }
         </section>
-    }
-}
-
-pub fn handle_route_lookup(
-    node: String,
-    target: String,
-    all: bool,
-    state: UseReducerHandle<AppState>,
-) {
-    let command = if all {
-        format!(
-            "{}@{}$ birdc show route {} all",
-            state.username, node, target
-        )
-    } else {
-        format!("{}@{}$ birdc show route {}", state.username, node, target)
-    };
-
-    state.dispatch(Action::Modal(ModalAction::Open {
-        content: "Loading...".to_string(),
-        command: Some(command),
-    }));
-
-    if let Some(sender) = &state.ws_sender {
-        sender.emit(WsRequest::RouteLookup { node, target, all });
-    } else {
-        spawn_local(async move {
-            let url = format!(
-                "{}/api/routes/{}?target={}&all={}",
-                state.backend_url, node, target, all
-            );
-
-            let mut aggregated = String::new();
-            let result = stream_fetch(url, {
-                let state = state.clone();
-                move |chunk| {
-                    aggregated.push_str(&chunk);
-                    state.dispatch(Action::Modal(ModalAction::UpdateContent(
-                        aggregated.clone(),
-                    )));
-                }
-            })
-            .await;
-
-            if let Err(err) = result {
-                state.dispatch(Action::Modal(ModalAction::UpdateContent(format!(
-                    "Failed to load route details: {}",
-                    err
-                ))));
-            }
-        });
     }
 }

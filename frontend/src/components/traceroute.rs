@@ -1,4 +1,3 @@
-use common::models::WsRequest;
 use common::validate_target;
 use futures::future::join_all;
 use wasm_bindgen_futures::spawn_local;
@@ -7,10 +6,10 @@ use yew::prelude::*;
 
 use crate::components::data_table::{DataTable, TableRow};
 use crate::components::shell::{ShellButton, ShellInput, ShellLine, ShellPrompt, ShellSelect};
-use crate::models::{NodeStatus, TracerouteHop};
+use crate::models::NodeStatus;
+use crate::services::api::Api;
 use crate::store::traceroute::TracerouteAction;
 use crate::store::{Action, AppState, NodeTracerouteResult};
-use crate::utils::{log_error, parse_traceroute_line, stream_fetch};
 
 #[derive(Properties, PartialEq)]
 pub struct TracerouteProps {
@@ -73,93 +72,34 @@ pub fn traceroute_section(props: &TracerouteProps) -> Html {
             state.dispatch(Action::Traceroute(TracerouteAction::Start));
 
             let validated_target = target;
-            let nodes = nodes.clone();
             let traceroute_node = state.traceroute.node.clone();
             let traceroute_version = state.traceroute.version.clone();
-            let state = state.clone();
+            let state_async = state.clone();
+
+            let selected_node = traceroute_node;
+            let target_nodes = if selected_node.is_empty() {
+                nodes.iter().map(|n| n.name.clone()).collect::<Vec<_>>()
+            } else {
+                vec![selected_node.clone()]
+            };
 
             spawn_local(async move {
-                let selected_node = traceroute_node;
-                let target_nodes = if selected_node.is_empty() {
-                    nodes.iter().map(|n| n.name.clone()).collect::<Vec<_>>()
-                } else {
-                    vec![selected_node.clone()]
-                };
-
                 let version_value = traceroute_version;
                 let target_value = validated_target;
 
                 let futures = target_nodes.into_iter().map(|node_name| {
                     let version_value = version_value.clone();
                     let target_value = target_value.clone();
-                    let state = state.clone();
+                    let state = state_async.clone();
 
                     async move {
-                        state.dispatch(Action::Traceroute(TracerouteAction::InitResult(
-                            node_name.clone(),
-                        )));
-
-                        if let Some(sender) = &state.ws_sender {
-                            sender.emit(WsRequest::Traceroute {
-                                node: node_name.clone(),
-                                target: target_value.clone(),
-                            })
-                        } else {
-                            let version_param = match version_value.as_str() {
-                                "4" => "&version=4",
-                                "6" => "&version=6",
-                                _ => "",
-                            };
-
-                            let url = format!(
-                                "{}/api/traceroute?node={}&target={}{}",
-                                state.backend_url, node_name, target_value, version_param
-                            );
-                            let mut buffer = String::new();
-                            let mut node_hops: Vec<TracerouteHop> = Vec::new();
-                            let stream_result = stream_fetch(url, {
-                                let state = state.clone();
-                                let node_name = node_name.clone();
-                                move |chunk| {
-                                    buffer.push_str(&chunk);
-                                    while let Some(idx) = buffer.find('\n') {
-                                        let line = buffer[..idx].trim().to_string();
-                                        buffer.drain(..=idx);
-                                        if line.is_empty() {
-                                            continue;
-                                        }
-                                        if let Some(hop) = parse_traceroute_line(&line) {
-                                            node_hops.push(hop);
-                                            state.dispatch(Action::Traceroute(
-                                                TracerouteAction::UpdateResult(
-                                                    node_name.clone(),
-                                                    NodeTracerouteResult::Hops(node_hops.clone()),
-                                                ),
-                                            ));
-                                        }
-                                    }
-                                }
-                            })
-                            .await;
-
-                            if let Err(err) = stream_result {
-                                log_error(&format!(
-                                    "Traceroute stream failed for {}: {}",
-                                    node_name, err
-                                ));
-                                let message = format!("Traceroute failed: {}", err);
-                                state.dispatch(Action::Traceroute(TracerouteAction::UpdateResult(
-                                    node_name,
-                                    NodeTracerouteResult::Error(message),
-                                )));
-                            }
-                        }
+                        Api::traceroute(&state, node_name, target_value, version_value);
                     }
                 });
 
                 join_all(futures).await;
 
-                state.dispatch(Action::Traceroute(TracerouteAction::End));
+                state_async.dispatch(Action::Traceroute(TracerouteAction::End));
             });
         })
     };

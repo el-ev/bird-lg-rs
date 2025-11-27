@@ -3,7 +3,7 @@ use std::sync::Arc;
 use crate::{
     config::Config,
     services::request::{build_get, build_post},
-    state::{AppState, WsRequest, WsResponse},
+    state::{AppRequest, AppState, AppResponse},
 };
 use axum::{
     extract::{
@@ -30,7 +30,7 @@ async fn handle_socket(mut socket: WebSocket, state: AppState, config: Arc<Confi
 
     // Send initial state
     let nodes = state.nodes.read().unwrap().clone();
-    let initial_msg = WsResponse::Protocols(nodes);
+    let initial_msg = AppResponse::Protocols(nodes);
     if let Ok(json) = serde_json::to_string(&initial_msg)
         && socket.send(Message::Text(json.into())).await.is_err()
     {
@@ -48,7 +48,7 @@ async fn handle_socket(mut socket: WebSocket, state: AppState, config: Arc<Confi
             Some(Ok(msg)) = socket.recv() => {
                 match msg {
                     Message::Text(text) => {
-                        if let Ok(req) = serde_json::from_str::<WsRequest>(&text) {
+                        if let Ok(req) = serde_json::from_str::<AppRequest>(&text) {
                             let response = handle_request(req, &state, &config).await;
                             if let Ok(json) = serde_json::to_string(&response)
                                 && socket.send(Message::Text(json.into())).await.is_err() {
@@ -65,16 +65,16 @@ async fn handle_socket(mut socket: WebSocket, state: AppState, config: Arc<Confi
     }
 }
 
-async fn handle_request(req: WsRequest, state: &AppState, config: &Config) -> WsResponse {
+async fn handle_request(req: AppRequest, state: &AppState, config: &Config) -> AppResponse {
     match req {
-        WsRequest::GetProtocols => {
+        AppRequest::GetProtocols => {
             let nodes = state.nodes.read().unwrap().clone();
-            WsResponse::Protocols(nodes)
+            AppResponse::Protocols(nodes)
         }
-        WsRequest::Traceroute { node, target } => {
+        AppRequest::Traceroute { node, target } => {
             let target = target.trim().to_string();
             if let Err(msg) = validate_target(&target) {
-                return WsResponse::Error(msg);
+                return AppResponse::Error(msg);
             }
 
             if let Some(node_config) = config.nodes.iter().find(|n| n.name == node) {
@@ -86,28 +86,28 @@ async fn handle_request(req: WsRequest, state: &AppState, config: &Config) -> Ws
                     Ok(resp) => {
                         if resp.status().is_success() {
                             match resp.text().await {
-                                Ok(text) => WsResponse::TracerouteResult { node, result: text },
+                                Ok(text) => AppResponse::TracerouteResult { node, result: text },
                                 Err(_) => {
-                                    WsResponse::Error("Failed to read traceroute response".into())
+                                    AppResponse::Error("Failed to read traceroute response".into())
                                 }
                             }
                         } else {
-                            WsResponse::Error(format!("Node returned error: {}", resp.status()))
+                            AppResponse::Error(format!("Node returned error: {}", resp.status()))
                         }
                     }
-                    Err(e) => WsResponse::Error(format!("Failed to contact node: {}", e)),
+                    Err(e) => AppResponse::Error(format!("Failed to contact node: {}", e)),
                 }
             } else {
-                WsResponse::Error("Node not found".into())
+                AppResponse::Error("Node not found".into())
             }
         }
-        WsRequest::RouteLookup { node, target, all } => {
+        AppRequest::RouteLookup { node, target, all } => {
             let target_str = target.trim();
             let is_valid_target =
                 target_str.parse::<IpAddr>().is_ok() || target_str.parse::<IpNet>().is_ok();
 
             if !is_valid_target {
-                return WsResponse::Error("Invalid target format (must be IP or CIDR)".into());
+                return AppResponse::Error("Invalid target format (must be IP or CIDR)".into());
             }
 
             if let Some(node_config) = config.nodes.iter().find(|n| n.name == node) {
@@ -123,20 +123,20 @@ async fn handle_request(req: WsRequest, state: &AppState, config: &Config) -> Ws
                     Ok(resp) => {
                         if resp.status().is_success() {
                             match resp.text().await {
-                                Ok(text) => WsResponse::RouteLookupResult { node, result: text },
-                                Err(_) => WsResponse::Error("Failed to read route response".into()),
+                                Ok(text) => AppResponse::RouteLookupResult { node, result: text },
+                                Err(_) => AppResponse::Error("Failed to read route response".into()),
                             }
                         } else {
-                            WsResponse::Error(format!("Node returned error: {}", resp.status()))
+                            AppResponse::Error(format!("Node returned error: {}", resp.status()))
                         }
                     }
-                    Err(e) => WsResponse::Error(format!("Failed to contact node: {}", e)),
+                    Err(e) => AppResponse::Error(format!("Failed to contact node: {}", e)),
                 }
             } else {
-                WsResponse::Error("Node not found".into())
+                AppResponse::Error("Node not found".into())
             }
         }
-        WsRequest::ProtocolDetails { node, protocol } => {
+        AppRequest::ProtocolDetails { node, protocol } => {
             if let Some(node_config) = config.nodes.iter().find(|n| n.name == node) {
                 let command = format!("show protocols all {}", protocol);
 
@@ -146,23 +146,21 @@ async fn handle_request(req: WsRequest, state: &AppState, config: &Config) -> Ws
                     Ok(resp) => {
                         if resp.status().is_success() {
                             match resp.text().await {
-                                Ok(text) => WsResponse::ProtocolDetailsResult {
+                                Ok(text) => AppResponse::ProtocolDetailsResult {
                                     node,
                                     protocol,
                                     details: text,
                                 },
-                                Err(_) => {
-                                    WsResponse::Error("Failed to read protocol details".into())
-                                }
+                                Err(_) => AppResponse::Error("Failed to read protocol details".into()),
                             }
                         } else {
-                            WsResponse::Error(format!("Node returned error: {}", resp.status()))
+                            AppResponse::Error(format!("Node returned error: {}", resp.status()))
                         }
                     }
-                    Err(e) => WsResponse::Error(format!("Failed to contact node: {}", e)),
+                    Err(e) => AppResponse::Error(format!("Failed to contact node: {}", e)),
                 }
             } else {
-                WsResponse::Error("Node not found".into())
+                AppResponse::Error("Node not found".into())
             }
         }
     }

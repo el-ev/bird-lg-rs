@@ -9,7 +9,7 @@ use tracing::warn;
 use crate::{
     config::{Config, NodeConfig, PeeringInfo},
     services::request::{build_get, build_post},
-    state::{AppState, NodeStatus, WsResponse},
+    state::{AppResponse, AppState, NodeStatus},
 };
 
 pub fn spawn(state: AppState, config: Arc<Config>) {
@@ -167,9 +167,9 @@ fn broadcast_updates(
     }
 
     if changed {
-        let _ = state.tx.send(WsResponse::Protocols(new_statuses));
+        let _ = state.tx.send(AppResponse::Protocols(new_statuses));
     } else {
-        let _ = state.tx.send(WsResponse::NoChange {
+        let _ = state.tx.send(AppResponse::NoChange {
             last_updated: Utc::now(),
         });
     }

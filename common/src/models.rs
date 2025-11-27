@@ -59,8 +59,8 @@ pub struct TracerouteParams {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(tag = "type", content = "payload")]
-pub enum WsRequest {
+#[serde(tag = "type")]
+pub enum AppRequest {
     GetProtocols,
     Traceroute {
         node: String,
@@ -79,8 +79,8 @@ pub enum WsRequest {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(tag = "type", content = "payload")]
-pub enum WsResponse {
+#[serde(tag = "type")]
+pub enum AppResponse {
     Protocols(Vec<NodeStatus>),
     NoChange {
         last_updated: DateTime<Utc>,
@@ -98,5 +98,6 @@ pub enum WsResponse {
         protocol: String,
         details: String,
     },
+    NetworkInfo(NetworkInfo),
     Error(String),
 }
