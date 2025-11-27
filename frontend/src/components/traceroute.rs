@@ -1,4 +1,4 @@
-use common::{fold_timeouts, validate_target};
+use common::{traceroute::fold_timeouts, utils::validate_target};
 use futures::future::join_all;
 use wasm_bindgen_futures::spawn_local;
 use web_sys::HtmlInputElement;

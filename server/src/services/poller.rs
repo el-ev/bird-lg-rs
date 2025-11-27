@@ -1,8 +1,6 @@
 use std::{sync::Arc, time::Duration};
 
 use chrono::Utc;
-use common::Protocol;
-use regex::Regex;
 use tokio::time::sleep;
 use tracing::warn;
 
@@ -10,6 +8,7 @@ use crate::{
     config::{Config, NodeConfig, PeeringInfo},
     services::request::{build_get, build_post},
     state::{AppResponse, AppState, NodeStatus},
+    utils::parse_protocols,
 };
 
 pub fn spawn(state: AppState, config: Arc<Config>) {
@@ -195,35 +194,4 @@ async fn fetch_peering_info(client: &reqwest::Client, node: &NodeConfig) -> Opti
             None
         }
     }
-}
-
-fn parse_protocols(output: &str) -> Vec<Protocol> {
-    let mut protocols = Vec::new();
-    let re = Regex::new(r"^(\S+)\s+(\S+)\s+(\S+)\s+(\S+)\s+(\S+)\s*(.*)$").unwrap();
-
-    for line in output.lines() {
-        let line = line.trim();
-        if line.is_empty() {
-            continue;
-        }
-
-        if ["Name", "Proto", "Table", "State", "Since", "Info"]
-            .iter()
-            .all(|&header| line.contains(header))
-        {
-            continue;
-        }
-
-        if let Some(caps) = re.captures(line) {
-            protocols.push(Protocol {
-                name: caps[1].to_string(),
-                proto: caps[2].to_string(),
-                table: caps[3].to_string(),
-                state: caps[4].to_string(),
-                since: caps[5].to_string(),
-                info: caps[6].to_string(),
-            });
-        }
-    }
-    protocols
 }

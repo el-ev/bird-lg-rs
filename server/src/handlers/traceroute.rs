@@ -3,7 +3,7 @@ use std::sync::Arc;
 
 use axum::extract::{Extension, Path, Query};
 use axum::response::sse::{Event, Sse};
-use common::models::TracerouteParams;
+use common::traceroute::TracerouteParams;
 use futures_util::stream::StreamExt;
 
 use crate::{config::Config, services::api::perform_traceroute, state::AppState};

@@ -44,19 +44,19 @@ async fn handle_socket(socket: WebSocket, state: AppState, config: Arc<Config>) 
         loop {
             tokio::select! {
                 Ok(broadcast_msg) = rx.recv() => {
-                    if let Ok(json) = serde_json::to_string(&broadcast_msg) {
-                        if sender.send(Message::Text(json.into())).await.is_err() {
-                            tracing::error!("Failed to send broadcast update");
-                            break;
-                        }
+                    if let Ok(json) = serde_json::to_string(&broadcast_msg)
+                        && sender.send(Message::Text(json.into())).await.is_err()
+                    {
+                        tracing::error!("Failed to send broadcast update");
+                        break;
                     }
                 }
                 Some(msg) = mpsc_rx.recv() => {
-                    if let Ok(json) = serde_json::to_string(&msg) {
-                        if sender.send(Message::Text(json.into())).await.is_err() {
-                            tracing::error!("Failed to send response");
-                            break;
-                        }
+                    if let Ok(json) = serde_json::to_string(&msg)
+                        && sender.send(Message::Text(json.into())).await.is_err()
+                    {
+                        tracing::error!("Failed to send response");
+                        break;
                     }
                 }
                 else => break,

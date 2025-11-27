@@ -8,7 +8,7 @@ use std::sync::Arc;
 
 use crate::config::Config;
 use crate::state::AppState;
-use common::models::AppResponse;
+use common::api::AppResponse;
 
 pub async fn get_network_info(
     Extension(config): Extension<Arc<Config>>,
