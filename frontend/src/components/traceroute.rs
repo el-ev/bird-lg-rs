@@ -7,7 +7,7 @@ use yew::prelude::*;
 use crate::components::data_table::{DataTable, TableRow};
 use crate::components::shell::{ShellButton, ShellInput, ShellLine, ShellPrompt, ShellSelect};
 use crate::models::NodeStatus;
-use crate::services::api::Api;
+use crate::services::api::perform_traceroute;
 use crate::store::traceroute::TracerouteAction;
 use crate::store::{Action, AppState, NodeTracerouteResult};
 
@@ -93,7 +93,7 @@ pub fn traceroute_section(props: &TracerouteProps) -> Html {
                     let state = state_async.clone();
 
                     async move {
-                        Api::traceroute(&state, node_name, target_value, version_value);
+                        perform_traceroute(&state, node_name, target_value, version_value);
                     }
                 });
 

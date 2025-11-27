@@ -59,7 +59,7 @@ pub struct TracerouteParams {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(tag = "type")]
+#[serde(tag = "t")]
 pub enum AppRequest {
     GetProtocols,
     Traceroute {
@@ -79,9 +79,11 @@ pub enum AppRequest {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(tag = "type")]
+#[serde(untagged)]
 pub enum AppResponse {
-    Protocols(Vec<NodeStatus>),
+    Protocols {
+        data: Vec<NodeStatus>,
+    },
     NoChange {
         last_updated: DateTime<Utc>,
     },

@@ -10,7 +10,9 @@ use crate::components::{
 };
 use crate::config::load_config;
 use crate::routes::Route;
-use crate::services::api::Api;
+use crate::services::api::{
+    get_network_info, get_protocol_details, get_protocols, perform_route_lookup,
+};
 use crate::services::websocket::WebSocketService;
 use crate::store::modal::ModalAction;
 use crate::store::{Action, AppState};
@@ -47,14 +49,14 @@ pub fn main_view(props: &MainViewProps) -> Html {
     let on_protocol_click = {
         let state = state.clone();
         Callback::from(move |(node, proto): (String, String)| {
-            Api::get_protocol_details(&state, node, proto);
+            get_protocol_details(&state, node, proto);
         })
     };
 
     let on_route_lookup = {
         let state = state.clone();
         Callback::from(move |(node, target, all): (String, String, bool)| {
-            Api::route_lookup(&state, node, target, all);
+            perform_route_lookup(&state, node, target, all);
         })
     };
 
@@ -161,7 +163,7 @@ pub fn app() -> Html {
             if *ready {
                 let state_info = state.clone();
                 spawn_local(async move {
-                    if let Err(e) = Api::get_network_info(&state_info).await {
+                    if let Err(e) = get_network_info(&state_info).await {
                         log_error(&e);
                     }
                 });
@@ -193,7 +195,7 @@ pub fn app() -> Html {
                             if !*active.borrow() {
                                 break;
                             }
-                            if let Err(e) = Api::get_protocols(&state).await {
+                            if let Err(e) = get_protocols(&state).await {
                                 log_error(&e);
                             }
                         }

@@ -5,11 +5,11 @@ use axum::{
     response::{IntoResponse, Response},
 };
 
-use crate::state::{AppState, AppResponse};
+use crate::state::{AppResponse, AppState};
 
 pub async fn get_all_protocols(Extension(state): Extension<AppState>) -> Json<AppResponse> {
     let nodes = state.nodes.read().unwrap().clone();
-    Json(AppResponse::Protocols(nodes))
+    Json(AppResponse::Protocols { data: nodes })
 }
 
 pub async fn get_node_protocols(

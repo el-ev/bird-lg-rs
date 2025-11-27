@@ -12,7 +12,7 @@ use tokio::sync::broadcast;
 use tracing::warn;
 
 use crate::config::PeeringInfo;
-pub use common::models::{AppRequest, NodeStatus, AppResponse};
+pub use common::models::{AppRequest, AppResponse, NodeStatus};
 
 #[derive(Clone)]
 pub struct AppState {
