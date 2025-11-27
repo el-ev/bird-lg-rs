@@ -158,7 +158,9 @@ pub fn traceroute_section(props: &TracerouteProps) -> Html {
                 }
             }
             <div>
-                { for traceroute_state.results.iter().map(|(node_name, result)| {
+                { for nodes.iter().filter_map(|n| {
+                    traceroute_state.results.iter().find(|(node_name, _)| node_name == &n.name)
+                }).map(|(node_name, result)| {
                     let version_flag = match traceroute_state.last_version.as_str() {
                         "4" => " -4",
                         "6" => " -6",
@@ -192,7 +194,7 @@ pub fn traceroute_section(props: &TracerouteProps) -> Html {
                                                 hops.iter().map(|hop| {
                                                     TableRow {
                                                         cells: vec![
-                                                            html! { hop.hop },
+                                                            html! { hop.hop.to_string() },
                                                             html! { hop.hostname.clone().unwrap_or_default() },
                                                             html! { hop.address.clone().unwrap_or_default() },
                                                             html! {

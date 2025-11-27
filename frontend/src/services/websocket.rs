@@ -87,7 +87,7 @@ impl WebSocketService {
         if let Ok(response) = serde_json::from_str::<AppResponse>(text) {
             crate::services::response_handler::handle_app_response(response, state);
         } else {
-            unreachable!()
+            log_error(&format!("Unexpected message from the backend: {}", text));
         }
     }
 }

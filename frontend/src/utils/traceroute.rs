@@ -1,6 +1,6 @@
 use std::net::IpAddr;
 
-use common::models::TracerouteHop;
+use common::models::{HopRange, TracerouteHop};
 
 pub fn parse_traceroute_line(line: &str) -> Option<TracerouteHop> {
     let mut parts = line.split_whitespace();
@@ -10,7 +10,7 @@ pub fn parse_traceroute_line(line: &str) -> Option<TracerouteHop> {
 
     if next_part == "*" {
         return Some(TracerouteHop {
-            hop,
+            hop: HopRange::Single(hop),
             address: None,
             hostname: None,
             rtts: None,
@@ -71,7 +71,7 @@ pub fn parse_traceroute_line(line: &str) -> Option<TracerouteHop> {
     }
 
     Some(TracerouteHop {
-        hop,
+        hop: HopRange::Single(hop),
         address,
         hostname,
         rtts: if rtts.is_empty() { None } else { Some(rtts) },

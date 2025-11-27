@@ -78,10 +78,20 @@ impl TracerouteState {
                     .push((node, NodeTracerouteResult::Hops(Vec::new())));
             }
             TracerouteAction::UpdateResult(node, result) => {
-                if let Some((_, existing)) = self.results.iter_mut().find(|(n, _)| n == &node) {
-                    *existing = result;
-                } else {
-                    self.results.push((node, result));
+                let (_, existing_result) = self
+                    .results
+                    .iter_mut()
+                    .find(|(n, _)| n == &node)
+                    .expect("UpdateResult called for an uninitialized node");
+
+                match (existing_result, result) {
+                    (NodeTracerouteResult::Hops(hops), NodeTracerouteResult::Hops(new_hops)) => {
+                        hops.extend(new_hops);
+                    }
+                    (ex @ NodeTracerouteResult::Hops(_), e @ NodeTracerouteResult::Error(_)) => {
+                        *ex = e;
+                    }
+                    _ => unreachable!(),
                 }
             }
             TracerouteAction::SetLastParams(target, version) => {
