@@ -98,13 +98,13 @@ impl Reducible for AppState {
                 next_state.modal.content = result;
             }
             Action::RouteLookupUpdate(result) => {
-                next_state.modal.content = self.modal.content.clone() + "\n" + &result; 
+                next_state.modal.content = self.modal.content.clone() + "\n" + &result;
             }
             Action::ProtocolDetailsInit(result) => {
                 next_state.modal.content = result;
             }
             Action::ProtocolDetailsUpdate(result) => {
-                next_state.modal.content = self.modal.content.clone() + "\n" + &result; 
+                next_state.modal.content = self.modal.content.clone() + "\n" + &result;
             }
         }
 
