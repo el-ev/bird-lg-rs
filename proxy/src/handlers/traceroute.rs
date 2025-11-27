@@ -6,7 +6,7 @@ use axum::{
     extract::Query,
     response::{IntoResponse, Response},
 };
-use common::validate_target;
+use common::utils::validate_target;
 use serde::Deserialize;
 use tokio::io::AsyncReadExt;
 use tokio_stream::StreamExt;

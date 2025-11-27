@@ -2,7 +2,7 @@ use crate::store::modal::ModalAction;
 use crate::store::traceroute::TracerouteAction;
 use crate::store::{Action, NodeTracerouteResult};
 use crate::utils::{fetch_json, log_error};
-use common::models::{AppRequest, AppResponse};
+use common::api::{AppRequest, AppResponse};
 use wasm_bindgen_futures::spawn_local;
 use yew::prelude::*;
 

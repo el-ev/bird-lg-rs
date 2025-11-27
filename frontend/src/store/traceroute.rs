@@ -1,4 +1,4 @@
-use crate::models::TracerouteHop;
+use common::traceroute::TracerouteHop;
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum NodeTracerouteResult {

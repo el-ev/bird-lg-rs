@@ -1,7 +1,7 @@
 use crate::store::traceroute::TracerouteAction;
 use crate::store::{Action, AppState, NodeTracerouteResult};
 use crate::utils::log_error;
-use common::models::AppResponse;
+use common::api::AppResponse;
 use yew::prelude::*;
 
 pub fn handle_app_response(response: AppResponse, state: &UseReducerHandle<AppState>) {
@@ -15,10 +15,10 @@ pub fn handle_app_response(response: AppResponse, state: &UseReducerHandle<AppSt
         AppResponse::TracerouteInit { node } => {
             state.dispatch(Action::Traceroute(TracerouteAction::InitResult(node)));
         }
-        AppResponse::TracerouteUpdate { node, hop } => {
+        AppResponse::TracerouteUpdate { node, hops } => {
             state.dispatch(Action::Traceroute(TracerouteAction::UpdateResult(
                 node,
-                NodeTracerouteResult::Hops(vec![hop]),
+                NodeTracerouteResult::Hops(hops),
             )));
         }
         AppResponse::TracerouteError { node, error } => {
@@ -30,8 +30,8 @@ pub fn handle_app_response(response: AppResponse, state: &UseReducerHandle<AppSt
         AppResponse::RouteLookupInit { node: _ } => {
             state.dispatch(Action::RouteLookupInit(String::new()));
         }
-        AppResponse::RouteLookupUpdate { node: _, line } => {
-            state.dispatch(Action::RouteLookupUpdate(line));
+        AppResponse::RouteLookupUpdate { node: _, lines } => {
+            state.dispatch(Action::RouteLookupUpdate(lines));
         }
         AppResponse::ProtocolDetailsInit {
             node: _,
@@ -42,9 +42,9 @@ pub fn handle_app_response(response: AppResponse, state: &UseReducerHandle<AppSt
         AppResponse::ProtocolDetailsUpdate {
             node: _,
             protocol: _,
-            line,
+            lines,
         } => {
-            state.dispatch(Action::ProtocolDetailsUpdate(line));
+            state.dispatch(Action::ProtocolDetailsUpdate(lines));
         }
         AppResponse::NetworkInfo(info) => {
             state.dispatch(Action::SetNetworkInfo(info));

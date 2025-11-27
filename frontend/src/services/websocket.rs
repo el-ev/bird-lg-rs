@@ -5,7 +5,7 @@ use yew::prelude::*;
 
 use crate::store::{Action, AppState};
 use crate::utils::{log_error, sleep_ms};
-use common::models::{AppRequest, AppResponse};
+use common::api::{AppRequest, AppResponse};
 
 pub struct WebSocketService;
 

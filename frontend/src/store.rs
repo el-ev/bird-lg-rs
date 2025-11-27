@@ -13,7 +13,7 @@ use traceroute::{TracerouteAction, TracerouteState};
 
 pub use traceroute::NodeTracerouteResult;
 
-use common::models::AppRequest;
+use common::api::AppRequest;
 
 #[derive(Clone, Debug, PartialEq, Default)]
 pub struct AppState {
@@ -44,9 +44,9 @@ pub enum Action {
     ClearWsSender,
     UpdateTimestamp(DateTime<Utc>),
     RouteLookupInit(String),
-    RouteLookupUpdate(String),
+    RouteLookupUpdate(Vec<String>),
     ProtocolDetailsInit(String),
-    ProtocolDetailsUpdate(String),
+    ProtocolDetailsUpdate(Vec<String>),
 }
 
 impl Reducible for AppState {
@@ -97,14 +97,14 @@ impl Reducible for AppState {
             Action::RouteLookupInit(result) => {
                 next_state.modal.content = result;
             }
-            Action::RouteLookupUpdate(result) => {
-                next_state.modal.content = self.modal.content.clone() + "\n" + &result;
+            Action::RouteLookupUpdate(lines) => {
+                next_state.modal.content = self.modal.content.clone() + "\n" + &lines.join("\n");
             }
             Action::ProtocolDetailsInit(result) => {
                 next_state.modal.content = result;
             }
-            Action::ProtocolDetailsUpdate(result) => {
-                next_state.modal.content = self.modal.content.clone() + "\n" + &result;
+            Action::ProtocolDetailsUpdate(lines) => {
+                next_state.modal.content = self.modal.content.clone() + "\n" + &lines.join("\n");
             }
         }
 
