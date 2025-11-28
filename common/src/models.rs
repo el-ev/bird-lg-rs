@@ -25,6 +25,8 @@ pub struct PeeringInfo {
     pub wg_pubkey: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub endpoint: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub comment: Option<String>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
@@ -39,7 +41,8 @@ pub struct NodeStatus {
 pub struct NetworkInfo {
     pub name: String,
     pub asn: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub comment: Option<String>,
     #[serde(default, skip_serializing_if = "HashMap::is_empty")]
     pub peering: HashMap<String, PeeringInfo>,
 }
-

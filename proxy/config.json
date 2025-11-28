@@ -12,6 +12,7 @@
         "ipv6": "fd00::1",
         "link_local_ipv6": "fe80::1",
         "wg_pubkey_path": "/etc/wireguard/publickey",
-        "endpoint": "your.endpoint.domain"
+        "endpoint": "your.endpoint.domain",
+        "comment": "comment"
     }
 }
