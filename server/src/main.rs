@@ -54,6 +54,10 @@ async fn main() -> anyhow::Result<()> {
         )
         .route("/api/routes/{node_name}", get(route::get_route))
         .route("/api/info", get(info::get_network_info))
+        .route(
+            "/api/info/port/{port}",
+            get(info::get_network_info_with_port),
+        )
         .route("/api/peering/{node_name}", get(info::get_node_peering))
         .route("/api/ws", get(ws::ws_handler))
         .layer(CorsLayer::permissive())
