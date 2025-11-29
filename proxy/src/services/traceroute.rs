@@ -20,7 +20,7 @@ pub fn build_traceroute_command(
 
     cmd.arg(target);
 
-    for arg in &config.tr_arglist {
+    for arg in &config.traceroute_args {
         cmd.arg(arg);
     }
 
