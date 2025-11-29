@@ -2,9 +2,8 @@ use anyhow::Result;
 use serde::Deserialize;
 use std::fs;
 
-use common::utils::deserialize_listen_address;
 pub use common::models::{NetworkInfo, PeeringInfo};
-
+use common::utils::deserialize_listen_address;
 
 #[derive(Deserialize, Clone, Debug)]
 pub struct Config {
