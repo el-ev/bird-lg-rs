@@ -1,6 +1,5 @@
 use crate::store::traceroute::TracerouteAction;
 use crate::store::{Action, AppState, NodeTracerouteResult};
-use crate::utils::log_error;
 use common::api::AppResponse;
 use yew::prelude::*;
 
@@ -50,7 +49,7 @@ pub fn handle_app_response(response: AppResponse, state: &UseReducerHandle<AppSt
             state.dispatch(Action::SetNetworkInfo(info));
         }
         AppResponse::Error(e) => {
-            log_error(&format!("AppResponse Error: {}", e));
+            tracing::error!("AppResponse Error: {}", e);
         }
     }
 }

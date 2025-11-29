@@ -7,7 +7,7 @@ use crate::config::load_config;
 use crate::services::api::{get_network_info, get_protocols};
 use crate::services::websocket::WebSocketService;
 use crate::store::{Action, AppState};
-use crate::utils::{log_error, sleep_ms};
+use crate::utils::sleep_ms;
 
 #[hook]
 pub fn use_app_data(state: UseReducerHandle<AppState>) {
@@ -25,7 +25,7 @@ pub fn use_app_data(state: UseReducerHandle<AppState>) {
                     Err(err) => {
                         let message = format!("Configuration load failed: {}", err);
                         state.dispatch(Action::SetError(message.clone()));
-                        log_error(&message);
+                        tracing::error!("{}", message);
                     }
                 }
             });
@@ -41,7 +41,7 @@ pub fn use_app_data(state: UseReducerHandle<AppState>) {
                 let state_info = state.clone();
                 spawn_local(async move {
                     if let Err(e) = get_network_info(&state_info).await {
-                        log_error(&e);
+                        tracing::error!("{}", e);
                     }
                 });
 
@@ -73,7 +73,7 @@ pub fn use_app_data(state: UseReducerHandle<AppState>) {
                                 break;
                             }
                             if let Err(e) = get_protocols(&state).await {
-                                log_error(&e);
+                                tracing::error!("{}", e);
                             }
                         }
                     });

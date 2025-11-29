@@ -1,7 +1,7 @@
 use crate::store::modal::ModalAction;
 use crate::store::traceroute::TracerouteAction;
 use crate::store::{Action, NodeTracerouteResult};
-use crate::utils::{fetch_json, log_error};
+use crate::utils::fetch_json;
 use common::api::{AppRequest, AppResponse};
 use wasm_bindgen_futures::spawn_local;
 use yew::prelude::*;
@@ -58,7 +58,7 @@ pub fn perform_traceroute(
                         }
                     }
                     Err(err) => {
-                        log_error(&format!("Traceroute failed for {}: {}", node_name, err));
+                        tracing::error!("Traceroute failed for {}: {}", node_name, err);
                         state_clone.dispatch(Action::Traceroute(TracerouteAction::UpdateResult(
                             node_name,
                             NodeTracerouteResult::Error(err.to_string()),
