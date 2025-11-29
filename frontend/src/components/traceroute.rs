@@ -1,12 +1,13 @@
+use common::models::NodeStatus;
 use common::{traceroute::fold_timeouts, utils::validate_target};
 use futures::future::join_all;
 use wasm_bindgen_futures::spawn_local;
 use web_sys::HtmlInputElement;
 use yew::prelude::*;
 
-use crate::components::data_table::{DataTable, TableRow};
-use crate::components::shell::{ShellButton, ShellInput, ShellLine, ShellPrompt, ShellSelect};
-use crate::models::NodeStatus;
+use super::data_table::{DataTable, TableRow};
+use super::shell::{ShellButton, ShellInput, ShellLine, ShellPrompt, ShellSelect};
+
 use crate::services::api::perform_traceroute;
 use crate::store::traceroute::TracerouteAction;
 use crate::store::{Action, AppState, NodeTracerouteResult};
