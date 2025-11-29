@@ -1,5 +1,6 @@
-use super::ShellPrompt;
 use yew::prelude::*;
+
+use super::ShellPrompt;
 
 #[derive(Properties, PartialEq)]
 pub struct ShellLineProps {

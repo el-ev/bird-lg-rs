@@ -65,7 +65,7 @@ async fn main() -> anyhow::Result<()> {
         .layer(Extension(state))
         .layer(Extension(config.clone()));
 
-   let mut handles = Vec::new();
+    let mut handles = Vec::new();
     for listen_addr in &config.listen {
         let app_clone = app.clone();
         let addr = listen_addr.clone();

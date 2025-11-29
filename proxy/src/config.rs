@@ -33,10 +33,7 @@ pub struct Config {
     pub allowed_nets: Vec<ipnet::IpNet>,
     pub shared_secret: Option<String>,
     pub traceroute_bin: Option<String>,
-    #[serde(
-        default,
-        deserialize_with = "deserialize_traceroute_args",
-    )]
+    #[serde(default, deserialize_with = "deserialize_traceroute_args")]
     pub traceroute_args: Vec<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub peering: Option<PeeringInfo>,
