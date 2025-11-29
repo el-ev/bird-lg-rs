@@ -4,7 +4,7 @@ use wasm_bindgen_futures::spawn_local;
 use yew::prelude::*;
 
 use crate::store::{Action, AppState};
-use crate::utils::{log_error, sleep_ms};
+use crate::utils::sleep_ms;
 use common::api::{AppRequest, AppResponse};
 
 pub struct WebSocketService;
@@ -70,7 +70,7 @@ impl WebSocketService {
                             state.dispatch(Action::SetError(
                                 "Websocket connection failed".to_string(),
                             ));
-                            log_error(
+                            tracing::error!(
                                 "WebSocket failed 3 times. App should switch to HTTP polling.",
                             );
                             state.dispatch(Action::ClearWsSender);
@@ -87,7 +87,7 @@ impl WebSocketService {
         if let Ok(response) = serde_json::from_str::<AppResponse>(text) {
             crate::services::response_handler::handle_app_response(response, state);
         } else {
-            log_error(&format!("Unexpected message from the backend: {}", text));
+            tracing::error!("Unexpected message from the backend: {}", text);
         }
     }
 }
