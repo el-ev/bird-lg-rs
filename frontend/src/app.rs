@@ -5,7 +5,7 @@ use yew::prelude::*;
 use yew_router::prelude::*;
 
 use crate::components::{
-    content_modal::ContentModal, node_list::NodeList, route_lookup::RouteLookup,
+    content_modal::ContentModal, header::Header, node_list::NodeList, route_lookup::RouteLookup,
     status_banner::StatusBanner, traceroute::Traceroute,
 };
 use crate::config::load_config;
@@ -70,23 +70,11 @@ pub fn main_view(props: &MainViewProps) -> Html {
     html! {
         <main class="hero">
             <div class="container">
-                <h2 class="title title-flex">
-                    <Link<Route> to={Route::Home} classes="title-link">{"Looking Glass"}</Link<Route>>
-                    {
-                        html! {
-                            <span class="title-footnote">
-                                if let Some(ref info) = state.network_info {
-                                    { " of " } { &info.name } { " " } { &info.asn } {" on DN42 "}
-                                }
-                                if let Some(name) = &props.node_name {
-                                    if !nodes.is_empty() {
-                                        { " / " } { name }
-                                    }
-                                }
-                            </span>
-                        }
-                    }
-                </h2>
+                <Header
+                    node_name={props.node_name.clone()}
+                    network_info={state.network_info.clone()}
+                    nodes_count={nodes.len()}
+                />
 
                 <StatusBanner
                     fetch_error={fetch_error}
