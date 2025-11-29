@@ -54,7 +54,7 @@ pub fn main_view(props: &MainViewProps) -> Html {
     };
 
     let waiting_for_data = state.nodes.is_empty() && (!state.data_ready || !state.config_ready);
-    let fetch_error = props
+    let error = props
         .error
         .clone()
         .or(node_not_found_error)
@@ -70,7 +70,7 @@ pub fn main_view(props: &MainViewProps) -> Html {
                 />
 
                 <StatusBanner
-                    fetch_error={fetch_error}
+                    error={error}
                     waiting_for_data={waiting_for_data}
                 />
 
