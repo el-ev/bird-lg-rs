@@ -1,8 +1,12 @@
 {
-    "listen": "127.0.0.1:3000",
+    "listen": [
+        "127.0.0.1:3000",
+        "[::1]:3000"
+    ],
     "network": {
         "name": "Your Network Name",
-        "asn": "424242xxxx"
+        "asn": "424242xxxx",
+        "comment": "Optional global comment about your network"
     },
     "nodes": [
         {
@@ -11,6 +15,5 @@
             "shared_secret": null
         }
     ],
-    "poll_idle_timeout": 180,
-    "comment": "comment"
+    "poll_idle_timeout": 180
 }

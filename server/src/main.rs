@@ -5,7 +5,7 @@ mod services;
 mod state;
 mod utils;
 
-use std::sync::Arc;
+use std::{net::SocketAddr, sync::Arc};
 
 use crate::{
     cli::Cli,
@@ -22,6 +22,7 @@ use axum::{
     response::Response,
     routing::get,
 };
+use tokio::net::TcpListener;
 use tower_http::cors::CorsLayer;
 
 #[tokio::main]
@@ -33,7 +34,6 @@ async fn main() -> anyhow::Result<()> {
     let config = Config::load(&cli.config)
         .map_err(|e| anyhow::anyhow!("Failed to load config from {}: {}", cli.config, e))?;
     let config = Arc::new(config);
-    let listen_addr = config.listen.clone();
 
     let state = AppState::new();
     poller::spawn(state.clone(), config.clone());
@@ -63,11 +63,41 @@ async fn main() -> anyhow::Result<()> {
         .layer(CorsLayer::permissive())
         .layer(middleware::from_fn(track_request))
         .layer(Extension(state))
-        .layer(Extension(config));
+        .layer(Extension(config.clone()));
 
-    let listener = tokio::net::TcpListener::bind(&listen_addr).await?;
-    println!("Server listening on {}", listen_addr);
-    axum::serve(listener, app).await?;
+   let mut handles = Vec::new();
+    for listen_addr in &config.listen {
+        let app_clone = app.clone();
+        let addr = listen_addr.clone();
+
+        let handle = tokio::spawn(async move {
+            match TcpListener::bind(&addr).await {
+                Ok(listener) => {
+                    tracing::info!("Server listening on {}", addr);
+                    if let Err(e) = axum::serve(
+                        listener,
+                        app_clone.into_make_service_with_connect_info::<SocketAddr>(),
+                    )
+                    .await
+                    {
+                        tracing::error!("Server on {} failed: {}", addr, e);
+                        Err(anyhow::anyhow!("Server on {} failed: {}", addr, e))
+                    } else {
+                        Ok(())
+                    }
+                }
+                Err(e) => {
+                    tracing::error!("Failed to bind to {}: {}", addr, e);
+                    Err(anyhow::anyhow!("Failed to bind to {}: {}", addr, e))
+                }
+            }
+        });
+
+        handles.push(handle);
+    }
+
+    let (result, _index, _remaining) = futures::future::select_all(handles).await;
+    result??;
 
     Ok(())
 }

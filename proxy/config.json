@@ -1,6 +1,9 @@
 {
     "bind_socket": "/var/run/bird/bird.ctl",
-    "listen": "127.0.0.1:8000",
+    "listen": [
+        "127.0.0.1:8000",
+        "[::1]:8000"
+    ],
     "allowed_ips": [
         "127.0.0.0/8"
     ],
@@ -13,6 +16,6 @@
         "link_local_ipv6": "fe80::1",
         "wg_pubkey_path": "/etc/wireguard/publickey",
         "endpoint": "your.endpoint.domain",
-        "comment": "comment"
+        "comment": "Optional comment about this node's peering info"
     }
 }
