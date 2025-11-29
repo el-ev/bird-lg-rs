@@ -12,7 +12,7 @@ fn main() {
         .set_max_level(if cfg!(debug_assertions) {
             tracing::Level::TRACE
         } else {
-            tracing::Level::INFO 
+            tracing::Level::INFO
         })
         .build();
     tracing_wasm::set_as_global_default_with_config(config);
