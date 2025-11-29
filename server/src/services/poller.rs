@@ -6,10 +6,12 @@ use tracing::warn;
 
 use crate::{
     config::{Config, NodeConfig, PeeringInfo},
+    diff::calculate_diff,
     services::request::{build_get, build_post},
     state::{AppResponse, AppState, NodeStatus},
     utils::parse_protocols,
 };
+use common::models::NodeStatusDiff;
 
 pub fn spawn(state: AppState, config: Arc<Config>) {
     tokio::spawn(run(state, config));
@@ -165,13 +167,23 @@ fn broadcast_updates(
         *w = new_statuses.clone();
     }
 
-    if changed {
-        let _ = state.tx.send(AppResponse::Protocols { data: new_statuses });
+    let resp = if changed {
+        let diffs: Vec<NodeStatusDiff> = new_statuses
+            .iter()
+            .zip(current_nodes.iter())
+            .map(|(new, old)| NodeStatusDiff {
+                n: new.name.clone(),
+                d: calculate_diff(&old.protocols, &new.protocols),
+                u: new.last_updated,
+                e: new.error.clone(),
+            })
+            .collect();
+        AppResponse::ProtocolsDiff { data: diffs }
     } else {
-        let _ = state.tx.send(AppResponse::NoChange {
-            last_updated: Utc::now(),
-        });
-    }
+        AppResponse::NoChange(Utc::now())
+    };
+
+    let _ = state.tx.send(resp);
 }
 
 async fn fetch_peering_info(client: &reqwest::Client, node: &NodeConfig) -> Option<PeeringInfo> {

@@ -46,3 +46,24 @@ pub struct NetworkInfo {
     #[serde(default, skip_serializing_if = "HashMap::is_empty")]
     pub peering: HashMap<String, PeeringInfo>,
 }
+
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
+#[serde(tag = "o")]
+pub enum DiffOp {
+    #[serde(rename = "e")]
+    Equal { c: usize },
+    #[serde(rename = "i")]
+    Insert { i: Vec<Protocol> },
+    #[serde(rename = "d")]
+    Delete { c: usize },
+    #[serde(rename = "r")]
+    Replace { i: Vec<Protocol> },
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
+pub struct NodeStatusDiff {
+    pub n: String,
+    pub d: Vec<DiffOp>,
+    pub u: DateTime<Utc>,
+    pub e: Option<String>,
+}

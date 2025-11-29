@@ -1,5 +1,5 @@
 use chrono::{DateTime, Utc};
-use common::models::{NetworkInfo, NodeStatus, PeeringInfo};
+use common::models::{DiffOp, NetworkInfo, NodeStatus, NodeStatusDiff, PeeringInfo};
 use std::collections::HashMap;
 use std::rc::Rc;
 use yew::prelude::*;
@@ -42,6 +42,7 @@ pub enum Action {
     SetWsSender(Callback<AppRequest>),
     ClearWsSender,
     UpdateTimestamp(DateTime<Utc>),
+    ApplyDiff(Vec<NodeStatusDiff>),
     RouteLookupInit(String),
     RouteLookupUpdate(Vec<String>),
     ProtocolDetailsInit(String),
@@ -90,6 +91,41 @@ impl Reducible for AppState {
                 for node in &mut next_state.nodes {
                     if node.error.is_none() {
                         node.last_updated = ts;
+                    }
+                }
+            }
+            Action::ApplyDiff(diffs) => {
+                for diff in diffs {
+                    if let Some(node) = next_state.nodes.iter_mut().find(|n| n.name == diff.n) {
+                        node.last_updated = diff.u;
+                        node.error = diff.e;
+
+                        let mut new = Vec::new();
+                        let mut old_idx = 0;
+
+                        for op in diff.d {
+                            match op {
+                                DiffOp::Equal { c: count } => {
+                                    if old_idx + count <= node.protocols.len() {
+                                        new.extend_from_slice(
+                                            &node.protocols[old_idx..old_idx + count],
+                                        );
+                                        old_idx += count;
+                                    }
+                                }
+                                DiffOp::Insert { i: items } => {
+                                    new.extend(items);
+                                }
+                                DiffOp::Delete { c: count } => {
+                                    old_idx += count;
+                                }
+                                DiffOp::Replace { i: items } => {
+                                    new.extend(items.clone());
+                                    old_idx += items.len();
+                                }
+                            }
+                        }
+                        node.protocols = new;
                     }
                 }
             }
