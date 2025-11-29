@@ -96,7 +96,7 @@ async fn main() -> anyhow::Result<()> {
         handles.push(handle);
     }
 
-    let (result, _index, _remaining) = futures::future::select_all(handles).await;
+    let (result, _index, _remaining) = futures_util::future::select_all(handles).await;
     result??;
 
     Ok(())
