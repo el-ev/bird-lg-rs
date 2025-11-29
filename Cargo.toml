@@ -1,3 +1,6 @@
 [workspace]
 resolver = "2"
 members = ["common", "frontend", "proxy", "server"]
+
+[profile.release]
+strip = true
