@@ -1,10 +1,8 @@
 use common::models::Protocol;
 use futures_util::{Stream, StreamExt, stream};
-use regex::Regex;
 
 pub fn parse_protocols(output: &str) -> Vec<Protocol> {
     let mut protocols = Vec::new();
-    let re = Regex::new(r"^(\S+)\s+(\S+)\s+(\S+)\s+(\S+)\s+(\S+)\s*(.*)$").unwrap();
 
     for line in output.lines() {
         let line = line.trim();
@@ -19,14 +17,22 @@ pub fn parse_protocols(output: &str) -> Vec<Protocol> {
             continue;
         }
 
-        if let Some(caps) = re.captures(line) {
+        let mut parts = line.split_ascii_whitespace();
+        if let (Some(name), Some(proto), Some(table), Some(state), Some(since)) = (
+            parts.next(),
+            parts.next(),
+            parts.next(),
+            parts.next(),
+            parts.next(),
+        ) {
+            let info = parts.collect::<Vec<&str>>().join(" ");
             protocols.push(Protocol {
-                name: caps[1].to_string(),
-                proto: caps[2].to_string(),
-                table: caps[3].to_string(),
-                state: caps[4].to_string(),
-                since: caps[5].to_string(),
-                info: caps[6].to_string(),
+                name: name.to_string(),
+                proto: proto.to_string(),
+                table: table.to_string(),
+                state: state.to_string(),
+                since: since.to_string(),
+                info,
             });
         }
     }
