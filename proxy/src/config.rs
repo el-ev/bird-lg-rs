@@ -1,6 +1,6 @@
 use anyhow::{Context, anyhow};
 use common::utils::deserialize_listen_address;
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Deserializer, Serialize};
 use std::net::{IpAddr, SocketAddr};
 use std::path::Path;
 
@@ -12,8 +12,10 @@ pub struct PeeringInfo {
     pub ipv6: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub link_local_ipv6: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub wg_pubkey_path: Option<String>,
+    #[serde(
+        deserialize_with = "deserialize_wg_pubkey",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub wg_pubkey: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub endpoint: Option<String>,
@@ -31,9 +33,11 @@ pub struct Config {
     pub allowed_nets: Vec<ipnet::IpNet>,
     pub shared_secret: Option<String>,
     pub traceroute_bin: Option<String>,
-    traceroute_args: Option<String>,
-    #[serde(skip)]
-    pub tr_arglist: Vec<String>,
+    #[serde(
+        default,
+        deserialize_with = "deserialize_traceroute_args",
+    )]
+    pub traceroute_args: Vec<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub peering: Option<PeeringInfo>,
 }
@@ -63,7 +67,6 @@ impl Config {
         self.validate_listen(&mut errors);
         self.validate_allowed_ips(&mut errors);
         self.validate_traceroute_bin(&mut errors);
-        self.load_peering_pubkey(&mut errors);
 
         if errors.is_empty() {
             Ok(self)
@@ -162,30 +165,57 @@ impl Config {
             } else if !p.is_file() {
                 errors.push(format!("traceroute_bin '{}' is not a file", bin));
             }
-        } else if let Some(args) = &self.traceroute_args
-            && !args.trim().is_empty()
-        {
+        } else if !self.traceroute_args.is_empty() {
             errors.push("traceroute_args is set but traceroute_bin isn't".to_string());
         }
-        self.tr_arglist = self
-            .traceroute_args
-            .as_ref()
-            .map(|s| s.split_whitespace().map(|s| s.to_string()).collect())
-            .unwrap_or_default();
     }
+}
 
-    fn load_peering_pubkey(&mut self, errors: &mut Vec<String>) {
-        if let Some(ref mut peering) = self.peering
-            && let Some(ref path) = peering.wg_pubkey_path
-        {
-            match std::fs::read_to_string(path) {
-                Ok(content) => {
-                    peering.wg_pubkey = Some(content.trim().to_string());
-                }
-                Err(e) => {
-                    errors.push(format!("Failed to read wg_pubkey_path '{}': {}", path, e));
-                }
+pub fn deserialize_wg_pubkey<'de, D>(deserializer: D) -> Result<Option<String>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    use serde::de::Error;
+    use serde_json::Value;
+
+    let value = Value::deserialize(deserializer)?;
+    match value {
+        Value::Null => Ok(None),
+        Value::String(s) => {
+            // If it looks like a file path, try to read it
+            if s.starts_with('/') || s.starts_with("./") || s.starts_with("../") {
+                std::fs::read_to_string(&s)
+                    .map(|content| Some(content.trim().to_string()))
+                    .map_err(|e| {
+                        Error::custom(format!("Failed to read wg_pubkey from '{}': {}", s, e))
+                    })
+            } else {
+                // Otherwise treat it as the key itself
+                Ok(Some(s))
             }
         }
+        _ => Err(Error::custom("wg_pubkey must be a string or null")),
+    }
+}
+
+// FIXME maybe called split something
+pub fn deserialize_traceroute_args<'de, D>(deserializer: D) -> Result<Vec<String>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    use serde::de::Error;
+    use serde_json::Value;
+
+    let value = Value::deserialize(deserializer)?;
+    match value {
+        Value::Null => Ok(Vec::new()),
+        Value::String(s) => {
+            if s.trim().is_empty() {
+                Ok(Vec::new())
+            } else {
+                Ok(s.split_whitespace().map(|s| s.to_string()).collect())
+            }
+        }
+        _ => Err(Error::custom("traceroute_args must be a string or null")),
     }
 }
