@@ -42,8 +42,10 @@ pub async fn fetch_stream(
                     .map(|chunk| chunk.map_err(io::Error::other));
                 Ok(stream)
             } else {
-                let body_text = resp.text().await.unwrap_or_else(|_| "empty".to_string());
-                Err(format!("Node returned error: {}", body_text))
+                Err(resp
+                    .text()
+                    .await
+                    .unwrap_or_else(|_| "Node returned error".to_string()))
             }
         }
         Err(_) => Err("Node is not reachable".to_string()),
