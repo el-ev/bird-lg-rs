@@ -1,7 +1,7 @@
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
-use crate::models::{NetworkInfo, NodeStatus};
+use crate::models::{NetworkInfo, NodeStatus, NodeStatusDiff};
 use crate::traceroute::TracerouteHop;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -27,8 +27,10 @@ pub enum AppRequest {
 pub enum AppResponse {
     #[serde(rename = "pr")]
     Protocols { data: Vec<NodeStatus> },
+    #[serde(rename = "pd")]
+    ProtocolsDiff { data: Vec<NodeStatusDiff> },
     #[serde(rename = "nc")]
-    NoChange { last_updated: DateTime<Utc> },
+    NoChange(DateTime<Utc>),
     #[serde(rename = "tri")]
     TracerouteInit { node: String },
     #[serde(rename = "tru")]
