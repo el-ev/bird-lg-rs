@@ -1,9 +1,8 @@
 use chrono::{DateTime, Utc};
+use common::models::{NetworkInfo, NodeStatus, PeeringInfo};
 use std::collections::HashMap;
 use std::rc::Rc;
 use yew::prelude::*;
-
-use crate::models::{NetworkInfo, NodeStatus, PeeringInfo};
 
 pub mod modal;
 pub mod traceroute;

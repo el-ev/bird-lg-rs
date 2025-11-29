@@ -1,7 +1,7 @@
+use common::models::NetworkInfo;
 use yew::prelude::*;
 use yew_router::prelude::*;
 
-use crate::models::NetworkInfo;
 use crate::routes::Route;
 
 #[derive(Properties, PartialEq)]

@@ -1,9 +1,10 @@
 use chrono::Local;
+use common::models::NodeStatus;
 use yew::prelude::*;
 
-use crate::components::data_table::{DataTable, TableRow};
-use crate::components::shell::ShellLine;
-use crate::models::NodeStatus;
+use super::data_table::{DataTable, TableRow};
+use super::shell::ShellLine;
+
 use crate::store::AppState;
 
 #[derive(Properties, PartialEq)]

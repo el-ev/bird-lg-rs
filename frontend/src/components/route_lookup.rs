@@ -1,16 +1,18 @@
 use std::net::IpAddr;
 
+use common::models::NodeStatus;
 use ipnet::IpNet;
 use web_sys::HtmlInputElement;
 use yew::prelude::*;
 
-use crate::components::shell::{ShellButton, ShellInput, ShellPrompt, ShellSelect, ShellToggle};
+use super::shell::{ShellButton, ShellInput, ShellPrompt, ShellSelect, ShellToggle};
+
 use crate::store::AppState;
 
 #[derive(Properties, PartialEq)]
 pub struct RouteLookupProps {
     pub state: UseReducerHandle<AppState>,
-    pub nodes: Vec<crate::models::NodeStatus>,
+    pub nodes: Vec<NodeStatus>,
     pub on_lookup: Callback<(String, String, bool)>,
 }
 
