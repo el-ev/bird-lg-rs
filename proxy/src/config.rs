@@ -1,4 +1,5 @@
 use anyhow::{Context, anyhow};
+use common::utils::deserialize_listen_address;
 use serde::{Deserialize, Serialize};
 use std::net::{IpAddr, SocketAddr};
 use std::path::Path;
@@ -16,12 +17,15 @@ pub struct PeeringInfo {
     pub wg_pubkey: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub endpoint: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub comment: Option<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Config {
     pub bind_socket: String,
-    pub listen: String,
+    #[serde(deserialize_with = "deserialize_listen_address")]
+    pub listen: Vec<String>,
     allowed_ips: Vec<String>,
     #[serde(skip)]
     pub allowed_nets: Vec<ipnet::IpNet>,
@@ -104,11 +108,13 @@ impl Config {
     }
 
     fn validate_listen(&self, errors: &mut Vec<String>) {
-        if let Err(e) = self.listen.parse::<SocketAddr>() {
-            errors.push(format!(
-                "listen '{}' is not a valid socket address: {}",
-                self.listen, e
-            ));
+        for (idx, addr) in self.listen.iter().enumerate() {
+            if let Err(e) = addr.parse::<SocketAddr>() {
+                errors.push(format!(
+                    "listen[{}] '{}' is not a valid socket address: {}",
+                    idx, addr, e
+                ));
+            }
         }
     }
 

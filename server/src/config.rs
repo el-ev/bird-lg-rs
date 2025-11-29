@@ -2,11 +2,14 @@ use anyhow::Result;
 use serde::Deserialize;
 use std::fs;
 
+use common::utils::deserialize_listen_address;
 pub use common::models::{NetworkInfo, PeeringInfo};
+
 
 #[derive(Deserialize, Clone, Debug)]
 pub struct Config {
-    pub listen: String,
+    #[serde(deserialize_with = "deserialize_listen_address")]
+    pub listen: Vec<String>,
     pub nodes: Vec<NodeConfig>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub network: Option<NetworkInfo>,

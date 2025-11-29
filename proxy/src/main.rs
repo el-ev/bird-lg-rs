@@ -28,8 +28,6 @@ async fn main() -> anyhow::Result<()> {
     info!("Using config file: {}", config_path);
     let config = Arc::new(Config::new(config_path)?);
 
-    let listener = TcpListener::bind(&config.listen).await?;
-    info!("Proxy listening on {}", config.listen);
     let app = Router::new()
         .route("/bird", post(handlers::bird::handler))
         .route("/traceroute", get(handlers::traceroute::traceroute))
@@ -38,13 +36,41 @@ async fn main() -> anyhow::Result<()> {
         .route("/peering", get(handlers::peering::get_peering_info))
         .layer(CorsLayer::permissive())
         .layer(axum::middleware::from_fn(auth_middleware))
-        .layer(Extension(config));
+        .layer(Extension(config.clone()));
 
-    axum::serve(
-        listener,
-        app.into_make_service_with_connect_info::<SocketAddr>(),
-    )
-    .await?;
+    let mut handles = Vec::new();
+    for listen_addr in &config.listen {
+        let app_clone = app.clone();
+        let addr = listen_addr.clone();
+
+        let handle = tokio::spawn(async move {
+            match TcpListener::bind(&addr).await {
+                Ok(listener) => {
+                    info!("Proxy listening on {}", addr);
+                    if let Err(e) = axum::serve(
+                        listener,
+                        app_clone.into_make_service_with_connect_info::<SocketAddr>(),
+                    )
+                    .await
+                    {
+                        tracing::error!("Server on {} failed: {}", addr, e);
+                        Err(anyhow::anyhow!("Server on {} failed: {}", addr, e))
+                    } else {
+                        Ok(())
+                    }
+                }
+                Err(e) => {
+                    tracing::error!("Failed to bind to {}: {}", addr, e);
+                    Err(anyhow::anyhow!("Failed to bind to {}: {}", addr, e))
+                }
+            }
+        });
+
+        handles.push(handle);
+    }
+
+    let (result, _index, _remaining) = futures::future::select_all(handles).await;
+    result??;
 
     Ok(())
 }
