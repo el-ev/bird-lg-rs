@@ -1,6 +1,7 @@
 mod app;
 mod components;
 mod config;
+mod hooks;
 mod routes;
 mod services;
 mod store;
