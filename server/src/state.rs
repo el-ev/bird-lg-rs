@@ -2,7 +2,7 @@ use std::{
     collections::HashMap,
     sync::{
         Arc, RwLock,
-        atomic::{AtomicBool, Ordering},
+        atomic::{AtomicBool, AtomicUsize, Ordering},
     },
     time::{Duration, Instant},
 };
@@ -25,6 +25,7 @@ pub struct AppState {
 
     pub last_request_time: Arc<RwLock<Option<Instant>>>,
     pub is_polling_active: Arc<AtomicBool>,
+    pub active_connections: Arc<AtomicUsize>,
 }
 
 impl AppState {
@@ -47,6 +48,7 @@ impl AppState {
             tx,
             last_request_time: Arc::new(RwLock::new(None)),
             is_polling_active: Arc::new(AtomicBool::new(true)),
+            active_connections: Arc::new(AtomicUsize::new(0)),
         }
     }
 

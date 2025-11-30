@@ -30,7 +30,7 @@ pub enum AppResponse {
     #[serde(rename = "pd")]
     ProtocolsDiff { data: Vec<NodeStatusDiff> },
     #[serde(rename = "nc")]
-    NoChange(DateTime<Utc>),
+    NoChange{ last_updated: DateTime<Utc>},
     #[serde(rename = "tri")]
     TracerouteInit { node: String },
     #[serde(rename = "tru")]
