@@ -8,7 +8,7 @@ pub fn handle_app_response(response: AppResponse, state: &UseReducerHandle<AppSt
         AppResponse::Protocols { data } => {
             state.dispatch(Action::SetNodes(data));
         }
-        AppResponse::NoChange(last_updated) => {
+        AppResponse::NoChange{ last_updated } => {
             state.dispatch(Action::UpdateTimestamp(last_updated));
         }
         AppResponse::ProtocolsDiff { data } => {

@@ -57,6 +57,23 @@ fn create_client() -> reqwest::Client {
 }
 
 async fn check_idle_timeout(state: &AppState, config: &Config) -> bool {
+    if state
+        .active_connections
+        .load(std::sync::atomic::Ordering::Relaxed)
+        > 0
+    {
+        if !state
+            .is_polling_active
+            .load(std::sync::atomic::Ordering::Relaxed)
+        {
+            state
+                .is_polling_active
+                .store(true, std::sync::atomic::Ordering::Relaxed);
+            tracing::info!("Resuming polling due to active WebSocket connection");
+        }
+        return false;
+    }
+
     if let Some(idle_timeout_secs) = config.poll_idle_timeout {
         let should_pause = {
             let last_req = state.last_request_time.read().unwrap();
@@ -180,7 +197,9 @@ fn broadcast_updates(
             .collect();
         AppResponse::ProtocolsDiff { data: diffs }
     } else {
-        AppResponse::NoChange(Utc::now())
+        AppResponse::NoChange {
+            last_updated: Utc::now(),
+        }
     };
 
     let _ = state.tx.send(resp);

@@ -1,4 +1,5 @@
-use std::sync::Arc;
+use std::sync::atomic::Ordering;
+use std::sync::{Arc, atomic::AtomicUsize};
 
 use crate::{
     config::Config,
@@ -13,6 +14,21 @@ use axum::{
 };
 use futures_util::{SinkExt, Stream, StreamExt, stream};
 
+struct ConnectionGuard(Arc<AtomicUsize>);
+
+impl ConnectionGuard {
+    pub fn new(counter: Arc<AtomicUsize>) -> Self {
+        counter.fetch_add(1, Ordering::Relaxed);
+        Self(counter)
+    }
+}
+
+impl Drop for ConnectionGuard {
+    fn drop(&mut self) {
+        self.0.fetch_sub(1, Ordering::Relaxed);
+    }
+}
+
 pub async fn ws_handler(
     ws: WebSocketUpgrade,
     Extension(state): Extension<AppState>,
@@ -23,6 +39,8 @@ pub async fn ws_handler(
 }
 
 async fn handle_socket(socket: WebSocket, state: AppState, config: Arc<Config>) {
+    let _conn_guard = ConnectionGuard::new(state.active_connections.clone());
+
     let (mut sender, mut receiver) = socket.split();
     let mut rx = state.tx.subscribe();
 
