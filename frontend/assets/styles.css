@@ -299,11 +299,6 @@ details[open] {
     cursor: text;
 
     &:focus-within {
-        .shell-cursor {
-            opacity: 1;
-            animation: blink 1s step-end infinite;
-        }
-
         .shell-cursor-char {
             position: relative;
             text-decoration: none;
@@ -355,18 +350,6 @@ details[open] {
     background: transparent;
     color: transparent;
     pointer-events: none;
-}
-
-.shell-cursor {
-    display: inline-block;
-    width: 0;
-    overflow: visible;
-    color: var(--text);
-    opacity: 0;
-    pointer-events: none;
-    white-space: nowrap;
-    user-select: none;
-    -webkit-user-select: none;
 }
 
 .shell-input-selection {
