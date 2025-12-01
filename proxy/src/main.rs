@@ -30,6 +30,7 @@ async fn main() -> anyhow::Result<()> {
 
     let app = Router::new()
         .route("/bird", post(handlers::bird::handler))
+        .route("/wireguard", get(handlers::wireguard::get_wireguard))
         .route("/traceroute", get(handlers::traceroute::traceroute))
         .route("/traceroute4", get(handlers::traceroute::traceroute4))
         .route("/traceroute6", get(handlers::traceroute::traceroute6))

@@ -13,11 +13,11 @@ use tracing::warn;
 
 use crate::config::PeeringInfo;
 pub use common::api::{AppRequest, AppResponse};
-pub use common::models::NodeStatus;
+pub use common::models::NodeProtocol;
 
 #[derive(Clone)]
 pub struct AppState {
-    pub nodes: Arc<RwLock<Vec<NodeStatus>>>,
+    pub nodes: Arc<RwLock<Vec<NodeProtocol>>>,
     pub peering: Arc<RwLock<HashMap<String, PeeringInfo>>>,
 
     pub http_client: reqwest::Client,

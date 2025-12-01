@@ -6,11 +6,11 @@ use yew::prelude::*;
 use crate::config::load_config;
 use crate::services::api::{get_network_info, get_protocols};
 use crate::services::websocket::WebSocketService;
-use crate::store::{Action, AppState};
+use crate::store::{Action, AppStateHandle};
 use crate::utils::sleep_ms;
 
 #[hook]
-pub fn use_app_data(state: UseReducerHandle<AppState>) {
+pub fn use_app_data(state: AppStateHandle) {
     {
         let state = state.clone();
         use_effect_with((), move |_| {

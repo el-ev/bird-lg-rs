@@ -11,7 +11,7 @@ use std::net::IpAddr;
 use tracing::warn;
 
 use crate::config::Config;
-use crate::services::request::{get_stream, post_stream};
+use crate::services::request::{build_get, get_stream, post_stream};
 use crate::state::{AppResponse, AppState};
 use crate::utils::byte_stream_to_lines;
 
@@ -190,4 +190,63 @@ pub async fn get_protocol_details(
             stream_error(err_msg)
         }
     }
+}
+
+pub async fn get_wireguard(state: AppState, config: Arc<Config>) -> BoxStream {
+    use chrono::Utc;
+    use common::models::NodeWireGuard;
+    use common::wireguard::parse_wireguard_dump;
+
+    let http_client = state.http_client.clone();
+    let mut wireguard_data = Vec::new();
+
+    for node in &config.nodes {
+        let req = build_get(&http_client, node, "/wireguard");
+        match req.send().await {
+            Ok(resp) if resp.status().is_success() => match resp.text().await {
+                Ok(dump_output) => {
+                    let peers = parse_wireguard_dump(&dump_output);
+                    wireguard_data.push(NodeWireGuard {
+                        name: node.name.clone(),
+                        peers,
+                        last_updated: Utc::now(),
+                        error: None,
+                    });
+                }
+                Err(e) => {
+                    warn!(node = %node.name, error = ?e, "Failed to read WireGuard response");
+                    wireguard_data.push(NodeWireGuard {
+                        name: node.name.clone(),
+                        peers: Vec::new(),
+                        last_updated: Utc::now(),
+                        error: Some("Failed to read response".to_string()),
+                    });
+                }
+            },
+            Ok(resp) => {
+                warn!(node = %node.name, status = %resp.status(), "WireGuard endpoint returned error");
+                wireguard_data.push(NodeWireGuard {
+                    name: node.name.clone(),
+                    peers: Vec::new(),
+                    last_updated: Utc::now(),
+                    error: Some(format!("Node returned error: {}", resp.status())),
+                });
+            }
+            Err(e) => {
+                warn!(node = %node.name, error = ?e, "Failed to contact node for WireGuard info");
+                wireguard_data.push(NodeWireGuard {
+                    name: node.name.clone(),
+                    peers: Vec::new(),
+                    last_updated: Utc::now(),
+                    error: Some("Node is not reachable".to_string()),
+                });
+            }
+        }
+    }
+
+    Box::pin(stream::once(async move {
+        AppResponse::WireGuard {
+            data: wireguard_data,
+        }
+    }))
 }

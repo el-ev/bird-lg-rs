@@ -37,6 +37,8 @@ pub struct Config {
     pub traceroute_args: Vec<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub peering: Option<PeeringInfo>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub wireguard_command: Option<String>,
 }
 
 impl Config {
@@ -179,7 +181,6 @@ where
     match value {
         Value::Null => Ok(None),
         Value::String(s) => {
-            // If it looks like a file path, try to read it
             if s.starts_with('/') || s.starts_with("./") || s.starts_with("../") {
                 std::fs::read_to_string(&s)
                     .map(|content| Some(content.trim().to_string()))
@@ -187,7 +188,6 @@ where
                         Error::custom(format!("Failed to read wg_pubkey from '{}': {}", s, e))
                     })
             } else {
-                // Otherwise treat it as the key itself
                 Ok(Some(s))
             }
         }

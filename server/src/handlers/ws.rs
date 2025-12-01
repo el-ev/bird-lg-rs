@@ -56,6 +56,17 @@ async fn handle_socket(socket: WebSocket, state: AppState, config: Arc<Config>) 
         return;
     }
 
+    let state_for_wg = state.clone();
+    let config_for_wg = config.clone();
+    tokio::spawn(async move {
+        let wg_stream =
+            crate::services::api::get_wireguard(state_for_wg.clone(), config_for_wg).await;
+        let mut stream = Box::pin(wg_stream);
+        if let Some(resp) = stream.next().await {
+            let _ = state_for_wg.tx.send(resp);
+        }
+    });
+
     let (tx, mut mpsc_rx) = tokio::sync::mpsc::unbounded_channel();
 
     let mut send_task = tokio::spawn(async move {
@@ -127,6 +138,9 @@ async fn handle_request(
             let nodes = state.nodes.read().unwrap().clone();
             stream::once(async move { AppResponse::Protocols { data: nodes } }).left_stream()
         }
+        AppRequest::GetWireGuard => crate::services::api::get_wireguard(state, config)
+            .await
+            .right_stream(),
         AppRequest::Traceroute { node, target } => {
             crate::services::api::perform_traceroute(state, config, node, target, None)
                 .await

@@ -379,6 +379,20 @@ details[open] {
     }
 }
 
+.refresh-button {
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    font-size: 0.8em;
+    color: var(--text-secondary);
+    padding: 0 8px;
+    transition: color 0.2s;
+
+    &:hover {
+        color: var(--text);
+    }
+}
+
 .shell-toggle {
     font-family: monospace;
     font-size: 1em;

@@ -7,7 +7,7 @@ use wasm_bindgen_futures::spawn_local;
 use yew::prelude::*;
 
 pub fn perform_traceroute(
-    state: &UseReducerHandle<crate::store::AppState>,
+    state: &UseReducerHandle<crate::store::LgState>,
     node: String,
     target: String,
     version: String,
@@ -71,7 +71,7 @@ pub fn perform_traceroute(
 }
 
 pub fn perform_route_lookup(
-    state: &UseReducerHandle<crate::store::AppState>,
+    state: &UseReducerHandle<crate::store::LgState>,
     node: String,
     target: String,
     all: bool,
@@ -123,7 +123,7 @@ pub fn perform_route_lookup(
     }
 }
 
-pub async fn get_protocols(state: &UseReducerHandle<crate::store::AppState>) -> Result<(), String> {
+pub async fn get_protocols(state: &UseReducerHandle<crate::store::LgState>) -> Result<(), String> {
     let url = format!("{}/api/protocols", state.backend_url.trim_end_matches('/'));
     match fetch_json::<AppResponse>(&url).await {
         Ok(response) => {
@@ -139,7 +139,7 @@ pub async fn get_protocols(state: &UseReducerHandle<crate::store::AppState>) -> 
 }
 
 pub async fn get_network_info(
-    state: &UseReducerHandle<crate::store::AppState>,
+    state: &UseReducerHandle<crate::store::LgState>,
 ) -> Result<(), String> {
     let url = format!("{}/api/info", state.backend_url.trim_end_matches('/'));
     match fetch_json::<AppResponse>(&url).await {
@@ -156,7 +156,7 @@ pub async fn get_network_info(
 }
 
 pub fn get_protocol_details(
-    state: &UseReducerHandle<crate::store::AppState>,
+    state: &UseReducerHandle<crate::store::LgState>,
     node: String,
     proto: String,
 ) {
@@ -198,5 +198,11 @@ pub fn get_protocol_details(
                 }
             }
         });
+    }
+}
+
+pub fn request_wireguard(state: &UseReducerHandle<crate::store::LgState>) {
+    if let Some(sender) = &state.ws_sender {
+        sender.emit(AppRequest::GetWireGuard);
     }
 }

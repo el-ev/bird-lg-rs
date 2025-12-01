@@ -1,8 +1,10 @@
 pub mod content_modal;
 pub mod data_table;
 pub mod header;
+pub mod main_view;
 pub mod node_list;
 pub mod route_lookup;
 pub mod shell;
 pub mod status_banner;
 pub mod traceroute;
+pub mod wireguard;
