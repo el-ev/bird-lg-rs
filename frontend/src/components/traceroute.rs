@@ -1,4 +1,4 @@
-use common::models::NodeStatus;
+use common::models::NodeProtocol;
 use common::{traceroute::fold_timeouts, utils::validate_target};
 use futures::future::join_all;
 use wasm_bindgen_futures::spawn_local;
@@ -9,21 +9,21 @@ use super::data_table::{DataTable, TableRow};
 use super::shell::{ShellButton, ShellInput, ShellLine, ShellPrompt, ShellSelect};
 
 use crate::services::api::perform_traceroute;
+use crate::store::route_info::RouteInfoHandle;
 use crate::store::traceroute::TracerouteAction;
-use crate::store::{Action, AppState, NodeTracerouteResult};
-
-#[derive(Properties, PartialEq)]
-pub struct TracerouteProps {
-    pub state: UseReducerHandle<AppState>,
-    pub nodes: Vec<NodeStatus>,
-}
+use crate::store::{Action, AppStateHandle, NodeTracerouteResult};
 
 #[function_component(Traceroute)]
-pub fn traceroute_section(props: &TracerouteProps) -> Html {
-    let state = props.state.clone();
+pub fn traceroute_section() -> Html {
+    let state = use_context::<AppStateHandle>().expect("no app state found");
     let traceroute_state = &state.traceroute;
 
-    let nodes = props.nodes.clone();
+    let route_info = use_context::<RouteInfoHandle>().expect("no route info found");
+    let nodes: Vec<NodeProtocol> = if let Some(node) = &route_info.node_info {
+        vec![node.clone()]
+    } else {
+        state.nodes.clone()
+    };
 
     let on_node_change = {
         let state = state.clone();

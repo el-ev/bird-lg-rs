@@ -1,7 +1,7 @@
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
-use crate::models::{NetworkInfo, NodeStatus, NodeStatusDiff};
+use crate::models::{NetworkInfo, NodeProtocol, NodeStatusDiff, NodeWireGuard};
 use crate::traceroute::TracerouteHop;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -9,6 +9,8 @@ use crate::traceroute::TracerouteHop;
 pub enum AppRequest {
     #[serde(rename = "gp")]
     GetProtocols,
+    #[serde(rename = "gw")]
+    GetWireGuard,
     #[serde(rename = "tr")]
     Traceroute { node: String, target: String },
     #[serde(rename = "rl")]
@@ -26,11 +28,13 @@ pub enum AppRequest {
 #[serde(tag = "t")]
 pub enum AppResponse {
     #[serde(rename = "pr")]
-    Protocols { data: Vec<NodeStatus> },
+    Protocols { data: Vec<NodeProtocol> },
     #[serde(rename = "pd")]
     ProtocolsDiff { data: Vec<NodeStatusDiff> },
     #[serde(rename = "nc")]
-    NoChange{ last_updated: DateTime<Utc>},
+    NoChange { last_updated: DateTime<Utc> },
+    #[serde(rename = "wg")]
+    WireGuard { data: Vec<NodeWireGuard> },
     #[serde(rename = "tri")]
     TracerouteInit { node: String },
     #[serde(rename = "tru")]

@@ -1,14 +1,13 @@
 use crate::store::traceroute::TracerouteAction;
-use crate::store::{Action, AppState, NodeTracerouteResult};
+use crate::store::{Action, AppStateHandle, NodeTracerouteResult};
 use common::api::AppResponse;
-use yew::prelude::*;
 
-pub fn handle_app_response(response: AppResponse, state: &UseReducerHandle<AppState>) {
+pub fn handle_app_response(response: AppResponse, state: &AppStateHandle) {
     match response {
         AppResponse::Protocols { data } => {
             state.dispatch(Action::SetNodes(data));
         }
-        AppResponse::NoChange{ last_updated } => {
+        AppResponse::NoChange { last_updated } => {
             state.dispatch(Action::UpdateTimestamp(last_updated));
         }
         AppResponse::ProtocolsDiff { data } => {
@@ -47,6 +46,9 @@ pub fn handle_app_response(response: AppResponse, state: &UseReducerHandle<AppSt
             lines,
         } => {
             state.dispatch(Action::ProtocolDetailsUpdate(lines));
+        }
+        AppResponse::WireGuard { data } => {
+            state.dispatch(Action::SetWireGuard(data));
         }
         AppResponse::NetworkInfo(info) => {
             state.dispatch(Action::SetNetworkInfo(info));

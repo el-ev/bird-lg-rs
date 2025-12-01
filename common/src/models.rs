@@ -30,7 +30,7 @@ pub struct PeeringInfo {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
-pub struct NodeStatus {
+pub struct NodeProtocol {
     pub name: String,
     pub protocols: Vec<Protocol>,
     pub last_updated: DateTime<Utc>,
@@ -45,6 +45,24 @@ pub struct NetworkInfo {
     pub comment: Option<String>,
     #[serde(default, skip_serializing_if = "HashMap::is_empty")]
     pub peering: HashMap<String, PeeringInfo>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
+pub struct WireGuardPeer {
+    pub name: String,
+    // pub public_key: String,
+    // pub endpoint: Option<String>,
+    pub latest_handshake: Option<String>,
+    pub transfer_rx: String,
+    pub transfer_tx: String,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
+pub struct NodeWireGuard {
+    pub name: String,
+    pub peers: Vec<WireGuardPeer>,
+    pub last_updated: DateTime<Utc>,
+    pub error: Option<String>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]

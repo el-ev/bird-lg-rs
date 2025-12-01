@@ -23,3 +23,4 @@ chrono = { version = "0.4.42", features = ["serde"] }
 ipnet = "2.11.0"
 tracing = "0.1.43"
 tracing-wasm = "0.2.1"
+implicit-clone = "0.4.9"

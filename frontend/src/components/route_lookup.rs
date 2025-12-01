@@ -1,27 +1,36 @@
 use std::net::IpAddr;
 
-use common::models::NodeStatus;
+use common::models::NodeProtocol;
 use ipnet::IpNet;
 use web_sys::HtmlInputElement;
 use yew::prelude::*;
 
 use super::shell::{ShellButton, ShellInput, ShellPrompt, ShellSelect, ShellToggle};
 
-use crate::store::AppState;
-
-#[derive(Properties, PartialEq)]
-pub struct RouteLookupProps {
-    pub state: UseReducerHandle<AppState>,
-    pub nodes: Vec<NodeStatus>,
-    pub on_lookup: Callback<(String, String, bool)>,
-}
+use crate::{
+    services::api::perform_route_lookup, store::AppStateHandle, store::route_info::RouteInfoHandle,
+};
 
 #[function_component(RouteLookup)]
-pub fn route_lookup(props: &RouteLookupProps) -> Html {
+pub fn route_lookup() -> Html {
     let selected_node = use_state(String::new);
     let target = use_state(String::new);
     let all = use_state(|| false);
     let error = use_state(|| None::<String>);
+    let state = use_context::<AppStateHandle>().expect("no app state found");
+    let route_info = use_context::<RouteInfoHandle>().expect("no route info found");
+    let nodes: Vec<NodeProtocol> = if let Some(node) = &route_info.node_info {
+        vec![node.clone()]
+    } else {
+        state.nodes.clone()
+    };
+
+    let on_route_lookup = {
+        let state = state.clone();
+        Callback::from(move |(node, target, all): (String, String, bool)| {
+            perform_route_lookup(&state, node, target, all);
+        })
+    };
 
     let on_node_change = {
         let selected_node = selected_node.clone();
@@ -50,8 +59,8 @@ pub fn route_lookup(props: &RouteLookupProps) -> Html {
         let target = target.clone();
         let all = all.clone();
         let error = error.clone();
-        let on_lookup = props.on_lookup.clone();
-        let nodes = props.nodes.clone();
+        let on_lookup = on_route_lookup.clone();
+        let nodes = nodes.clone();
 
         Callback::from(move |e: SubmitEvent| {
             e.prevent_default();
@@ -90,12 +99,12 @@ pub fn route_lookup(props: &RouteLookupProps) -> Html {
             <h3>{"Route Lookup"}</h3>
             <form class="shell-line" onsubmit={on_submit}>
                 <ShellPrompt>
-                    {format!("{}@", props.state.username)}
+                    {format!("{}@", state.username)}
                     <ShellSelect
                         value={(*selected_node).clone()}
                         on_change={on_node_change}
                     >
-                        { for props.nodes.iter().map(|n| html! {
+                        { for nodes.iter().map(|n| html! {
                             <option value={n.name.clone()}>{ &n.name }</option>
                         }) }
                     </ShellSelect>

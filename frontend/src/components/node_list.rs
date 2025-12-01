@@ -1,27 +1,34 @@
 use chrono::Local;
-use common::models::NodeStatus;
 use yew::prelude::*;
 
 use super::data_table::{DataTable, TableRow};
 use super::shell::ShellLine;
 
-use crate::store::AppState;
-
-#[derive(Properties, PartialEq)]
-pub struct NodeListProps {
-    pub state: UseReducerHandle<AppState>,
-    pub nodes: Vec<NodeStatus>,
-    pub on_protocol_click: Callback<(String, String)>,
-}
+use crate::services::api::get_protocol_details;
+use crate::store::AppStateHandle;
+use crate::store::route_info::RouteInfoHandle;
 
 #[function_component(NodeList)]
-pub fn node_list(props: &NodeListProps) -> Html {
+pub fn node_list() -> Html {
+    let state = use_context::<AppStateHandle>().expect("no app state found");
+    let route_info = use_context::<RouteInfoHandle>().expect("no route info found");
+    let on_protocol_click = {
+        let state = state.clone();
+        Callback::from(move |(node, proto): (String, String)| {
+            get_protocol_details(&state, node, proto);
+        })
+    };
+    let nodes = if let Some(node) = &route_info.node_info {
+        std::slice::from_ref(node)
+    } else {
+        state.nodes.as_slice()
+    };
     html! {
         <div>
             <h3>{"Protocols"}</h3>
-            { for props.nodes.iter().map(|node| {
+            { for nodes.iter().map(|node| {
                 let node_name = node.name.clone();
-                let on_protocol_click = props.on_protocol_click.clone();
+                let on_protocol_click = on_protocol_click.clone();
                 html! {
                     <>
                         <details class="expandable-item" open=true>
@@ -47,7 +54,7 @@ pub fn node_list(props: &NodeListProps) -> Html {
                                 </span>
                             </summary>
                             <ShellLine
-                                prompt={format!("{}@{}$ ", props.state.username, node.name)}
+                                prompt={format!("{}@{}$ ", state.username, node.name)}
                                 command={"birdc show protocols".to_string()}
                                 style={"font-size: 0.9em;".to_string()}
                             />

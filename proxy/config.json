@@ -17,5 +17,6 @@
         "wg_pubkey_path": "/etc/wireguard/publickey",
         "endpoint": "your.endpoint.domain",
         "comment": "Optional comment about this node's peering info"
-    }
+    },
+    "wireguard_command": "wg show dump"
 }

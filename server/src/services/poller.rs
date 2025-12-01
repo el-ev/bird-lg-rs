@@ -8,7 +8,7 @@ use crate::{
     config::{Config, NodeConfig, PeeringInfo},
     diff::calculate_diff,
     services::request::{build_get, build_post},
-    state::{AppResponse, AppState, NodeStatus},
+    state::{AppResponse, AppState, NodeProtocol},
     utils::parse_protocols,
 };
 use common::models::NodeStatusDiff;
@@ -110,9 +110,9 @@ async fn process_node(
     client: &reqwest::Client,
     node: &NodeConfig,
     state: &AppState,
-    current_nodes: &[NodeStatus],
+    current_nodes: &[NodeProtocol],
     should_fetch_peering: bool,
-) -> NodeStatus {
+) -> NodeProtocol {
     let command = "show protocols";
     let req = build_post(client, node, "/bird", command);
     let resp = req.send().await;
@@ -132,7 +132,7 @@ async fn process_node(
             Ok(text) => {
                 let protocols = parse_protocols(&text);
 
-                NodeStatus {
+                NodeProtocol {
                     name: node.name.clone(),
                     protocols,
                     last_updated: Utc::now(),
@@ -142,7 +142,7 @@ async fn process_node(
             Err(e) => {
                 warn!(node = %node.name, error = ?e, "Failed to read BIRD response");
                 let existing = current_nodes.iter().find(|n| n.name == node.name);
-                NodeStatus {
+                NodeProtocol {
                     name: node.name.clone(),
                     protocols: existing.map(|n| n.protocols.clone()).unwrap_or_default(),
                     last_updated: Utc::now(),
@@ -153,7 +153,7 @@ async fn process_node(
         Err(e) => {
             warn!(node = %node.name, error = ?e, "Failed to contact node");
             let existing = current_nodes.iter().find(|n| n.name == node.name);
-            NodeStatus {
+            NodeProtocol {
                 name: node.name.clone(),
                 protocols: existing.map(|n| n.protocols.clone()).unwrap_or_default(),
                 last_updated: Utc::now(),
@@ -165,8 +165,8 @@ async fn process_node(
 
 fn broadcast_updates(
     state: &AppState,
-    new_statuses: Vec<NodeStatus>,
-    current_nodes: &[NodeStatus],
+    new_statuses: Vec<NodeProtocol>,
+    current_nodes: &[NodeProtocol],
 ) {
     let changed = if new_statuses.len() != current_nodes.len() {
         true

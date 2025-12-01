@@ -3,14 +3,14 @@ use reqwasm::websocket::{Message, futures::WebSocket};
 use wasm_bindgen_futures::spawn_local;
 use yew::prelude::*;
 
-use crate::store::{Action, AppState};
+use crate::store::{Action, AppStateHandle};
 use crate::utils::sleep_ms;
 use common::api::{AppRequest, AppResponse};
 
 pub struct WebSocketService;
 
 impl WebSocketService {
-    pub fn connect(backend_url: String, state: UseReducerHandle<AppState>) {
+    pub fn connect(backend_url: String, state: AppStateHandle) {
         spawn_local(async move {
             let ws_url = backend_url
                 .trim_end_matches('/')
@@ -83,7 +83,7 @@ impl WebSocketService {
         });
     }
 
-    fn handle_message(text: &str, state: &UseReducerHandle<AppState>) {
+    fn handle_message(text: &str, state: &AppStateHandle) {
         if let Ok(response) = serde_json::from_str::<AppResponse>(text) {
             crate::services::response_handler::handle_app_response(response, state);
         } else {
