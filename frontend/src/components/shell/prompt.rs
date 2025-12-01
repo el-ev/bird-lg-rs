@@ -3,9 +3,9 @@ use yew::prelude::*;
 #[derive(Properties, PartialEq)]
 pub struct ShellPromptProps {
     #[prop_or_default]
-    pub prefix: Option<String>,
+    pub prefix: Option<AttrValue>,
     #[prop_or_default]
-    pub suffix: Option<String>,
+    pub suffix: Option<AttrValue>,
     #[prop_or_default]
     pub children: Children,
 }

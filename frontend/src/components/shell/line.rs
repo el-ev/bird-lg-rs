@@ -5,11 +5,11 @@ use super::ShellPrompt;
 #[derive(Properties, PartialEq)]
 pub struct ShellLineProps {
     #[prop_or_default]
-    pub prompt: Option<String>,
+    pub prompt: Option<AttrValue>,
     #[prop_or_default]
-    pub command: Option<String>,
+    pub command: Option<AttrValue>,
     #[prop_or_default]
-    pub style: Option<String>,
+    pub style: Option<AttrValue>,
     #[prop_or_default]
     pub children: Children,
 }
@@ -17,7 +17,7 @@ pub struct ShellLineProps {
 #[function_component(ShellLine)]
 pub fn shell_line(props: &ShellLineProps) -> Html {
     html! {
-        <div class="shell-line" style={props.style.clone()}>
+        <div class="shell-line" style={&props.style}>
             {
                 if !props.children.is_empty() {
                     html! { { for props.children.iter() } }

@@ -6,7 +6,7 @@ use crate::routes::Route;
 
 #[derive(Properties, PartialEq)]
 pub struct HeaderProps {
-    pub node_name: Option<String>,
+    pub node_name: Option<AttrValue>,
     pub network_info: Option<NetworkInfo>,
     pub nodes_count: usize,
 }

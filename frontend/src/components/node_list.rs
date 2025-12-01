@@ -61,7 +61,7 @@ pub fn node_list(props: &NodeListProps) -> Html {
                                         "Since",
                                         "Info",
                                     ]
-                                    .map(str::to_string)
+                                    .map(AttrValue::from)
                                     .to_vec()
                                 }
                                 rows={

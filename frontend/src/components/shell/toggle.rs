@@ -5,7 +5,7 @@ pub struct ShellToggleProps {
     pub active: bool,
     pub on_toggle: Callback<()>,
     #[prop_or_default]
-    pub label: Option<String>,
+    pub label: Option<AttrValue>,
     #[prop_or_default]
     pub children: Children,
 }
