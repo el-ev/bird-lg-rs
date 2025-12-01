@@ -7,8 +7,8 @@ use yew::prelude::*;
 #[derive(Properties, PartialEq)]
 pub struct ContentModalProps {
     pub visible: bool,
-    pub content: String,
-    pub command: Option<String>,
+    pub content: AttrValue,
+    pub command: Option<AttrValue>,
     pub on_close: Callback<()>,
 }
 
@@ -78,12 +78,15 @@ pub fn content_modal(props: &ContentModalProps) -> Html {
     let (prompt, cmd_text) = if let Some(full_cmd) = &props.command {
         if let Some(idx) = full_cmd.find("$ ") {
             let (p, c) = full_cmd.split_at(idx + 2);
-            (p.to_string(), c.to_string())
+            (
+                Some(AttrValue::from(p.to_string())),
+                Some(AttrValue::from(c.to_string())),
+            )
         } else {
-            ("".to_string(), full_cmd.clone())
+            (None, Some(full_cmd.clone()))
         }
     } else {
-        ("".to_string(), "".to_string())
+        (None, None)
     };
 
     html! {

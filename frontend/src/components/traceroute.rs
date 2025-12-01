@@ -188,7 +188,7 @@ pub fn traceroute_section(props: &TracerouteProps) -> Html {
                                                     "IP",
                                                     "RTTs",
                                                 ]
-                                                .map(str::to_string)
+                                                .map(AttrValue::from)
                                                 .to_vec()
                                             }
                                             rows={

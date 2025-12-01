@@ -2,12 +2,12 @@ use yew::prelude::*;
 
 #[derive(Properties, PartialEq)]
 pub struct ShellSelectProps {
-    pub value: String,
+    pub value: AttrValue,
     pub on_change: Callback<Event>,
     #[prop_or_default]
     pub class: Classes,
     #[prop_or_default]
-    pub options: Option<Vec<String>>,
+    pub options: Option<Vec<AttrValue>>,
     #[prop_or_default]
     pub children: Children,
 }
@@ -17,14 +17,14 @@ pub fn shell_select(props: &ShellSelectProps) -> Html {
     html! {
         <select
             class={classes!("shell-select", props.class.clone())}
-            value={props.value.clone()}
-            onchange={props.on_change.clone()}
+            value={&props.value}
+            onchange={&props.on_change}
         >
             {
                 if let Some(options) = &props.options {
                     html! {
                         { for options.iter().map(|opt| html! {
-                            <option value={opt.clone()}>{ opt }</option>
+                            <option value={opt}>{ opt }</option>
                         }) }
                     }
                 } else {

@@ -8,7 +8,7 @@ pub struct TableRow {
 
 #[derive(Properties, PartialEq)]
 pub struct DataTableProps {
-    pub headers: Vec<String>,
+    pub headers: Vec<AttrValue>,
     pub rows: Vec<TableRow>,
 }
 
