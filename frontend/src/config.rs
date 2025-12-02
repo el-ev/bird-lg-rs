@@ -1,9 +1,9 @@
 use reqwasm::http::Request;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 
 const CONFIG_PATH: &str = "/config.json";
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Serialize, Clone, PartialEq)]
 pub struct Config {
     pub username: String,
     pub backend_url: String,

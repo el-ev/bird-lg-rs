@@ -1,9 +1,10 @@
+use gloo_storage::{LocalStorage, Storage};
 use std::cell::RefCell;
 use std::rc::Rc;
 use wasm_bindgen_futures::spawn_local;
 use yew::prelude::*;
 
-use crate::config::load_config;
+use crate::config::{Config, load_config};
 use crate::services::api::{get_network_info, get_protocols};
 use crate::services::websocket::WebSocketService;
 use crate::store::{Action, AppStateHandle};
@@ -14,9 +15,20 @@ pub fn use_app_data(state: AppStateHandle) {
     {
         let state = state.clone();
         use_effect_with((), move |_| {
+            if let Ok(config) = LocalStorage::get::<Config>("app_config") {
+                state.dispatch(Action::SetConfig {
+                    username: config.username.clone(),
+                    backend_url: config.backend_url.clone(),
+                });
+            }
+
             spawn_local(async move {
                 match load_config().await {
                     Ok(config) => {
+                        if let Err(e) = LocalStorage::set("app_config", &config) {
+                            tracing::error!("Failed to cache config: {}", e);
+                        }
+
                         state.dispatch(Action::SetConfig {
                             username: config.username.clone(),
                             backend_url: config.backend_url.clone(),
