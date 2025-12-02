@@ -1,5 +1,5 @@
-mod peering;
 mod main;
+mod peering;
 
-pub use peering::PeeringPage;
 pub use main::MainPage;
+pub use peering::PeeringPage;

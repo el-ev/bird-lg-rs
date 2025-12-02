@@ -9,7 +9,7 @@ use crate::store::route_info::RouteInfoHandle;
 
 #[derive(Properties, PartialEq)]
 pub struct WireGuardProps {
-    #[prop_or(false)]
+    #[prop_or(true)]
     pub default_open: bool,
 }
 
