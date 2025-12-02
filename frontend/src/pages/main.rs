@@ -1,8 +1,12 @@
 use yew::{Html, function_component, html, use_context};
 
-use crate::{components::{
-    node_list::NodeList, route_lookup::RouteLookup, traceroute::Traceroute, wireguard::WireGuard,
-}, store::route_info::RouteInfoHandle};
+use crate::{
+    components::{
+        node_list::NodeList, route_lookup::RouteLookup, traceroute::Traceroute,
+        wireguard::WireGuard,
+    },
+    store::route_info::RouteInfoHandle,
+};
 
 #[function_component(MainPage)]
 pub fn main_page() -> Html {
@@ -12,13 +16,13 @@ pub fn main_page() -> Html {
         <>
             <NodeList/>
 
-            <Traceroute/>
-
-            <RouteLookup/>
-
             if route_info.wireguard_info.is_some() {
                 <WireGuard/>
             }
+
+            <Traceroute/>
+
+            <RouteLookup/>
         </>
     }
 }
