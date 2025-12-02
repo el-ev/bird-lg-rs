@@ -141,8 +141,18 @@ async fn handle_request(
         AppRequest::GetWireGuard => crate::services::api::get_wireguard(state, config)
             .await
             .right_stream(),
-        AppRequest::Traceroute { node, target } => {
-            crate::services::api::perform_traceroute(state, config, node, target, None)
+        AppRequest::Traceroute {
+            node,
+            target,
+            version,
+        } => {
+            let version = if version.is_empty() {
+                None
+            } else {
+                Some(version)
+            };
+
+            crate::services::api::perform_traceroute(state, config, node, target, version)
                 .await
                 .right_stream()
         }

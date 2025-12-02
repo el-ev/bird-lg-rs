@@ -23,9 +23,9 @@ pub fn perform_traceroute(
             sender.emit(AppRequest::Traceroute {
                 node: node.clone(),
                 target: target.clone(),
+                version: version.clone(),
             });
         } else {
-            // HTTP Fallback
             let version_param = match version.as_str() {
                 "4" => "&version=4",
                 "6" => "&version=6",
