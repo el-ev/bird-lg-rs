@@ -2,7 +2,9 @@ use common::models::NetworkInfo;
 use yew::prelude::*;
 use yew_router::prelude::*;
 
-use crate::{routes::Route, store::route_info::RouteInfoHandle};
+use crate::{
+    components::route_dropdown::RouteDropdown, routes::Route, store::route_info::RouteInfoHandle,
+};
 
 #[derive(Properties, PartialEq)]
 pub struct HeaderProps {
@@ -14,14 +16,17 @@ pub fn header(props: &HeaderProps) -> Html {
     let route_info = use_context::<RouteInfoHandle>().expect("no route info found");
     html! {
         <h2 class="title title-flex">
-            <Link<Route> to={Route::Home} classes="title-link">{"Looking Glass"}</Link<Route>>
+            <Link<Route> to={Route::Protocols} classes="title-link">{"Looking Glass"}</Link<Route>>
             {
                 html! {
                     <span class="title-footnote">
                         if let Some(ref info) = props.network_info {
                             { " of " } { &info.name } { " " } { &info.asn } {" on DN42 "}
                         }
-                        { &route_info.path }
+                        <RouteDropdown
+                            current_path={route_info.path.clone()}
+                            current_node={route_info.node_name.clone()}
+                        />
                     </span>
                 }
             }
