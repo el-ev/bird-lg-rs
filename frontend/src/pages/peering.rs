@@ -1,62 +1,49 @@
-use std::{cmp::Ordering, net::Ipv4Addr};
 use yew::prelude::*;
 
-use crate::store::AppStateHandle;
+use crate::{
+    components::cards::{ContactCard, PeeringField, PeeringNodeCard},
+    store::AppStateHandle,
+};
 
 #[function_component(PeeringPage)]
 pub fn peering_page() -> Html {
     let state = use_context::<AppStateHandle>().expect("no ctx found");
 
+    if state.network_info.is_none() {
+        return html! {};
+    }
+    let network_info = state.network_info.as_ref().unwrap();
+
+    let ipv4_prefixes = network_info.ipv4_prefix.join(", ");
+    let ipv6_prefixes = network_info.ipv6_prefix.join(", ");
+
+    let show_prefix_card = !ipv4_prefixes.is_empty() || !ipv6_prefixes.is_empty();
+    let prefix_card = html! {
+        <article class="peering-card">
+            <div class="peering-card-header">
+                <h3 class="peering-card-title">{"Prefix"}</h3>
+            </div>
+            <dl class="peering-grid">
+                if !ipv4_prefixes.is_empty() {
+                    <PeeringField label="IPv4" value={ipv4_prefixes} />
+                }
+                if !ipv6_prefixes.is_empty() {
+                    <PeeringField label="IPv6" value={ipv6_prefixes} />
+                }
+            </dl>
+        </article>
+    };
+
     let content = match &state.network_info {
         Some(network_info) => {
             let mut peers = network_info.peering.iter().collect::<Vec<_>>();
-            peers.sort_by(|(node_a, info_a), (node_b, info_b)| {
-                match (info_a.ipv4.as_deref(), info_b.ipv4.as_deref()) {
-                    (Some(a), Some(b)) => match (a.parse::<Ipv4Addr>(), b.parse::<Ipv4Addr>()) {
-                        (Ok(a_ip), Ok(b_ip)) => a_ip.cmp(&b_ip),
-                        _ => a.cmp(b),
-                    },
-                    (Some(_), None) => Ordering::Less,
-                    (None, Some(_)) => Ordering::Greater,
-                    (None, None) => node_a.cmp(node_b),
-                }
-            });
+            peers.sort_by(|(_, info_a), (_, info_b)| info_a.ipv4.cmp(&info_b.ipv4));
 
             html! {
                 <>
-                    <article class="peering-card">
-                        <div class="peering-card-header">
-                            <h3 class="peering-card-title">{"Prefix"}</h3>
-                        </div>
-                        <dl class="peering-grid">
-                            {
-                                if !network_info.ipv4_prefix.is_empty() {
-                                    let ipv4_prefixes = network_info.ipv4_prefix.join(", ");
-                                    html! {
-                                        <>
-                                            <dt class="peering-label">{"IPv4"}</dt>
-                                            <dd class="peering-value">{ipv4_prefixes}</dd>
-                                        </>
-                                    }
-                                } else {
-                                    html! {}
-                                }
-                            }
-                            {
-                                if !network_info.ipv6_prefix.is_empty() {
-                                    let ipv6_prefixes = network_info.ipv6_prefix.join(", ");
-                                    html! {
-                                        <>
-                                            <dt class="peering-label">{"IPv6"}</dt>
-                                            <dd class="peering-value">{ipv6_prefixes}</dd>
-                                        </>
-                                    }
-                                } else {
-                                    html! {}
-                                }
-                            }
-                        </dl>
-                    </article>
+                    if show_prefix_card {
+                        {prefix_card}
+                    }
 
                     <div>
                         <div class="peering-card-header">
@@ -71,120 +58,20 @@ pub fn peering_page() -> Html {
                         </div>
                         <div class="peering-node-list">
                             { for peers.into_iter().map(|(node, info)| {
-                                let node_name = node.clone();
                                 html! {
-                                    <article class="peering-card peering-node">
-                                        <div class="peering-node-header">
-                                            <h4 class="peering-node-title">{node_name}</h4>
-                                            if let Some(comment) = &info.comment {
-                                                <span class="peering-node-meta">{comment}</span>
-                                            }
-                                        </div>
-                                        <dl class="peering-grid">
-                                            {
-                                                if let Some(endpoint) = &info.endpoint {
-                                                    html! {
-                                                        <>
-                                                            <dt class="peering-label">{"Endpoint"}</dt>
-                                                            <dd class="peering-value">{endpoint}</dd>
-                                                        </>
-                                                    }
-                                                } else {
-                                                    html! {}
-                                                }
-                                            }
-                                            {
-                                                if let Some(ipv4) = &info.ipv4 {
-                                                    html! {
-                                                        <>
-                                                            <dt class="peering-label">{"IPv4"}</dt>
-                                                            <dd class="peering-value">{ipv4}</dd>
-                                                        </>
-                                                    }
-                                                } else {
-                                                    html! {}
-                                                }
-                                            }
-                                            {
-                                                if let Some(ipv6) = &info.ipv6 {
-                                                    html! {
-                                                        <>
-                                                            <dt class="peering-label">{"IPv6"}</dt>
-                                                            <dd class="peering-value">{ipv6}</dd>
-                                                        </>
-                                                    }
-                                                } else {
-                                                    html! {}
-                                                }
-                                            }
-                                            {
-                                                if let Some(link_local) = &info.link_local_ipv6 {
-                                                    html! {
-                                                        <>
-                                                            <dt class="peering-label">{"IPv6 Link-Local"}</dt>
-                                                            <dd class="peering-value">{link_local}</dd>
-                                                        </>
-                                                    }
-                                                } else {
-                                                    html! {}
-                                                }
-                                            }
-                                            {
-                                                if info.wg_pubkey.is_some() {
-                                                    html! {
-                                                        <>
-                                                            <dt class="peering-label">{"Tunnel"}</dt>
-                                                            <dd class="peering-value">{"WireGuard"}</dd>
-                                                        </>
-                                                    }
-                                                } else {
-                                                    html! {}
-                                                }
-                                            }
-                                            {
-                                                if let Some(wg_pubkey) = &info.wg_pubkey {
-                                                    html! {
-                                                        <>
-                                                            <dt class="peering-label">{"WG Public Key"}</dt>
-                                                            <dd class="peering-value">{wg_pubkey}</dd>
-                                                        </>
-                                                    }
-                                                } else {
-                                                    html! {}
-                                                }
-                                            }
-                                        </dl>
-                                    </article>
+                                    <PeeringNodeCard node_name={node.clone()} node_info={info.clone()} />
                                 }
                             }) }
                         </div>
                     </div>
 
-                    {
-                        if !network_info.contacts.is_empty() {
-                            let mut contacts = network_info.contacts.iter().collect::<Vec<_>>();
-                            contacts.sort_by(|(a, _), (b, _)| a.cmp(b));
-                            html! {
-                                <article class="peering-card peering-contact">
-                                    <div class="peering-card-header">
-                                        <h3 class="peering-card-title">{"Contact"}</h3>
-                                    </div>
-                                    <dl class="peering-grid peering-contact-grid">
-                                        { for contacts.into_iter().map(|(label, value)| {
-                                            html! {
-                                                <>
-                                                    <dt class="peering-label peering-contact-label">{label}</dt>
-                                                    <dd class="peering-value peering-contact-value">{ render_multiline_text(value) }</dd>
-                                                </>
-                                            }
-                                        }) }
-                                    </dl>
-                                </article>
-                            }
-                        } else {
-                            html! {}
-                        }
-                    }
+                    <ContactCard contacts={
+                        network_info
+                            .contacts
+                            .iter()
+                            .map(|(label, value)| (label.clone(), value.clone()))
+                            .collect::<Vec<_>>()
+                    } />
                 </>
             }
         }
