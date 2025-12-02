@@ -1,3 +1,5 @@
-mod protocol_page;
+mod peering;
+mod main;
 
-pub use protocol_page::ProtocolPage;
+pub use peering::PeeringPage;
+pub use main::MainPage;

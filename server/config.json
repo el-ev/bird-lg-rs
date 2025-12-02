@@ -6,7 +6,19 @@
     "network": {
         "name": "Your Network Name",
         "asn": "424242xxxx",
-        "comment": "Optional global comment about your network"
+        "comment": "Optional global comment about your network\nSecond paragraph shown on the peering page",
+        "contacts": {
+            "NOC": "noc@example.net",
+            "Matrix": "@noc:example.net",
+            "Phone": "+1-555-0100"
+        },
+        "ipv4_prefix": [
+            "172.20.0.0/16"
+        ],
+        "ipv6_prefix": [
+            "fd00::/32",
+            "fd01::/32"
+        ]
     },
     "nodes": [
         {
