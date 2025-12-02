@@ -34,15 +34,14 @@ pub struct RouteInfoProviderProps {
 
 #[function_component(RouteInfoProvider)]
 pub fn route_info_provider(props: &RouteInfoProviderProps) -> Html {
-    let route = use_route::<Route>().unwrap_or(Route::Home);
+    let route = use_route::<Route>().unwrap_or(Route::Protocols);
     let app_state = use_context::<AppStateHandle>().expect("no app state found");
 
     let route_info = use_memo((route.clone(), app_state.clone()), |(route, app_state)| {
-        let (path, node_name) = match route {
-            Route::Home => (String::from("/"), None),
-            Route::WireGuard => (String::from("/wireguard"), None),
-            Route::Node { name } => (format!("/node/{}/", name), Some(name.clone())),
-            Route::NotFound => (String::from("/404"), None),
+        let path = route.to_path();
+        let node_name = match route {
+            Route::Node { name } => Some(name.clone()),
+            _ => None,
         };
 
         let node_info = node_name

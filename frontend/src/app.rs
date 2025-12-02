@@ -4,7 +4,7 @@ use yew_router::prelude::*;
 use crate::components::main_view::MainView;
 use crate::components::wireguard::WireGuard;
 use crate::hooks::use_app_data::use_app_data;
-use crate::pages::ProtocolPage;
+use crate::pages::{MainPage, PeeringPage};
 use crate::routes::Route;
 use crate::store::route_info::RouteInfoProvider;
 use crate::store::{AppStateHandle, LgState};
@@ -30,11 +30,17 @@ pub fn app() -> Html {
 
 fn switch(routes: Route) -> Html {
     match routes {
-        Route::Home | Route::Node { .. } => html! {
-            <ProtocolPage/>
+        Route::Root => html! {
+            <Redirect<Route> to={Route::Protocols}/>
+        },
+        Route::Protocols | Route::Node { .. } => html! {
+            <MainPage/>
         },
         Route::WireGuard => html! {
-            <WireGuard/>
+            <WireGuard default_open={true}/>
+        },
+        Route::Peering => html! {
+            <PeeringPage/>
         },
         Route::NotFound => {
             html! {}

@@ -43,6 +43,12 @@ pub struct NetworkInfo {
     pub asn: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub comment: Option<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub ipv4_prefix: Vec<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub ipv6_prefix: Vec<String>,
+    #[serde(default, skip_serializing_if = "HashMap::is_empty")]
+    pub contacts: HashMap<String, String>,
     #[serde(default, skip_serializing_if = "HashMap::is_empty")]
     pub peering: HashMap<String, PeeringInfo>,
 }
