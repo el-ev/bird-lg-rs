@@ -12,7 +12,12 @@ pub enum AppRequest {
     #[serde(rename = "gw")]
     GetWireGuard,
     #[serde(rename = "tr")]
-    Traceroute { node: String, target: String },
+    Traceroute {
+        node: String,
+        target: String,
+        #[serde(default)]
+        version: String,
+    },
     #[serde(rename = "rl")]
     RouteLookup {
         node: String,
