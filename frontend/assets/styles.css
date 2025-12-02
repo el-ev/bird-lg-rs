@@ -118,9 +118,9 @@ hr {
         z-index: 10;
     }
 
+    /* TODO this is too generic */
     a {
         font-size: var(--font-size-sm);
-        margin-left: 4px;
         text-decoration: none;
     }
 }
@@ -173,12 +173,11 @@ hr {
     position: absolute;
     top: 100%;
     left: 0;
-    min-width: 160px;
+    min-width: 80px;
     background: var(--bg-secondary);
     border: 1px solid transparent;
     border-radius: var(--radius-md);
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.04);
-    padding: 6px 0;
     display: none;
     z-index: 20;
 }
@@ -212,10 +211,12 @@ hr {
     text-decoration: none;
     font-size: 0.85rem;
     white-space: nowrap;
-    min-width: 140px;
+    min-width: 80px;
     min-height: 32px;
     line-height: 1.2;
     transition: background 0.15s ease, color 0.15s ease;
+    user-select: none;
+    -webkit-user-select: none;
     width: 100%;
 }
 
@@ -276,7 +277,6 @@ hr {
     top: 0;
     left: calc(100% - 2px);
     margin-left: 0;
-    min-width: 140px;
     background: var(--bg-secondary);
     border: 1px solid transparent;
     border-radius: var(--radius-md);
@@ -313,10 +313,11 @@ hr {
     text-decoration: none;
     font-size: 0.8rem;
     white-space: nowrap;
-    min-width: 140px;
     min-height: 32px;
     line-height: 1.2;
     transition: background 0.15s ease, color 0.15s ease;
+    user-select: none;
+    -webkit-user-select: none;
     width: 100%;
 }
 
