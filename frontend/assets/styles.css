@@ -145,6 +145,181 @@ hr {
     font-size: inherit !important;
 }
 
+.route-dropdown {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+}
+
+.route-dropdown__toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    background: transparent;
+    border: none;
+    color: inherit;
+    font: inherit;
+    padding: 2px 6px;
+    cursor: pointer;
+    text-decoration: underline dotted;
+}
+
+.route-dropdown__toggle:focus-visible {
+    outline: 1px dashed var(--text-secondary);
+    outline-offset: 2px;
+}
+
+.route-dropdown__menu {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    min-width: 160px;
+    background: var(--bg-secondary);
+    border: 1px solid transparent;
+    border-radius: var(--radius-md);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.04);
+    padding: 6px 0;
+    display: none;
+    z-index: 20;
+}
+
+.route-dropdown--open .route-dropdown__menu,
+.route-dropdown:focus-within .route-dropdown__menu,
+.route-dropdown:hover .route-dropdown__menu {
+    display: block;
+}
+
+.route-dropdown__list,
+.route-dropdown__sub {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.route-dropdown__item {
+    position: relative;
+}
+
+.route-dropdown__link,
+.route-dropdown__label {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 8px;
+    padding: 8px 16px;
+    color: var(--text);
+    text-decoration: none;
+    font-size: 0.85rem;
+    white-space: nowrap;
+    min-width: 140px;
+    min-height: 32px;
+    line-height: 1.2;
+    transition: background 0.15s ease, color 0.15s ease;
+    width: 100%;
+}
+
+.route-dropdown__label {
+    cursor: pointer;
+    font-weight: inherit;
+}
+
+.route-dropdown__item.has-children>.route-dropdown__label {
+    padding-right: 32px;
+}
+
+.route-dropdown__item:hover>.route-dropdown__link,
+.route-dropdown__item:focus-within>.route-dropdown__link,
+.route-dropdown__item:hover>.route-dropdown__label,
+.route-dropdown__item:focus-within>.route-dropdown__label {
+    background: rgba(0, 0, 0, 0.08);
+}
+
+.route-dropdown__item.is-active>.route-dropdown__link,
+.route-dropdown__item.is-active>.route-dropdown__label,
+.route-dropdown__sub-item.is-active>.route-dropdown__sub-link {
+    background: rgba(0, 0, 0, 0.14);
+    font-weight: 600;
+}
+
+.route-dropdown__sub-item:hover>.route-dropdown__sub-link,
+.route-dropdown__sub-item:focus-within>.route-dropdown__sub-link,
+.route-dropdown__sub-link:hover,
+.route-dropdown__sub-link:focus-visible {
+    background: rgba(0, 0, 0, 0.08);
+}
+
+.route-dropdown__item:first-child>.route-dropdown__link,
+.route-dropdown__item:first-child>.route-dropdown__label {
+    border-top-left-radius: var(--radius-md);
+    border-top-right-radius: var(--radius-md);
+}
+
+.route-dropdown__item:last-child>.route-dropdown__link,
+.route-dropdown__item:last-child>.route-dropdown__label {
+    border-bottom-left-radius: var(--radius-md);
+    border-bottom-right-radius: var(--radius-md);
+}
+
+.route-dropdown__sub-item:first-child>.route-dropdown__sub-link {
+    border-top-left-radius: var(--radius-md);
+    border-top-right-radius: var(--radius-md);
+}
+
+.route-dropdown__sub-item:last-child>.route-dropdown__sub-link {
+    border-bottom-left-radius: var(--radius-md);
+    border-bottom-right-radius: var(--radius-md);
+}
+
+.route-dropdown__sub {
+    position: absolute;
+    top: 0;
+    left: calc(100% - 2px);
+    margin-left: 0;
+    min-width: 140px;
+    background: var(--bg-secondary);
+    border: 1px solid transparent;
+    border-radius: var(--radius-md);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.04);
+    display: none;
+}
+
+.route-dropdown__item:hover>.route-dropdown__sub,
+.route-dropdown__item:focus-within>.route-dropdown__sub {
+    display: block;
+}
+
+.route-dropdown__sub.opens-left {
+    left: auto;
+    right: 100%;
+    margin-left: 0;
+    margin-right: 0;
+}
+
+.route-dropdown__menu {
+    left: -4px;
+}
+
+.route-dropdown__sub {
+    left: 100%;
+    margin-left: 0;
+}
+
+.route-dropdown__sub-link {
+    display: flex;
+    align-items: center;
+    padding: 8px 16px;
+    color: var(--text);
+    text-decoration: none;
+    font-size: 0.8rem;
+    white-space: nowrap;
+    min-width: 140px;
+    min-height: 32px;
+    line-height: 1.2;
+    transition: background 0.15s ease, color 0.15s ease;
+    width: 100%;
+}
+
 /* ==========================================================================
    Components
    ========================================================================== */
