@@ -1,5 +1,4 @@
-use std::pin::Pin;
-use std::sync::Arc;
+use std::{net::IpAddr, pin::Pin, sync::Arc};
 
 use common::{
     traceroute::{TracerouteHop, parse_traceroute_line},
@@ -7,13 +6,14 @@ use common::{
 };
 use futures_util::{Stream, StreamExt, stream};
 use ipnet::IpNet;
-use std::net::IpAddr;
 use tracing::warn;
 
-use crate::config::Config;
-use crate::services::request::{build_get, get_stream, post_stream};
-use crate::state::{AppResponse, AppState};
-use crate::utils::byte_stream_to_lines;
+use crate::{
+    config::Config,
+    services::request::{build_get, get_stream, post_stream},
+    state::{AppResponse, AppState},
+    utils::byte_stream_to_lines,
+};
 
 type BoxStream = Pin<Box<dyn Stream<Item = AppResponse> + Send>>;
 
@@ -194,8 +194,7 @@ pub async fn get_protocol_details(
 
 pub async fn get_wireguard(state: AppState, config: Arc<Config>) -> BoxStream {
     use chrono::Utc;
-    use common::models::NodeWireGuard;
-    use common::wireguard::parse_wireguard_dump;
+    use common::{models::NodeWireGuard, wireguard::parse_wireguard_dump};
 
     let http_client = state.http_client.clone();
     let mut wireguard_data = Vec::new();

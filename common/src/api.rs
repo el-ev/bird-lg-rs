@@ -1,8 +1,10 @@
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
-use crate::models::{NetworkInfo, NodeProtocol, NodeStatusDiff, NodeWireGuard};
-use crate::traceroute::TracerouteHop;
+use crate::{
+    models::{NetworkInfo, NodeProtocol, NodeStatusDiff, NodeWireGuard},
+    traceroute::TracerouteHop,
+};
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(tag = "t")]

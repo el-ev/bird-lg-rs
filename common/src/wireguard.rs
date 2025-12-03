@@ -1,5 +1,7 @@
-use crate::humanize::{humanize_bytes, humanize_duration};
-use crate::models::WireGuardPeer;
+use crate::{
+    humanize::{humanize_bytes, humanize_duration},
+    models::WireGuardPeer,
+};
 
 pub fn parse_wireguard_dump(output: &str) -> Vec<WireGuardPeer> {
     let mut peers = Vec::new();

@@ -1,11 +1,13 @@
 use yew::prelude::*;
 
-use super::data_table::{DataTable, TableRow};
-use super::shell::ShellLine;
-
-use crate::services::api::request_wireguard;
-use crate::store::AppStateHandle;
-use crate::store::route_info::RouteInfoHandle;
+use super::{
+    data_table::{DataTable, TableRow},
+    shell::ShellLine,
+};
+use crate::{
+    services::api::request_wireguard,
+    store::{LgStateHandle, route_info::RouteInfoHandle},
+};
 
 #[derive(Properties, PartialEq)]
 pub struct WireGuardProps {
@@ -15,7 +17,7 @@ pub struct WireGuardProps {
 
 #[function_component(WireGuard)]
 pub fn wireguard_section(props: &WireGuardProps) -> Html {
-    let state = use_context::<AppStateHandle>().expect("no app state found");
+    let state = use_context::<LgStateHandle>().expect("no app state found");
     let route_info = use_context::<RouteInfoHandle>().expect("no route info found");
 
     let wireguard_data = if let Some(info) = &route_info.wireguard_info {

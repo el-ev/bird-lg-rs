@@ -8,14 +8,6 @@ mod utils;
 
 use std::{net::SocketAddr, sync::Arc};
 
-use crate::{
-    cli::Cli,
-    config::Config,
-    handlers::{info, protocol, route, status, traceroute, ws},
-    services::poller,
-    state::AppState,
-};
-
 use axum::{
     Extension, Router,
     extract::Request,
@@ -25,6 +17,14 @@ use axum::{
 };
 use tokio::net::TcpListener;
 use tower_http::cors::CorsLayer;
+
+use crate::{
+    cli::Cli,
+    config::Config,
+    handlers::{info, protocol, route, status, traceroute, ws},
+    services::poller,
+    state::AppState,
+};
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {

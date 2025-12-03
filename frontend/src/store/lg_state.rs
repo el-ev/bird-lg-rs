@@ -1,13 +1,18 @@
-use super::modal::{ModalAction, ModalState};
-use super::traceroute::{TracerouteAction, TracerouteState};
+use std::{collections::HashMap, rc::Rc};
+
 use chrono::{DateTime, Utc};
-use common::api::AppRequest;
-use common::models::{
-    DiffOp, NetworkInfo, NodeProtocol, NodeStatusDiff, NodeWireGuard, PeeringInfo,
+use common::{
+    api::AppRequest,
+    models::{DiffOp, NetworkInfo, NodeProtocol, NodeStatusDiff, NodeWireGuard, PeeringInfo},
 };
-use std::collections::HashMap;
-use std::rc::Rc;
-use yew::{Callback, Reducible};
+use yew::prelude::*;
+
+use super::{
+    modal::{ModalAction, ModalState},
+    traceroute::{TracerouteAction, TracerouteState},
+};
+
+pub type LgStateHandle = UseReducerHandle<LgState>;
 
 #[derive(Clone, Debug, PartialEq, Default)]
 pub struct LgState {

@@ -1,7 +1,7 @@
 use common::traceroute::TracerouteHop;
 
 #[derive(Clone, Debug, PartialEq)]
-pub enum NodeTracerouteResult {
+pub enum TracerouteResult {
     Hops(Vec<TracerouteHop>),
     Error(String),
 }
@@ -13,7 +13,7 @@ pub struct TracerouteState {
     pub version: String,
     pub loading: bool,
     pub error: Option<String>,
-    pub results: Vec<(String, NodeTracerouteResult)>,
+    pub results: Vec<(String, TracerouteResult)>,
     pub last_target: String,
     pub last_version: String,
 }
@@ -42,7 +42,7 @@ pub enum TracerouteAction {
     Start,
     End,
     InitResult(String),
-    UpdateResult(String, NodeTracerouteResult),
+    UpdateResult(String, TracerouteResult),
     SetLastParams(String, String), // target, version
 }
 
@@ -75,7 +75,7 @@ impl TracerouteState {
             TracerouteAction::InitResult(node) => {
                 self.results.retain(|(n, _)| n != &node);
                 self.results
-                    .push((node, NodeTracerouteResult::Hops(Vec::new())));
+                    .push((node, TracerouteResult::Hops(Vec::new())));
             }
             TracerouteAction::UpdateResult(node, result) => {
                 let (_, existing_result) = self
@@ -85,10 +85,10 @@ impl TracerouteState {
                     .expect("UpdateResult called for an uninitialized node");
 
                 match (existing_result, result) {
-                    (NodeTracerouteResult::Hops(hops), NodeTracerouteResult::Hops(new_hops)) => {
+                    (TracerouteResult::Hops(hops), TracerouteResult::Hops(new_hops)) => {
                         hops.extend(new_hops);
                     }
-                    (ex @ NodeTracerouteResult::Hops(_), e @ NodeTracerouteResult::Error(_)) => {
+                    (ex @ TracerouteResult::Hops(_), e @ TracerouteResult::Error(_)) => {
                         *ex = e;
                     }
                     _ => unreachable!(),

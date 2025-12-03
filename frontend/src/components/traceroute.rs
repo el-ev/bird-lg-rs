@@ -1,21 +1,24 @@
-use common::models::NodeProtocol;
-use common::{traceroute::fold_timeouts, utils::validate_target};
+use common::{models::NodeProtocol, traceroute::fold_timeouts, utils::validate_target};
 use futures::future::join_all;
 use wasm_bindgen_futures::spawn_local;
 use web_sys::HtmlInputElement;
 use yew::prelude::*;
 
-use super::data_table::{DataTable, TableRow};
-use super::shell::{ShellButton, ShellInput, ShellLine, ShellPrompt, ShellSelect};
-
-use crate::services::api::perform_traceroute;
-use crate::store::route_info::RouteInfoHandle;
-use crate::store::traceroute::TracerouteAction;
-use crate::store::{Action, AppStateHandle, NodeTracerouteResult};
+use super::{
+    data_table::{DataTable, TableRow},
+    shell::{ShellButton, ShellInput, ShellLine, ShellPrompt, ShellSelect},
+};
+use crate::{
+    services::api::perform_traceroute,
+    store::{
+        Action, LgStateHandle, TracerouteResult, route_info::RouteInfoHandle,
+        traceroute::TracerouteAction,
+    },
+};
 
 #[function_component(Traceroute)]
 pub fn traceroute_section() -> Html {
-    let state = use_context::<AppStateHandle>().expect("no app state found");
+    let state = use_context::<LgStateHandle>().expect("no app state found");
     let traceroute_state = &state.traceroute;
 
     let route_info = use_context::<RouteInfoHandle>().expect("no route info found");
@@ -179,7 +182,7 @@ pub fn traceroute_section() -> Html {
                             />
                             {
                                 match result {
-                                    NodeTracerouteResult::Hops(hops) => html! {
+                                    TracerouteResult::Hops(hops) => html! {
                                         <DataTable
                                             headers={
                                                 [
@@ -219,7 +222,7 @@ pub fn traceroute_section() -> Html {
                                             }
                                         />
                                     },
-                                    NodeTracerouteResult::Error(message) => html! {
+                                    TracerouteResult::Error(message) => html! {
                                         <pre class="status-message--error">{ message }</pre>
                                     },
                                 }

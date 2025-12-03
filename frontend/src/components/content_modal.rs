@@ -1,8 +1,8 @@
-use super::shell::ShellLine;
-use wasm_bindgen::JsCast;
-use wasm_bindgen::closure::Closure;
+use wasm_bindgen::{JsCast, closure::Closure};
 use web_sys::{HtmlElement, KeyboardEvent, MouseEvent, window};
 use yew::prelude::*;
+
+use super::shell::ShellLine;
 
 #[derive(Properties, PartialEq)]
 pub struct ContentModalProps {

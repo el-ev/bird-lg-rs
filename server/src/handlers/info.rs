@@ -1,14 +1,14 @@
+use std::sync::Arc;
+
 use axum::{
     Json,
     extract::{Extension, Path},
     http::StatusCode,
     response::{IntoResponse, Response},
 };
-use std::sync::Arc;
-
-use crate::config::Config;
-use crate::state::AppState;
 use common::api::AppResponse;
+
+use crate::{config::Config, state::AppState};
 
 pub async fn get_network_info(
     Extension(config): Extension<Arc<Config>>,

@@ -4,7 +4,7 @@ use web_sys::{Element, MouseEvent};
 use yew::prelude::*;
 use yew_router::prelude::*;
 
-use crate::{routes::Route, store::AppStateHandle};
+use crate::{routes::Route, store::LgStateHandle};
 
 const ROUTE_DROPDOWN_MENU_ID: &str = "lg-route-path-menu";
 
@@ -72,7 +72,7 @@ pub struct RouteDropdownProps {
 
 #[function_component(RouteDropdown)]
 pub fn route_dropdown(props: &RouteDropdownProps) -> Html {
-    let state = use_context::<AppStateHandle>().expect("no app state found");
+    let state = use_context::<LgStateHandle>().expect("no app state found");
     let menu_open = use_state(|| false);
     let container_ref = use_node_ref();
 

@@ -1,6 +1,7 @@
 use std::{sync::Arc, time::Duration};
 
 use chrono::Utc;
+use common::models::NodeStatusDiff;
 use tokio::time::sleep;
 use tracing::warn;
 
@@ -11,7 +12,6 @@ use crate::{
     state::{AppResponse, AppState, NodeProtocol},
     utils::parse_protocols,
 };
-use common::models::NodeStatusDiff;
 
 pub fn spawn(state: AppState, config: Arc<Config>) {
     tokio::spawn(run(state, config));

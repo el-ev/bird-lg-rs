@@ -13,8 +13,10 @@ use tokio_stream::StreamExt;
 use tokio_util::codec::{FramedRead, LinesCodec};
 use tracing::{error, info, warn};
 
-use crate::config::Config;
-use crate::services::traceroute::{IpVersion, build_traceroute_command};
+use crate::{
+    config::Config,
+    services::traceroute::{IpVersion, build_traceroute_command},
+};
 
 #[derive(Deserialize)]
 pub struct TracerouteQuery {
