@@ -1,5 +1,5 @@
 name = "bird-lg-frontend"
-main = "worker/worker.js"
+main = "worker/worker.ts"
 compatibility_date = "2025-11-23"
 keep_vars = true
 
