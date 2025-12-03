@@ -12,6 +12,8 @@ pub enum Route {
     Peering,
     #[at("/wireguard")]
     WireGuard,
+    #[at("/autopeer")]
+    AutoPeer,
     #[not_found]
     #[at("/404")]
     NotFound,
