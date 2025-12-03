@@ -1,0 +1,23 @@
+name = "bird-lg-web"
+main = "autopeer/build/worker/shim.mjs"
+compatibility_date = "2025-12-03"
+keep_vars = true
+
+[build]
+command = "cd frontend && trunk build --release -M && cd ../autopeer && cargo install -q worker-build && worker-build --release"
+cwd = "."
+watch_dir = [
+    "frontend/src",
+    "frontend/assets",
+    "frontend/index.html",
+    "autopeer/src",
+]
+
+[assets]
+directory = "frontend/dist"
+binding = "ASSETS"
+
+[vars]
+# BACKEND_URL = "https://127.0.0.1:3000"
+# AUTOPEER_URL = "https://127.0.0.1:3001/autopeer"
+# USERNAME = "iris"
