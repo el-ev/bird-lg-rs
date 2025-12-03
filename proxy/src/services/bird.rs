@@ -1,10 +1,14 @@
-use std::pin::Pin;
-use std::task::{Context as TaskContext, Poll};
+use std::{
+    pin::Pin,
+    task::{Context as TaskContext, Poll},
+};
 
 use anyhow::{Context as _, bail};
 use bytes::BytesMut;
-use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
-use tokio::net::UnixStream;
+use tokio::{
+    io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt},
+    net::UnixStream,
+};
 use tokio_stream::Stream;
 use tokio_util::codec::{Decoder, Framed};
 

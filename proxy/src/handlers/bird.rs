@@ -5,8 +5,10 @@ use tokio::io::AsyncWriteExt;
 use tokio_util::codec::Framed;
 use tracing::{error, info};
 
-use crate::config::Config;
-use crate::services::bird::{BirdDecoder, BirdStream, connect};
+use crate::{
+    config::Config,
+    services::bird::{BirdDecoder, BirdStream, connect},
+};
 
 pub async fn handler(Extension(config): Extension<Arc<Config>>, body: String) -> impl IntoResponse {
     let mut stream = match connect(&config.bind_socket).await {

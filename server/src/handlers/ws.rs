@@ -1,10 +1,8 @@
-use std::sync::atomic::Ordering;
-use std::sync::{Arc, atomic::AtomicUsize};
-
-use crate::{
-    config::Config,
-    state::{AppRequest, AppResponse, AppState},
+use std::sync::{
+    Arc,
+    atomic::{AtomicUsize, Ordering},
 };
+
 use axum::{
     extract::{
         Extension, WebSocketUpgrade,
@@ -13,6 +11,11 @@ use axum::{
     response::IntoResponse,
 };
 use futures_util::{SinkExt, Stream, StreamExt, stream};
+
+use crate::{
+    config::Config,
+    state::{AppRequest, AppResponse, AppState},
+};
 
 struct ConnectionGuard(Arc<AtomicUsize>);
 

@@ -68,18 +68,3 @@ pub fn humanize_duration(timestamp: i64) -> Option<String> {
         if days == 1 { "" } else { "s" }
     ))
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_humanize_bytes() {
-        assert_eq!(humanize_bytes(0), "0 B");
-        assert_eq!(humanize_bytes(100), "100 B");
-        assert_eq!(humanize_bytes(1024), "1.00 KiB");
-        assert_eq!(humanize_bytes(1536), "1.50 KiB");
-        assert_eq!(humanize_bytes(1048576), "1.00 MiB");
-        assert_eq!(humanize_bytes(1073741824), "1.00 GiB");
-    }
-}

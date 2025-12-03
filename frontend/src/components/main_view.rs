@@ -1,8 +1,8 @@
-use yew::{Callback, Children, Html, Properties, function_component, html, use_context};
+use yew::prelude::*;
 
 use crate::{
     components::{content_modal::ContentModal, header::Header, status_banner::StatusBanner},
-    store::{Action, AppStateHandle, modal::ModalAction},
+    store::{Action, LgStateHandle, modal::ModalAction},
 };
 
 #[derive(Properties, PartialEq)]
@@ -13,7 +13,7 @@ pub struct MainViewProps {
 
 #[function_component(MainView)]
 pub fn main_view(props: &MainViewProps) -> Html {
-    let state = use_context::<AppStateHandle>().expect("no app state found");
+    let state = use_context::<LgStateHandle>().expect("no app state found");
     let waiting_for_data = state.nodes.is_empty() && !state.data_ready;
     html! {
         <main class="hero">

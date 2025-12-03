@@ -6,9 +6,9 @@ use web_sys::HtmlInputElement;
 use yew::prelude::*;
 
 use super::shell::{ShellButton, ShellInput, ShellPrompt, ShellSelect, ShellToggle};
-
 use crate::{
-    services::api::perform_route_lookup, store::AppStateHandle, store::route_info::RouteInfoHandle,
+    services::api::perform_route_lookup,
+    store::{LgStateHandle, route_info::RouteInfoHandle},
 };
 
 #[function_component(RouteLookup)]
@@ -17,7 +17,7 @@ pub fn route_lookup() -> Html {
     let target = use_state(String::new);
     let all = use_state(|| false);
     let error = use_state(|| None::<String>);
-    let state = use_context::<AppStateHandle>().expect("no app state found");
+    let state = use_context::<LgStateHandle>().expect("no app state found");
     let route_info = use_context::<RouteInfoHandle>().expect("no route info found");
     let nodes: Vec<NodeProtocol> = if let Some(node) = &route_info.node_info {
         vec![node.clone()]

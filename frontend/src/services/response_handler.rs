@@ -1,8 +1,8 @@
-use crate::store::traceroute::TracerouteAction;
-use crate::store::{Action, AppStateHandle, NodeTracerouteResult};
 use common::api::AppResponse;
 
-pub fn handle_app_response(response: AppResponse, state: &AppStateHandle) {
+use crate::store::{Action, LgStateHandle, TracerouteResult, traceroute::TracerouteAction};
+
+pub fn handle_app_response(response: AppResponse, state: &LgStateHandle) {
     match response {
         AppResponse::Protocols { data } => {
             state.dispatch(Action::SetNodes(data));
@@ -19,13 +19,13 @@ pub fn handle_app_response(response: AppResponse, state: &AppStateHandle) {
         AppResponse::TracerouteUpdate { node, hops } => {
             state.dispatch(Action::Traceroute(TracerouteAction::UpdateResult(
                 node,
-                NodeTracerouteResult::Hops(hops),
+                TracerouteResult::Hops(hops),
             )));
         }
         AppResponse::TracerouteError { node, error } => {
             state.dispatch(Action::Traceroute(TracerouteAction::UpdateResult(
                 node,
-                NodeTracerouteResult::Error(error),
+                TracerouteResult::Error(error),
             )));
         }
         AppResponse::RouteLookupInit { node: _ } => {

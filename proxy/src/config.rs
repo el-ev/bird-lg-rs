@@ -1,8 +1,11 @@
+use std::{
+    net::{IpAddr, SocketAddr},
+    path::Path,
+};
+
 use anyhow::{Context, anyhow};
 use common::utils::deserialize_listen_address;
 use serde::{Deserialize, Deserializer, Serialize};
-use std::net::{IpAddr, SocketAddr};
-use std::path::Path;
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct PeeringInfo {

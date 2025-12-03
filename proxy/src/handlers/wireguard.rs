@@ -1,11 +1,14 @@
-use axum::http::StatusCode;
-use axum::response::{IntoResponse, Response};
+use std::sync::Arc;
+
+use axum::{
+    extract::Extension,
+    http::StatusCode,
+    response::{IntoResponse, Response},
+};
 use tokio::process::Command;
 use tracing::{error, info};
 
 use crate::config::Config;
-use axum::extract::Extension;
-use std::sync::Arc;
 
 pub async fn get_wireguard(Extension(config): Extension<Arc<Config>>) -> Response {
     info!("Getting WireGuard status");

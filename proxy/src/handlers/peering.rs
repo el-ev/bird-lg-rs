@@ -1,5 +1,6 @@
-use axum::{Json, extract::Extension};
 use std::sync::Arc;
+
+use axum::{Json, extract::Extension};
 
 use crate::config::{Config, PeeringInfo};
 

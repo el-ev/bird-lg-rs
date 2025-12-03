@@ -1,10 +1,11 @@
-use crate::store::modal::ModalAction;
-use crate::store::traceroute::TracerouteAction;
-use crate::store::{Action, NodeTracerouteResult};
-use crate::utils::fetch_json;
 use common::api::{AppRequest, AppResponse};
 use wasm_bindgen_futures::spawn_local;
 use yew::prelude::*;
+
+use crate::{
+    store::{Action, TracerouteResult, modal::ModalAction, traceroute::TracerouteAction},
+    utils::fetch_json,
+};
 
 pub fn perform_traceroute(
     state: &UseReducerHandle<crate::store::LgState>,
@@ -47,7 +48,7 @@ pub fn perform_traceroute(
                             state_clone.dispatch(Action::Traceroute(
                                 TracerouteAction::UpdateResult(
                                     node_name,
-                                    NodeTracerouteResult::Error(err.clone()),
+                                    TracerouteResult::Error(err.clone()),
                                 ),
                             ));
                         } else {
@@ -61,7 +62,7 @@ pub fn perform_traceroute(
                         tracing::error!("Traceroute failed for {}: {}", node_name, err);
                         state_clone.dispatch(Action::Traceroute(TracerouteAction::UpdateResult(
                             node_name,
-                            NodeTracerouteResult::Error(err.to_string()),
+                            TracerouteResult::Error(err.to_string()),
                         )));
                     }
                 }

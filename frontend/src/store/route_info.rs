@@ -1,16 +1,17 @@
 use std::rc::Rc;
+
+use common::models::{NodeProtocol, NodeWireGuard};
 use yew::prelude::*;
 use yew_router::prelude::*;
 
-use crate::routes::Route;
-use crate::store::AppStateHandle;
+use crate::{routes::Route, store::LgStateHandle};
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct RouteInfo {
     pub path: String,
     pub node_name: Option<String>,
-    pub wireguard_info: Option<common::models::NodeWireGuard>,
-    pub node_info: Option<common::models::NodeProtocol>,
+    pub wireguard_info: Option<NodeWireGuard>,
+    pub node_info: Option<NodeProtocol>,
 }
 
 impl Default for RouteInfo {
@@ -35,7 +36,7 @@ pub struct RouteInfoProviderProps {
 #[function_component(RouteInfoProvider)]
 pub fn route_info_provider(props: &RouteInfoProviderProps) -> Html {
     let route = use_route::<Route>().unwrap_or(Route::Protocols);
-    let app_state = use_context::<AppStateHandle>().expect("no app state found");
+    let app_state = use_context::<LgStateHandle>().expect("no app state found");
 
     let route_info = use_memo((route.clone(), app_state.clone()), |(route, app_state)| {
         let path = route.to_path();

@@ -1,16 +1,18 @@
 use chrono::Local;
 use yew::prelude::*;
 
-use super::data_table::{DataTable, TableRow};
-use super::shell::ShellLine;
-
-use crate::services::api::get_protocol_details;
-use crate::store::AppStateHandle;
-use crate::store::route_info::RouteInfoHandle;
+use super::{
+    data_table::{DataTable, TableRow},
+    shell::ShellLine,
+};
+use crate::{
+    services::api::get_protocol_details,
+    store::{LgStateHandle, route_info::RouteInfoHandle},
+};
 
 #[function_component(NodeList)]
 pub fn node_list() -> Html {
-    let state = use_context::<AppStateHandle>().expect("no app state found");
+    let state = use_context::<LgStateHandle>().expect("no app state found");
     let route_info = use_context::<RouteInfoHandle>().expect("no route info found");
     let on_protocol_click = {
         let state = state.clone();

@@ -2,12 +2,12 @@ use yew::prelude::*;
 
 use crate::{
     components::cards::{ContactCard, PeeringField, PeeringNodeCard},
-    store::AppStateHandle,
+    store::LgStateHandle,
 };
 
 #[function_component(PeeringPage)]
 pub fn peering_page() -> Html {
-    let state = use_context::<AppStateHandle>().expect("no ctx found");
+    let state = use_context::<LgStateHandle>().expect("no ctx found");
 
     if state.network_info.is_none() {
         return html! {};

@@ -1,17 +1,21 @@
+use std::{cell::RefCell, rc::Rc};
+
 use gloo_storage::{LocalStorage, Storage};
-use std::cell::RefCell;
-use std::rc::Rc;
 use wasm_bindgen_futures::spawn_local;
 use yew::prelude::*;
 
-use crate::config::{Config, load_config};
-use crate::services::api::{get_network_info, get_protocols};
-use crate::services::websocket::WebSocketService;
-use crate::store::{Action, AppStateHandle};
-use crate::utils::sleep_ms;
+use crate::{
+    config::{Config, load_config},
+    services::{
+        api::{get_network_info, get_protocols},
+        websocket::WebSocketService,
+    },
+    store::{Action, LgStateHandle},
+    utils::sleep_ms,
+};
 
 #[hook]
-pub fn use_app_data(state: AppStateHandle) {
+pub fn use_app_data(state: LgStateHandle) {
     {
         let state = state.clone();
         use_effect_with((), move |_| {

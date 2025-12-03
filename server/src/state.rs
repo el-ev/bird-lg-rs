@@ -7,13 +7,14 @@ use std::{
     time::{Duration, Instant},
 };
 
+pub use common::{
+    api::{AppRequest, AppResponse},
+    models::NodeProtocol,
+};
 use tokio::sync::broadcast;
-
 use tracing::warn;
 
 use crate::config::PeeringInfo;
-pub use common::api::{AppRequest, AppResponse};
-pub use common::models::NodeProtocol;
 
 #[derive(Clone)]
 pub struct AppState {

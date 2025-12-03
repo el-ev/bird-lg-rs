@@ -1,8 +1,9 @@
-use std::convert::Infallible;
-use std::sync::Arc;
+use std::{convert::Infallible, sync::Arc};
 
-use axum::extract::{Extension, Path, Query};
-use axum::response::sse::{Event, Sse};
+use axum::{
+    extract::{Extension, Path, Query},
+    response::sse::{Event, Sse},
+};
 use futures_util::stream::StreamExt;
 use serde::Deserialize;
 

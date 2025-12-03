@@ -6,9 +6,9 @@ use axum::{
     response::{IntoResponse, Response},
 };
 use hyper::HeaderMap;
+use tracing::{error, warn};
 
 use crate::config::Config;
-use tracing::{error, warn};
 
 pub async fn auth_middleware(
     headers: HeaderMap,

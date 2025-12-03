@@ -1,9 +1,9 @@
-use anyhow::Result;
-use serde::Deserialize;
 use std::fs;
 
+use anyhow::Result;
 pub use common::models::{NetworkInfo, PeeringInfo};
 use common::utils::deserialize_listen_address;
+use serde::Deserialize;
 
 #[derive(Deserialize, Clone, Debug)]
 pub struct Config {
