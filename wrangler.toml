@@ -2,6 +2,8 @@ name = "bird-lg-web"
 main = "autopeer/build/worker/shim.mjs"
 compatibility_date = "2025-12-03"
 keep_vars = true
+workers_dev = false
+preview_urls = false
 
 [build]
 command = "cd frontend && trunk build --release -M && cd ../autopeer && cargo install -q worker-build && worker-build --release"

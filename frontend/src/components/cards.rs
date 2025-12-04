@@ -1,7 +1,7 @@
 use common::models::PeeringInfo;
-use wasm_bindgen::JsCast;
-use web_sys::{HtmlElement, window};
 use yew::prelude::*;
+
+use crate::utils::select_text;
 
 #[derive(Properties, PartialEq)]
 pub struct PeeringNodeCardProps {
@@ -111,21 +111,5 @@ pub fn peering_field(props: &PeeringFieldProps) -> Html {
         }
     } else {
         html! {}
-    }
-}
-
-fn select_text(e: MouseEvent) {
-    if let Some(target) = e.target()
-        && let Ok(element) = target.dyn_into::<HtmlElement>()
-        && let Some(window) = window()
-        && let Ok(Some(selection)) = window.get_selection()
-    {
-        let _ = selection.remove_all_ranges();
-        if let Some(document) = window.document()
-            && let Ok(range) = document.create_range()
-            && range.select_node_contents(&element).is_ok()
-        {
-            let _ = selection.add_range(&range);
-        }
     }
 }
