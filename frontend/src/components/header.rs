@@ -4,6 +4,7 @@ use yew_router::prelude::*;
 
 use crate::{
     components::route_dropdown::RouteDropdown, routes::Route, store::route_info::RouteInfoHandle,
+    utils::select_text,
 };
 
 #[derive(Properties, PartialEq)]
@@ -21,7 +22,12 @@ pub fn header(props: &HeaderProps) -> Html {
                 html! {
                     <span class="title-footnote">
                         if let Some(ref info) = props.network_info {
-                            { " of " } { &info.name } { " " } { &info.asn } {" on DN42 "}
+                            { " of " }
+                            <span onclick={select_text}> { &info.name } </span>
+                            { " " }
+                            <span onclick={select_text}> { &info.asn } </span>
+                            { " on " }
+                            <a href="https://dn42.dev" style="color: inherit;"> {"DN42"} </a>
                         }
                         <RouteDropdown
                             current_path={route_info.path.clone()}

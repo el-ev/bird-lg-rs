@@ -76,7 +76,7 @@ a {
     }
 
     &:hover {
-        text-decoration: underline;
+        text-decoration: none;
     }
 }
 
@@ -116,12 +116,6 @@ hr {
         background: var(--bg);
         border-bottom: 1px solid var(--border-light);
         z-index: 10;
-    }
-
-    /* TODO this is too generic */
-    a {
-        font-size: var(--font-size-sm);
-        text-decoration: none;
     }
 }
 

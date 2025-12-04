@@ -1,3 +1,7 @@
+use wasm_bindgen::JsCast;
+use web_sys::{HtmlElement, window};
+use yew::MouseEvent;
+
 pub async fn sleep_ms(ms: i32) {
     let promise = web_sys::js_sys::Promise::new(&mut |resolve, _| {
         if let Some(window) = web_sys::window() {
@@ -15,5 +19,21 @@ pub async fn fetch_json<T: serde::de::DeserializeOwned>(url: &str) -> Result<T, 
             .map_err(|e| format!("Failed to parse response: {}", e)),
         Ok(resp) => Err(format!("HTTP request failed with status {}", resp.status())),
         Err(e) => Err(format!("Request error: {}", e)),
+    }
+}
+
+pub fn select_text(e: MouseEvent) {
+    if let Some(target) = e.target()
+        && let Ok(element) = target.dyn_into::<HtmlElement>()
+        && let Some(window) = window()
+        && let Ok(Some(selection)) = window.get_selection()
+    {
+        let _ = selection.remove_all_ranges();
+        if let Some(document) = window.document()
+            && let Ok(range) = document.create_range()
+            && range.select_node_contents(&element).is_ok()
+        {
+            let _ = selection.add_range(&range);
+        }
     }
 }
