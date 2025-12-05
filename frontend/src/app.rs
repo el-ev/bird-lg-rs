@@ -2,9 +2,9 @@ use yew::prelude::*;
 use yew_router::prelude::*;
 
 use crate::{
-    components::{main_view::MainView, wireguard::WireGuard},
+    components::{main_view::MainView, protocols::Protocols, wireguard::WireGuard},
     hooks::use_app_data::use_app_data,
-    pages::{AutoPeerPage, MainPage, PeeringPage},
+    pages::{AutoPeerPage, NodePage, PeeringPage},
     routes::Route,
     store::{LgState, LgStateHandle, route_info::RouteInfoProvider},
 };
@@ -33,11 +33,14 @@ fn switch(routes: Route) -> Html {
         Route::Root => html! {
             <Redirect<Route> to={Route::Protocols}/>
         },
-        Route::Protocols | Route::Node { .. } => html! {
-            <MainPage/>
+        Route::Protocols => html! {
+            <Protocols/>
+        },
+        Route::Node { .. } => html! {
+            <NodePage/>
         },
         Route::WireGuard => html! {
-            <WireGuard default_open={true}/>
+            <WireGuard/>
         },
         Route::Peering => html! {
             <PeeringPage/>
@@ -45,7 +48,7 @@ fn switch(routes: Route) -> Html {
         Route::AutoPeer => html! {
             <AutoPeerPage/>
         },
-        Route::NotFound => html! {
-        }
+        // TODO: Utilities Page
+        Route::NotFound => html! {},
     }
 }

@@ -10,8 +10,8 @@ use crate::{
     store::{LgStateHandle, route_info::RouteInfoHandle},
 };
 
-#[function_component(NodeList)]
-pub fn node_list() -> Html {
+#[function_component(Protocols)]
+pub fn protocols() -> Html {
     let state = use_context::<LgStateHandle>().expect("no app state found");
     let route_info = use_context::<RouteInfoHandle>().expect("no route info found");
     let on_protocol_click = {
