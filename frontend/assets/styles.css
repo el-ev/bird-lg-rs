@@ -599,6 +599,11 @@ details[open] {
     user-select: none;
     -webkit-user-select: none;
 
+    -webkit-text-autocorrect: none;
+    -webkit-autocapitalize: none;
+    -webkit-user-modify: read-write-plaintext-only;
+    -webkit-text-size-adjust: none;
+
     &.placeholder {
         color: var(--text-placeholder);
         user-select: none;
