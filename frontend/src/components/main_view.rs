@@ -26,6 +26,7 @@ pub fn main_view(props: &MainViewProps) -> Html {
                     error={state.error.clone()}
                     waiting_for_data={waiting_for_data}
                 />
+
                 <ContentModal
                     visible={state.modal.active}
                     content={state.modal.content.clone()}

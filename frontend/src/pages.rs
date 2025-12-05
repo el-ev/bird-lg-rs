@@ -1,7 +1,7 @@
 mod auto_peer;
-mod main;
+mod node;
 mod peering;
 
 pub use auto_peer::AutoPeerPage;
-pub use main::MainPage;
+pub use node::NodePage;
 pub use peering::PeeringPage;

@@ -9,14 +9,8 @@ use crate::{
     store::{LgStateHandle, route_info::RouteInfoHandle},
 };
 
-#[derive(Properties, PartialEq)]
-pub struct WireGuardProps {
-    #[prop_or(true)]
-    pub default_open: bool,
-}
-
 #[function_component(WireGuard)]
-pub fn wireguard_section(props: &WireGuardProps) -> Html {
+pub fn wireguard_section() -> Html {
     let state = use_context::<LgStateHandle>().expect("no app state found");
     let route_info = use_context::<RouteInfoHandle>().expect("no route info found");
 
@@ -49,7 +43,7 @@ pub fn wireguard_section(props: &WireGuardProps) -> Html {
             <div>
                 { for wireguard_data.iter().map(|node_wg| {
                     html! {
-                        <details class="expandable-item" open={props.default_open}>
+                        <details class="expandable-item" open=true>
                             <summary class="summary-header">
                                 <h4 class="item-title">{ &node_wg.name }</h4>
                             </summary>
