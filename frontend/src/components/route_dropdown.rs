@@ -4,7 +4,7 @@ use web_sys::{Element, MouseEvent};
 use yew::prelude::*;
 use yew_router::prelude::*;
 
-use crate::{routes::Route, store::LgStateHandle};
+use crate::{routes::Route, store::LgStateHandle, utils::is_dn42_domain};
 
 const ROUTE_DROPDOWN_MENU_ID: &str = "lg-route-path-menu";
 
@@ -22,7 +22,11 @@ struct RouteMenuChild {
 }
 
 fn build_route_menu_items(nodes: &[NodeProtocol]) -> Vec<RouteMenuItem> {
-    let static_routes = [Route::Protocols, Route::Peering, Route::WireGuard];
+    let mut static_routes: Vec<Route> = vec![Route::Protocols, Route::Peering, Route::WireGuard];
+
+    if is_dn42_domain() {
+        static_routes.push(Route::Dn42);
+    }
 
     let mut items: Vec<RouteMenuItem> = static_routes
         .iter()
@@ -51,8 +55,9 @@ fn build_route_menu_items(nodes: &[NodeProtocol]) -> Vec<RouteMenuItem> {
         })
         .collect();
 
+    let insert_pos = items.len().saturating_sub(1);
     items.insert(
-        items.len() - 1,
+        insert_pos,
         RouteMenuItem {
             label: String::from("/node"),
             path: String::from("/node"),

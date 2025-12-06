@@ -802,3 +802,126 @@ details[open] {
         }
     }
 }
+
+
+/* DN42 Page */
+.dn42-page {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-xl);
+    font-size: var(--font-size-sm);
+    max-width: 600px;
+    margin: 0 auto;
+}
+
+.dn42-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    padding: var(--spacing-lg);
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+}
+
+.dn42-visitor-card {
+    background: var(--card);
+}
+
+.dn42-visitor-line {
+    margin: 0 0 6px 0;
+    line-height: 1.5;
+}
+
+.dn42-visitor-line:last-child {
+    margin-bottom: 0;
+}
+
+.dn42-highlight {
+    color: var(--shell-prompt);
+}
+
+.dn42-stats-card {
+    background: var(--bg-secondary);
+    border-color: transparent;
+}
+
+.dn42-stats-line {
+    margin: 0;
+    font-size: 0.95em;
+}
+
+.dn42-links {
+    display: flex;
+    gap: var(--spacing-md);
+    flex-wrap: wrap;
+}
+
+.dn42-link-card {
+    flex: 1 1 120px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: var(--spacing-md) var(--spacing-lg);
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    color: var(--text);
+    text-decoration: none;
+    font-weight: 500;
+    transition: all 0.15s ease;
+}
+
+.dn42-link-card:hover {
+    background: var(--bg-secondary);
+    border-color: var(--shell-prompt);
+    color: var(--shell-prompt);
+}
+
+.dn42-info-card {
+    background: var(--bg);
+    border-color: var(--border-light);
+}
+
+.dn42-info-title {
+    margin: 0 0 var(--spacing-sm) 0;
+    font-size: 1rem;
+}
+
+.dn42-info-text {
+    margin: 0 0 var(--spacing-md) 0;
+    color: var(--text-secondary);
+    line-height: 1.5;
+}
+
+.dn42-info-link {
+    color: var(--shell-prompt);
+    text-decoration: none;
+    font-weight: 500;
+}
+
+.dn42-info-link:hover {
+    text-decoration: underline;
+}
+
+.dn42-topology-card {
+    background: var(--bg);
+    border-color: var(--border-light);
+}
+
+.dn42-topology {
+    margin: 0;
+    font-family: var(--font-mono);
+    font-size: 0.8em;
+    line-height: 1.2;
+    overflow-x: auto;
+    white-space: pre;
+}
+
+@media (max-width: 720px) {
+    .dn42-links {
+        flex-direction: column;
+    }
+
+    .dn42-link-card {
+        flex: 1 1 auto;
+    }
+}
