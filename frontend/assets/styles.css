@@ -803,6 +803,100 @@ details[open] {
     }
 }
 
+/* ==========================================================================
+   Auto Peer Page
+   ========================================================================== */
+.autopeer {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-xl);
+    font-size: var(--font-size-sm);
+}
+
+.autopeer-container {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-lg);
+}
+
+.autopeer-step {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-md);
+}
+
+.autopeer-challenge-list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-sm);
+    margin-left: var(--spacing-lg);
+}
+
+.autopeer-method-desc {
+    color: var(--text-secondary);
+    font-size: 0.85em;
+    margin-left: var(--spacing-sm);
+}
+
+.autopeer-challenge-text {
+    background: var(--bg-shell);
+    padding: var(--spacing-md);
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--border);
+    margin: var(--spacing-sm) 0;
+}
+
+.autopeer-challenge-text pre {
+    margin: 0;
+    font-family: var(--font-mono);
+    font-size: 0.85em;
+    white-space: pre-wrap;
+    word-break: break-all;
+}
+
+.autopeer-sessions {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-lg);
+}
+
+.autopeer-sessions-list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-lg);
+}
+
+.autopeer-session-actions {
+    display: flex;
+    gap: var(--spacing-sm);
+    margin-top: var(--spacing-md);
+    justify-content: flex-end;
+}
+
+.autopeer-session-actions .shell-button {
+    float: none;
+}
+
+.autopeer-session-edit {
+    margin-top: var(--spacing-md);
+}
+
+.autopeer-new-session {
+    margin-top: var(--spacing-xl);
+    padding-top: var(--spacing-xl);
+    border-top: 1px solid var(--border-light);
+}
+
+.autopeer-form {
+    margin-top: var(--spacing-md);
+    padding: var(--spacing-md);
+    background: var(--bg-secondary);
+    border-radius: var(--radius-sm);
+}
+
+.text-secondary {
+    color: var(--text-secondary);
+}
 
 /* DN42 Page */
 .dn42-page {

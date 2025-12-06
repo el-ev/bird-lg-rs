@@ -1,3 +1,4 @@
+pub mod auto_peer;
 pub mod lg_state;
 pub mod modal;
 pub mod route_info;
