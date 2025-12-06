@@ -37,3 +37,13 @@ pub fn select_text(e: MouseEvent) {
         }
     }
 }
+
+pub fn get_hostname() -> String {
+    web_sys::window()
+        .and_then(|w| w.location().hostname().ok())
+        .unwrap_or_else(|| "unknown".to_string())
+}
+
+pub fn is_dn42_domain() -> bool {
+    get_hostname().ends_with(".dn42")
+}
