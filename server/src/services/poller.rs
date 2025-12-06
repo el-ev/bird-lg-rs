@@ -128,28 +128,43 @@ async fn process_node(
     }
 
     match resp {
-        Ok(r) => match r.text().await {
-            Ok(text) => {
-                let protocols = parse_protocols(&text);
-
-                NodeProtocol {
-                    name: node.name.clone(),
-                    protocols,
-                    last_updated: Utc::now(),
-                    error: None,
-                }
-            }
-            Err(e) => {
-                warn!(node = %node.name, error = ?e, "Failed to read BIRD response");
+        Ok(r) => {
+            if !r.status().is_success() {
+                warn!(node = %node.name, status = %r.status(), "Node returned error status");
                 let existing = current_nodes.iter().find(|n| n.name == node.name);
-                NodeProtocol {
+                return NodeProtocol {
                     name: node.name.clone(),
                     protocols: existing.map(|n| n.protocols.clone()).unwrap_or_default(),
                     last_updated: Utc::now(),
-                    error: Some("Received invalid response from node. Showing cached data.".into()),
+                    error: Some(format!("Node returned error: {}", r.status())),
+                };
+            }
+
+            match r.text().await {
+                Ok(text) => {
+                    let protocols = parse_protocols(&text);
+
+                    NodeProtocol {
+                        name: node.name.clone(),
+                        protocols,
+                        last_updated: Utc::now(),
+                        error: None,
+                    }
+                }
+                Err(e) => {
+                    warn!(node = %node.name, error = ?e, "Failed to read BIRD response");
+                    let existing = current_nodes.iter().find(|n| n.name == node.name);
+                    NodeProtocol {
+                        name: node.name.clone(),
+                        protocols: existing.map(|n| n.protocols.clone()).unwrap_or_default(),
+                        last_updated: Utc::now(),
+                        error: Some(
+                            "Received invalid response from node. Showing cached data.".into(),
+                        ),
+                    }
                 }
             }
-        },
+        }
         Err(e) => {
             warn!(node = %node.name, error = ?e, "Failed to contact node");
             let existing = current_nodes.iter().find(|n| n.name == node.name);
@@ -177,6 +192,7 @@ fn broadcast_updates(
             .any(|(new, old)| {
                 new.name != old.name || new.protocols != old.protocols || new.error != old.error
             })
+            || new_statuses.iter().any(|n| n.error.is_some())
     };
 
     {
