@@ -25,14 +25,14 @@ pub fn parse_protocols(output: &str) -> Vec<Protocol> {
             parts.next(),
             parts.next(),
         ) {
-            let info = parts.collect::<Vec<&str>>().join(" ");
+            let info = parts.next().unwrap_or_default();
             protocols.push(Protocol {
                 name: name.to_string(),
                 proto: proto.to_string(),
                 table: table.to_string(),
                 state: state.to_string(),
                 since: since.to_string(),
-                info,
+                info: info.to_string(),
             });
         }
     }
