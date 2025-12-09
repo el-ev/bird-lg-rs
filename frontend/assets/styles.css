@@ -244,6 +244,11 @@ hr {
     background: rgba(0, 0, 0, 0.08);
 }
 
+.route-dropdown__sub-item.is-active>.route-dropdown__sub-link,
+.route-dropdown__sub-link.is-active {
+    background: rgba(0, 0, 0, 0.14);
+}
+
 .route-dropdown__item:first-child>.route-dropdown__link,
 .route-dropdown__item:first-child>.route-dropdown__label {
     border-top-left-radius: var(--radius-md);
