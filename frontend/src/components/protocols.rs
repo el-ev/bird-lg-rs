@@ -39,7 +39,12 @@ pub fn protocols() -> Html {
                                 <span class="item-meta">
                                     {
                                         format!(
-                                            "(Updated: {})",
+                                            "({}: {})",
+                                            if node.error.is_some() {
+                                                "Last active"
+                                            } else {
+                                                "Updated"
+                                            },
                                             node
                                                 .last_updated
                                                 .with_timezone(&Local)

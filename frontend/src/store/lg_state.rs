@@ -94,16 +94,17 @@ impl Reducible for LgState {
             }
             Action::UpdateTimestamp(ts) => {
                 for node in &mut next_state.nodes {
-                    if node.error.is_none() {
-                        node.last_updated = ts;
-                    }
+                    // NoChange implies no error
+                    node.last_updated = ts;
                 }
             }
             Action::ApplyDiff(diffs) => {
                 for diff in diffs {
                     if let Some(node) = next_state.nodes.iter_mut().find(|n| n.name == diff.n) {
-                        node.last_updated = diff.u;
                         node.error = diff.e;
+                        if node.error.is_none() {
+                            node.last_updated = diff.u;
+                        }
 
                         let mut new = Vec::new();
                         let mut old_idx = 0;
