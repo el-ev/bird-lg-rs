@@ -16,6 +16,8 @@ pub enum Route {
     Dn42,
     #[at("/autopeer")]
     AutoPeer,
+    #[at("/ncsi")]
+    Ncsi,
     #[not_found]
     #[at("/404")]
     NotFound,

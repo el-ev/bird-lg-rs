@@ -4,7 +4,7 @@ use yew_router::prelude::*;
 use crate::{
     components::{main_view::MainView, protocols::Protocols, wireguard::WireGuard},
     hooks::use_app_data::use_app_data,
-    pages::{AutoPeerPage, Dn42Page, NodePage, PeeringPage},
+    pages::{AutoPeerPage, Dn42Page, NcsiPage, NodePage, PeeringPage},
     routes::Route,
     store::{LgState, LgStateHandle, route_info::RouteInfoProvider},
 };
@@ -50,6 +50,9 @@ fn switch(routes: Route) -> Html {
         },
         Route::AutoPeer => html! {
             <AutoPeerPage/>
+        },
+        Route::Ncsi => html! {
+            <NcsiPage/>
         },
         // TODO: Utilities Page
         Route::NotFound => html! {},
