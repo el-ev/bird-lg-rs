@@ -22,7 +22,12 @@ struct RouteMenuChild {
 }
 
 fn build_route_menu_items(nodes: &[NodeProtocol]) -> Vec<RouteMenuItem> {
-    let mut static_routes: Vec<Route> = vec![Route::Protocols, Route::Peering, Route::WireGuard];
+    let mut static_routes = vec![
+        Route::Protocols,
+        Route::Peering,
+        Route::WireGuard,
+        Route::Ncsi,
+    ];
 
     if is_dn42_domain() {
         static_routes.push(Route::Dn42);
