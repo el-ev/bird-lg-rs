@@ -256,16 +256,6 @@ hr {
     border-bottom-right-radius: var(--radius-md);
 }
 
-.route-dropdown__sub-item:first-child>.route-dropdown__sub-link {
-    border-top-left-radius: var(--radius-md);
-    border-top-right-radius: var(--radius-md);
-}
-
-.route-dropdown__sub-item:last-child>.route-dropdown__sub-link {
-    border-bottom-left-radius: var(--radius-md);
-    border-bottom-right-radius: var(--radius-md);
-}
-
 .route-dropdown__sub {
     position: absolute;
     top: 0;
@@ -276,6 +266,13 @@ hr {
     border-radius: var(--radius-md);
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.04);
     display: none;
+    column-count: var(--cols, 1);
+    column-gap: 0;
+    overflow: hidden;
+}
+
+.route-dropdown__sub-item {
+    break-inside: avoid;
 }
 
 .route-dropdown__item:hover>.route-dropdown__sub,
