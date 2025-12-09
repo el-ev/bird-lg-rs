@@ -204,8 +204,10 @@ pub fn route_dropdown(props: &RouteDropdownProps) -> Html {
                             let child_menu = if !has_children {
                                 html! {}
                             } else {
+                                let cols = if item.children.len() > 8 { 2 } else { 1 };
+                                let style = format!("--cols: {}", cols);
                                 html! {
-                                    <ul class="route-dropdown__sub">
+                                    <ul class="route-dropdown__sub" style={style}>
                                         {
                                             for item.children.into_iter().map(|child| {
                                                 let RouteMenuChild { label, path, route } = child;
