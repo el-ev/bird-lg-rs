@@ -169,5 +169,20 @@ async fn handle_request(
                 .await
                 .right_stream()
         }
+        AppRequest::Ping {
+            node,
+            target,
+            version,
+        } => {
+            let version = if version.is_empty() {
+                None
+            } else {
+                Some(version)
+            };
+
+            crate::services::api::perform_ping(state, config, node, target, version)
+                .await
+                .right_stream()
+        }
     }
 }

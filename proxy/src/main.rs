@@ -17,6 +17,7 @@ mod config;
 mod handlers;
 mod middleware;
 mod services;
+mod utils;
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
@@ -34,6 +35,9 @@ async fn main() -> anyhow::Result<()> {
         .route("/traceroute", get(handlers::traceroute::traceroute))
         .route("/traceroute4", get(handlers::traceroute::traceroute4))
         .route("/traceroute6", get(handlers::traceroute::traceroute6))
+        .route("/ping", get(handlers::ping::ping))
+        .route("/ping4", get(handlers::ping::ping4))
+        .route("/ping6", get(handlers::ping::ping6))
         .route("/peering", get(handlers::peering::get_peering_info))
         .layer(CorsLayer::permissive())
         .layer(axum::middleware::from_fn(auth_middleware))

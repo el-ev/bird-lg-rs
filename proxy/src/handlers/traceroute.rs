@@ -2,15 +2,11 @@ use std::sync::Arc;
 
 use axum::{
     Extension,
-    body::Body,
     extract::Query,
     response::{IntoResponse, Response},
 };
 use common::utils::validate_target;
 use serde::Deserialize;
-use tokio::io::AsyncReadExt;
-use tokio_stream::StreamExt;
-use tokio_util::codec::{FramedRead, LinesCodec};
 use tracing::{error, info, warn};
 
 use crate::{
@@ -73,54 +69,7 @@ async fn run_traceroute(
 
     info!(%target, version = ?version, "Executing traceroute");
     match cmd.spawn() {
-        Ok(mut child) => {
-            let mut stderr = child.stderr.take();
-
-            if let Some(stdout) = child.stdout.take() {
-                let mut lines = FramedRead::new(stdout, LinesCodec::new());
-
-                match lines.next().await {
-                    Some(first_line) => {
-                        let combined_stream = tokio_stream::iter(vec![first_line]).chain(lines);
-                        let stream_target = target.clone();
-
-                        let text_stream = combined_stream.map(move |line| match line {
-                            Ok(mut raw_line) => {
-                                if !raw_line.ends_with('\n') {
-                                    raw_line.push('\n');
-                                }
-                                Ok::<_, std::io::Error>(raw_line)
-                            }
-                            Err(e) => {
-                                error!(error = %e, %stream_target, "Failed to read traceroute output");
-                                Ok(String::new())
-                            }
-                        });
-
-                        Body::from_stream(text_stream).into_response()
-                    }
-                    None => {
-                        let mut stderr_output = String::new();
-                        if let Some(ref mut stderr_reader) = stderr {
-                            let _ = stderr_reader.read_to_string(&mut stderr_output).await;
-                        }
-                        let _ = child.wait().await;
-
-                        warn!(%target, stderr = %stderr_output.trim(), "Traceroute produced no stdout");
-
-                        (axum::http::StatusCode::INTERNAL_SERVER_ERROR, stderr_output)
-                            .into_response()
-                    }
-                }
-            } else {
-                error!(%target, "Traceroute stdout not captured");
-                (
-                    axum::http::StatusCode::INTERNAL_SERVER_ERROR,
-                    "Failed to capture stdout",
-                )
-                    .into_response()
-            }
-        }
+        Ok(child) => crate::utils::stream_command_output(child, "traceroute", target).await,
         Err(e) => {
             error!(error = %e, %target, "Failed to execute traceroute command");
             (

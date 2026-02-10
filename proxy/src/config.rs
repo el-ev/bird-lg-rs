@@ -42,6 +42,8 @@ pub struct Config {
     pub peering: Option<PeeringInfo>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub wireguard_command: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub ping_bin: Option<String>,
 }
 
 impl Config {
@@ -69,6 +71,7 @@ impl Config {
         self.validate_listen(&mut errors);
         self.validate_allowed_ips(&mut errors);
         self.validate_traceroute_bin(&mut errors);
+        self.validate_ping_bin(&mut errors);
 
         if errors.is_empty() {
             Ok(self)
@@ -169,6 +172,22 @@ impl Config {
             }
         } else if !self.traceroute_args.is_empty() {
             errors.push("traceroute_args is set but traceroute_bin isn't".to_string());
+        }
+    }
+
+    fn validate_ping_bin(&mut self, errors: &mut Vec<String>) {
+        if let Some(ref bin) = self.ping_bin {
+            if bin.trim().is_empty() {
+                errors.push("ping_bin must not be empty. you can set it to null to disable ping functionality".to_string());
+                return;
+            }
+
+            let p = Path::new(bin);
+            if !p.exists() {
+                errors.push(format!("ping_bin '{}' does not exist", bin));
+            } else if !p.is_file() {
+                errors.push(format!("ping_bin '{}' is not a file", bin));
+            }
         }
     }
 }

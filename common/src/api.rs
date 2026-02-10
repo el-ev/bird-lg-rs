@@ -29,6 +29,13 @@ pub enum AppRequest {
     },
     #[serde(rename = "pd")]
     ProtocolDetails { node: String, protocol: String },
+    #[serde(rename = "pi")]
+    Ping {
+        node: String,
+        target: String,
+        #[serde(default)]
+        version: String,
+    },
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -51,6 +58,12 @@ pub enum AppResponse {
     },
     #[serde(rename = "tre")]
     TracerouteError { node: String, error: String },
+    #[serde(rename = "pii")]
+    PingInit { node: String },
+    #[serde(rename = "piu")]
+    PingUpdate { node: String, lines: Vec<String> },
+    #[serde(rename = "pie")]
+    PingError { node: String, error: String },
     #[serde(rename = "rli")]
     RouteLookupInit { node: String },
     #[serde(rename = "rlu")]

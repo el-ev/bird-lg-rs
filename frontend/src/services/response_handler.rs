@@ -1,60 +1,73 @@
 use common::api::AppResponse;
 
-use crate::store::{Action, LgStateHandle, TracerouteResult, traceroute::TracerouteAction};
+use crate::store::{
+    AppEvent, LgStateHandle, TracerouteResult,
+    ping::{PingAction, PingResult},
+    traceroute::TracerouteAction,
+};
 
 pub fn handle_app_response(response: AppResponse, state: &LgStateHandle) {
+    let events = map_response_to_events(response);
+    tracing::debug!(event_count = events.len(), "Dispatching mapped app events");
+    for event in events {
+        state.dispatch(event);
+    }
+}
+
+pub fn map_response_to_events(response: AppResponse) -> Vec<AppEvent> {
     match response {
-        AppResponse::Protocols { data } => {
-            state.dispatch(Action::SetNodes(data));
-        }
-        AppResponse::NoChange { last_updated } => {
-            state.dispatch(Action::UpdateTimestamp(last_updated));
-        }
-        AppResponse::ProtocolsDiff { data } => {
-            state.dispatch(Action::ApplyDiff(data));
-        }
+        AppResponse::Protocols { data } => vec![AppEvent::SetNodes(data)],
+        AppResponse::NoChange { last_updated } => vec![AppEvent::UpdateTimestamp(last_updated)],
+        AppResponse::ProtocolsDiff { data } => vec![AppEvent::ApplyDiff(data)],
         AppResponse::TracerouteInit { node } => {
-            state.dispatch(Action::Traceroute(TracerouteAction::InitResult(node)));
+            vec![AppEvent::Traceroute(TracerouteAction::InitResult(node))]
         }
-        AppResponse::TracerouteUpdate { node, hops } => {
-            state.dispatch(Action::Traceroute(TracerouteAction::UpdateResult(
-                node,
-                TracerouteResult::Hops(hops),
-            )));
+        AppResponse::TracerouteUpdate { node, hops } => vec![AppEvent::Traceroute(
+            TracerouteAction::UpdateResult(node, TracerouteResult::Hops(hops)),
+        )],
+        AppResponse::TracerouteError { node, error } => vec![AppEvent::Traceroute(
+            TracerouteAction::UpdateResult(node, TracerouteResult::Error(error)),
+        )],
+        AppResponse::PingInit { node } => vec![
+            AppEvent::Ping(PingAction::InitResult(node)),
+            AppEvent::PingModalInit,
+        ],
+        AppResponse::PingUpdate { node, lines } => {
+            let result = PingResult::Lines(lines);
+            vec![
+                AppEvent::Ping(PingAction::UpdateResult(node.clone(), result.clone())),
+                AppEvent::PingModalUpdate { node, result },
+            ]
         }
-        AppResponse::TracerouteError { node, error } => {
-            state.dispatch(Action::Traceroute(TracerouteAction::UpdateResult(
-                node,
-                TracerouteResult::Error(error),
-            )));
+        AppResponse::PingError { node, error } => {
+            let result = PingResult::Error(error);
+            vec![
+                AppEvent::Ping(PingAction::UpdateResult(node.clone(), result.clone())),
+                AppEvent::PingModalUpdate { node, result },
+            ]
         }
-        AppResponse::RouteLookupInit { node: _ } => {
-            state.dispatch(Action::RouteLookupInit(String::new()));
-        }
-        AppResponse::RouteLookupUpdate { node: _, lines } => {
-            state.dispatch(Action::RouteLookupUpdate(lines));
+        AppResponse::RouteLookupInit { node: _ } => vec![AppEvent::RouteLookupInit],
+        AppResponse::RouteLookupUpdate { node, lines } => {
+            vec![AppEvent::RouteLookupUpdate { node, lines }]
         }
         AppResponse::ProtocolDetailsInit {
             node: _,
             protocol: _,
-        } => {
-            state.dispatch(Action::ProtocolDetailsInit(String::new()));
-        }
+        } => vec![AppEvent::ProtocolDetailsInit],
         AppResponse::ProtocolDetailsUpdate {
-            node: _,
-            protocol: _,
+            node,
+            protocol,
             lines,
-        } => {
-            state.dispatch(Action::ProtocolDetailsUpdate(lines));
-        }
-        AppResponse::WireGuard { data } => {
-            state.dispatch(Action::SetWireGuard(data));
-        }
-        AppResponse::NetworkInfo(info) => {
-            state.dispatch(Action::SetNetworkInfo(info));
-        }
+        } => vec![AppEvent::ProtocolDetailsUpdate {
+            node,
+            protocol,
+            lines,
+        }],
+        AppResponse::WireGuard { data } => vec![AppEvent::SetWireGuard(data)],
+        AppResponse::NetworkInfo(info) => vec![AppEvent::SetNetworkInfo(info)],
         AppResponse::Error(e) => {
             tracing::error!("AppResponse Error: {}", e);
+            Vec::new()
         }
     }
 }

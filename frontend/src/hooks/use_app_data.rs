@@ -10,7 +10,7 @@ use crate::{
         api::{get_network_info, get_protocols},
         websocket::WebSocketService,
     },
-    store::{Action, LgStateHandle},
+    store::{AppEvent, LgStateHandle},
     utils::sleep_ms,
 };
 
@@ -20,7 +20,7 @@ pub fn use_app_data(state: LgStateHandle) {
         let state = state.clone();
         use_effect_with((), move |_| {
             if let Ok(config) = LocalStorage::get::<Config>("app_config") {
-                state.dispatch(Action::SetConfig {
+                state.dispatch(AppEvent::SetConfig {
                     username: config.username.clone(),
                     backend_url: config.backend_url.clone(),
                 });
@@ -33,14 +33,14 @@ pub fn use_app_data(state: LgStateHandle) {
                             tracing::error!("Failed to cache config: {}", e);
                         }
 
-                        state.dispatch(Action::SetConfig {
+                        state.dispatch(AppEvent::SetConfig {
                             username: config.username.clone(),
                             backend_url: config.backend_url.clone(),
                         });
                     }
                     Err(err) => {
                         let message = format!("Configuration load failed: {}", err);
-                        state.dispatch(Action::SetError(message.clone()));
+                        state.dispatch(AppEvent::SetError(message.clone()));
                         tracing::error!("{}", message);
                     }
                 }

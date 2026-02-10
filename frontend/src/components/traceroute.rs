@@ -11,7 +11,7 @@ use super::{
 use crate::{
     services::api::perform_traceroute,
     store::{
-        Action, LgStateHandle, TracerouteResult, route_info::RouteInfoHandle,
+        AppEvent, LgStateHandle, TracerouteResult, route_info::RouteInfoHandle,
         traceroute::TracerouteAction,
     },
 };
@@ -32,7 +32,7 @@ pub fn traceroute_section() -> Html {
         let state = state.clone();
         Callback::from(move |e: Event| {
             let target: HtmlInputElement = e.target_unchecked_into();
-            state.dispatch(Action::Traceroute(TracerouteAction::SetNode(
+            state.dispatch(AppEvent::Traceroute(TracerouteAction::SetNode(
                 target.value(),
             )));
         })
@@ -42,7 +42,7 @@ pub fn traceroute_section() -> Html {
         let state = state.clone();
         Callback::from(move |e: Event| {
             let target: HtmlInputElement = e.target_unchecked_into();
-            state.dispatch(Action::Traceroute(TracerouteAction::SetVersion(
+            state.dispatch(AppEvent::Traceroute(TracerouteAction::SetVersion(
                 target.value(),
             )));
         })
@@ -51,7 +51,7 @@ pub fn traceroute_section() -> Html {
     let on_target_change = {
         let state = state.clone();
         Callback::from(move |value: String| {
-            state.dispatch(Action::Traceroute(TracerouteAction::SetTarget(value)));
+            state.dispatch(AppEvent::Traceroute(TracerouteAction::SetTarget(value)));
         })
     };
 
@@ -64,16 +64,16 @@ pub fn traceroute_section() -> Html {
 
             let target = state.traceroute.target.clone().trim().to_string();
             if let Err(err) = validate_target(&target) {
-                state.dispatch(Action::Traceroute(TracerouteAction::SetError(err)));
+                state.dispatch(AppEvent::Traceroute(TracerouteAction::SetError(err)));
                 return;
             }
-            state.dispatch(Action::Traceroute(TracerouteAction::ClearError));
-            state.dispatch(Action::Traceroute(TracerouteAction::SetLastParams(
+            state.dispatch(AppEvent::Traceroute(TracerouteAction::ClearError));
+            state.dispatch(AppEvent::Traceroute(TracerouteAction::SetLastParams(
                 target.clone(),
                 state.traceroute.version.clone(),
             )));
 
-            state.dispatch(Action::Traceroute(TracerouteAction::Start));
+            state.dispatch(AppEvent::Traceroute(TracerouteAction::Start));
 
             let validated_target = target;
             let traceroute_node = state.traceroute.node.clone();
@@ -103,7 +103,7 @@ pub fn traceroute_section() -> Html {
 
                 join_all(futures).await;
 
-                state_async.dispatch(Action::Traceroute(TracerouteAction::End));
+                state_async.dispatch(AppEvent::Traceroute(TracerouteAction::End));
             });
         })
     };
@@ -137,7 +137,7 @@ pub fn traceroute_section() -> Html {
                     value={traceroute_state.version.clone()}
                     on_change={on_version_change}
                 >
-                    <option value="auto" selected=true>{"  "}</option>
+                    <option value="" selected=true>{"  "}</option>
                     <option value="4">{"-4"}</option>
                     <option value="6">{"-6"}</option>
                 </ShellSelect>

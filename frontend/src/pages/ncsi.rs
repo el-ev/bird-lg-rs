@@ -1,6 +1,6 @@
 use yew::prelude::*;
 
-use crate::components::{route_lookup::RouteLookup, traceroute::Traceroute};
+use crate::components::{ping::Ping, route_lookup::RouteLookup, traceroute::Traceroute};
 
 #[function_component(NcsiPage)]
 pub fn ncsi_page() -> Html {
@@ -9,7 +9,7 @@ pub fn ncsi_page() -> Html {
         <h3>{"Network Connectivity Status Indicator"}</h3>
 
         <Traceroute/>
-
+        <Ping/>
         <RouteLookup/>
     </>
     }

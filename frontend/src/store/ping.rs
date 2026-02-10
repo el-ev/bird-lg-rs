@@ -1,68 +1,62 @@
-use common::traceroute::TracerouteHop;
-
 #[derive(Clone, Debug, PartialEq)]
-pub enum TracerouteResult {
-    Hops(Vec<TracerouteHop>),
+pub enum PingResult {
+    Lines(Vec<String>),
     Error(String),
 }
 
 #[derive(Clone, Debug, Default, PartialEq)]
-pub struct TracerouteState {
+pub struct PingState {
     pub target: String,
     pub node: String,
     pub version: String,
     pub loading: bool,
     pub error: Option<String>,
-    pub results: Vec<(String, TracerouteResult)>,
+    pub results: Vec<(String, PingResult)>,
     pub last_target: String,
     pub last_version: String,
 }
 
-pub enum TracerouteAction {
+#[derive(Clone, Debug, PartialEq)]
+pub enum PingAction {
     SetTarget(String),
     SetNode(String),
     SetVersion(String),
     SetError(String),
     ClearError,
     Start,
-    End,
     InitResult(String),
-    UpdateResult(String, TracerouteResult),
+    UpdateResult(String, PingResult),
     SetLastParams(String, String), // target, version
 }
 
-impl TracerouteState {
-    pub fn reduce(&mut self, action: TracerouteAction) {
+impl PingState {
+    pub fn reduce(&mut self, action: PingAction) {
         match action {
-            TracerouteAction::SetTarget(target) => {
+            PingAction::SetTarget(target) => {
                 self.target = target;
                 self.error = None;
             }
-            TracerouteAction::SetNode(node) => {
+            PingAction::SetNode(node) => {
                 self.node = node;
             }
-            TracerouteAction::SetVersion(version) => {
+            PingAction::SetVersion(version) => {
                 self.version = version;
             }
-            TracerouteAction::SetError(err) => {
+            PingAction::SetError(err) => {
                 self.error = Some(err);
             }
-            TracerouteAction::ClearError => {
+            PingAction::ClearError => {
                 self.error = None;
             }
-            TracerouteAction::Start => {
+            PingAction::Start => {
                 self.loading = true;
                 self.results.clear();
             }
-            TracerouteAction::End => {
-                self.loading = false;
-            }
-            TracerouteAction::InitResult(node) => {
+            PingAction::InitResult(node) => {
                 self.results.retain(|(n, _)| n != &node);
-                self.results
-                    .push((node, TracerouteResult::Hops(Vec::new())));
+                self.results.push((node, PingResult::Lines(Vec::new())));
             }
-            TracerouteAction::UpdateResult(node, result) => {
+            PingAction::UpdateResult(node, result) => {
                 let (_, existing_result) = self
                     .results
                     .iter_mut()
@@ -70,16 +64,16 @@ impl TracerouteState {
                     .expect("UpdateResult called for an uninitialized node");
 
                 match (existing_result, result) {
-                    (TracerouteResult::Hops(hops), TracerouteResult::Hops(new_hops)) => {
-                        hops.extend(new_hops);
+                    (PingResult::Lines(lines), PingResult::Lines(new_lines)) => {
+                        lines.extend(new_lines);
                     }
-                    (ex @ TracerouteResult::Hops(_), e @ TracerouteResult::Error(_)) => {
+                    (ex @ PingResult::Lines(_), e @ PingResult::Error(_)) => {
                         *ex = e;
                     }
                     _ => unreachable!(),
                 }
             }
-            TracerouteAction::SetLastParams(target, version) => {
+            PingAction::SetLastParams(target, version) => {
                 self.last_target = target;
                 self.last_version = version;
             }

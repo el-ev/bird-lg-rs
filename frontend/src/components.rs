@@ -3,6 +3,7 @@ pub mod content_modal;
 pub mod data_table;
 pub mod header;
 pub mod main_view;
+pub mod ping;
 pub mod protocols;
 pub mod route_dropdown;
 pub mod route_lookup;

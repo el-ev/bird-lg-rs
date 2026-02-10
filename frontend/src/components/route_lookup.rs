@@ -104,8 +104,8 @@ pub fn route_lookup() -> Html {
                         value={(*selected_node).clone()}
                         on_change={on_node_change}
                     >
-                        { for nodes.iter().map(|n| html! {
-                            <option value={n.name.clone()}>{ &n.name }</option>
+                        { for nodes.iter().enumerate().map(|(i, n)| html! {
+                            <option value={n.name.clone()} selected={i == 0}>{ &n.name }</option>
                         }) }
                     </ShellSelect>
                     {"$ "}

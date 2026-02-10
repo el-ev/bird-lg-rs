@@ -9,9 +9,10 @@ use yew::prelude::*;
 
 use super::{
     modal::{ModalAction, ModalState},
+    ping::{PingAction, PingResult, PingState},
     traceroute::{TracerouteAction, TracerouteState},
 };
-
+// ... (skip lines)
 pub type LgStateHandle = UseReducerHandle<LgState>;
 
 #[derive(Clone, Debug, PartialEq, Default)]
@@ -24,18 +25,35 @@ pub struct LgState {
     pub data_ready: bool,
     pub config_ready: bool,
     pub traceroute: TracerouteState,
+    pub ping: PingState,
     pub network_info: Option<NetworkInfo>,
     pub username: String,
     pub backend_url: String,
     pub ws_sender: Option<Callback<AppRequest>>,
+    pub route_lookup_context: Option<RouteLookupContext>,
+    pub protocol_details_context: Option<ProtocolDetailsContext>,
 }
 
-pub enum Action {
+#[derive(Clone, Debug, PartialEq)]
+pub struct RouteLookupContext {
+    pub node: String,
+    pub target: String,
+    pub all: bool,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct ProtocolDetailsContext {
+    pub node: String,
+    pub protocol: String,
+}
+
+pub enum AppEvent {
     SetNodes(Vec<NodeProtocol>),
     SetWireGuard(Vec<NodeWireGuard>),
     SetError(String),
     Modal(ModalAction),
     Traceroute(TracerouteAction),
+    Ping(PingAction),
     SetNetworkInfo(NetworkInfo),
     SetConfig {
         username: String,
@@ -45,40 +63,51 @@ pub enum Action {
     ClearWsSender,
     UpdateTimestamp(DateTime<Utc>),
     ApplyDiff(Vec<NodeStatusDiff>),
-    RouteLookupInit(String),
-    RouteLookupUpdate(Vec<String>),
-    ProtocolDetailsInit(String),
-    ProtocolDetailsUpdate(Vec<String>),
+    SetRouteLookupContext(RouteLookupContext),
+    RouteLookupInit,
+    RouteLookupUpdate { node: String, lines: Vec<String> },
+    SetProtocolDetailsContext(ProtocolDetailsContext),
+    ProtocolDetailsInit,
+    ProtocolDetailsUpdate {
+        node: String,
+        protocol: String,
+        lines: Vec<String>,
+    },
+    PingModalInit,
+    PingModalUpdate { node: String, result: PingResult },
 }
 
 impl Reducible for LgState {
-    type Action = Action;
+    type Action = AppEvent;
 
     fn reduce(self: Rc<Self>, action: Self::Action) -> Rc<Self> {
         let mut next_state = (*self).clone();
 
         match action {
-            Action::SetNodes(nodes) => {
+            AppEvent::SetNodes(nodes) => {
                 next_state.nodes = nodes;
                 next_state.data_ready = true;
                 next_state.error = None;
             }
-            Action::SetWireGuard(wireguard) => {
+            AppEvent::SetWireGuard(wireguard) => {
                 next_state.wireguard = wireguard;
             }
-            Action::SetError(err) => {
+            AppEvent::SetError(err) => {
                 next_state.error = Some(err);
             }
-            Action::Modal(act) => {
+            AppEvent::Modal(act) => {
                 next_state.modal.reduce(act);
             }
-            Action::Traceroute(act) => {
+            AppEvent::Traceroute(act) => {
                 next_state.traceroute.reduce(act);
             }
-            Action::SetNetworkInfo(info) => {
+            AppEvent::Ping(act) => {
+                next_state.ping.reduce(act);
+            }
+            AppEvent::SetNetworkInfo(info) => {
                 next_state.network_info = Some(info);
             }
-            Action::SetConfig {
+            AppEvent::SetConfig {
                 username,
                 backend_url,
             } => {
@@ -86,19 +115,19 @@ impl Reducible for LgState {
                 next_state.backend_url = backend_url;
                 next_state.config_ready = true;
             }
-            Action::SetWsSender(sender) => {
+            AppEvent::SetWsSender(sender) => {
                 next_state.ws_sender = Some(sender);
             }
-            Action::ClearWsSender => {
+            AppEvent::ClearWsSender => {
                 next_state.ws_sender = None;
             }
-            Action::UpdateTimestamp(ts) => {
+            AppEvent::UpdateTimestamp(ts) => {
                 for node in &mut next_state.nodes {
                     // NoChange implies no error
                     node.last_updated = ts;
                 }
             }
-            Action::ApplyDiff(diffs) => {
+            AppEvent::ApplyDiff(diffs) => {
                 for diff in diffs {
                     if let Some(node) = next_state.nodes.iter_mut().find(|n| n.name == diff.n) {
                         node.error = diff.e;
@@ -135,20 +164,66 @@ impl Reducible for LgState {
                     }
                 }
             }
-            Action::RouteLookupInit(result) => {
-                next_state.modal.content = result;
+            AppEvent::SetRouteLookupContext(ctx) => {
+                next_state.route_lookup_context = Some(ctx);
             }
-            Action::RouteLookupUpdate(lines) => {
-                next_state.modal.content = self.modal.content.clone() + "\n" + &lines.join("\n");
+            AppEvent::RouteLookupInit => {
+                next_state.modal.content = String::new();
             }
-            Action::ProtocolDetailsInit(result) => {
-                next_state.modal.content = result;
+            AppEvent::RouteLookupUpdate { node, lines } => {
+                if let Some(ctx) = &mut next_state.route_lookup_context {
+                    ctx.node = node;
+                }
+                append_modal_lines(&mut next_state.modal.content, &lines);
             }
-            Action::ProtocolDetailsUpdate(lines) => {
-                next_state.modal.content = self.modal.content.clone() + "\n" + &lines.join("\n");
+            AppEvent::SetProtocolDetailsContext(ctx) => {
+                next_state.protocol_details_context = Some(ctx);
+            }
+            AppEvent::ProtocolDetailsInit => {
+                next_state.modal.content = String::new();
+            }
+            AppEvent::ProtocolDetailsUpdate {
+                node,
+                protocol,
+                lines,
+            } => {
+                if let Some(ctx) = &mut next_state.protocol_details_context {
+                    ctx.node = node;
+                    ctx.protocol = protocol;
+                }
+                append_modal_lines(&mut next_state.modal.content, &lines);
+            }
+            AppEvent::PingModalInit => {
+                next_state.modal.content = String::new();
+            }
+            AppEvent::PingModalUpdate { node, result } => match result {
+                PingResult::Lines(lines) => {
+                    next_state.ping.node = node;
+                    append_modal_lines(&mut next_state.modal.content, &lines);
+                }
+                PingResult::Error(err) => {
+                    next_state.ping.node = node;
+                    if !next_state.modal.content.is_empty() {
+                        next_state.modal.content.push('\n');
+                    }
+                    next_state.modal.content.push_str("Error: ");
+                    next_state.modal.content.push_str(&err);
+                    next_state.modal.content.push('\n');
+                }
             }
         }
 
         Rc::new(next_state)
     }
+}
+
+fn append_modal_lines(content: &mut String, lines: &[String]) {
+    if lines.is_empty() {
+        return;
+    }
+    if !content.is_empty() {
+        content.push('\n');
+    }
+    content.push_str(&lines.join("\n"));
+    content.push('\n');
 }

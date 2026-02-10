@@ -249,3 +249,63 @@ pub async fn get_wireguard(state: AppState, config: Arc<Config>) -> BoxStream {
         }
     }))
 }
+
+pub async fn perform_ping(
+    state: AppState,
+    config: Arc<Config>,
+    node: String,
+    target: String,
+    version: Option<String>,
+) -> BoxStream {
+    let target_clone = target.clone();
+    if let Err(msg) = validate_target(&target) {
+        return stream_error(msg);
+    }
+
+    let node_config = match config.nodes.iter().find(|n| n.name == node).cloned() {
+        Some(n) => n,
+        None => return stream_error("Node not found".into()),
+    };
+
+    let endpoint = match version.as_deref().unwrap_or("") {
+        "4" => "ping4",
+        "6" => "ping6",
+        _ => "ping",
+    };
+    let endpoint_with_query = format!("/{}?target={}", endpoint, target);
+    let http_client = state.http_client.clone();
+
+    match get_stream(&http_client, &node_config, &endpoint_with_query).await {
+        Ok(byte_stream) => {
+            let node_for_init = node.clone();
+            let init = stream::once(async move {
+                AppResponse::PingInit {
+                    node: node_for_init,
+                }
+            });
+
+            let node_name = node.clone();
+            let updates =
+                byte_stream_to_lines(byte_stream).map(move |lines| AppResponse::PingUpdate {
+                    node: node_name.clone(),
+                    lines,
+                });
+
+            Box::pin(init.chain(updates))
+        }
+        Err(err_msg) => {
+            warn!(
+                node = %node,
+                target = %target_clone,
+                error = %err_msg,
+                "Failed to fetch ping information"
+            );
+            Box::pin(stream::once(async move {
+                AppResponse::PingError {
+                    node,
+                    error: err_msg,
+                }
+            }))
+        }
+    }
+}

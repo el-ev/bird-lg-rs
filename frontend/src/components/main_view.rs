@@ -2,7 +2,7 @@ use yew::prelude::*;
 
 use crate::{
     components::{content_modal::ContentModal, header::Header, status_banner::StatusBanner},
-    store::{Action, LgStateHandle, modal::ModalAction},
+    store::{AppEvent, LgStateHandle, modal::ModalAction},
 };
 
 #[derive(Properties, PartialEq)]
@@ -34,7 +34,7 @@ pub fn main_view(props: &MainViewProps) -> Html {
                     on_close={
                         let state = state.clone();
                         Callback::from(move |_| {
-                            state.dispatch(Action::Modal(ModalAction::Close));
+                            state.dispatch(AppEvent::Modal(ModalAction::Close));
                         })
                     }
                 />

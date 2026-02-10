@@ -5,7 +5,7 @@ use wasm_bindgen_futures::spawn_local;
 use yew::prelude::*;
 
 use crate::{
-    store::{Action, LgStateHandle},
+    store::{AppEvent, LgStateHandle},
     utils::sleep_ms,
 };
 
@@ -31,7 +31,7 @@ impl WebSocketService {
                         let _ = tx.send(req).await;
                     });
                 });
-                state.dispatch(Action::SetWsSender(callback));
+                state.dispatch(AppEvent::SetWsSender(callback));
 
                 if ws_failed_count >= MAX_WS_FAILURES {
                     break;
@@ -51,8 +51,10 @@ impl WebSocketService {
                                         ws_failed_count = 0;
                                     }
                                     Ok(Message::Bytes(_)) => unreachable!(),
-                                    Err(_) => {
+                                    Err(e) => {
+                                        tracing::warn!("WebSocket error: {:?}", e);
                                         ws_failed_count += 1;
+                                        let _ = write.close().await;
                                         break;
                                     }
                                 },
@@ -60,6 +62,7 @@ impl WebSocketService {
                                     if let Ok(json) = serde_json::to_string(&req)
                                         && write.send(Message::Text(json)).await.is_err()
                                     {
+                                        let _ = write.close().await;
                                         break;
                                     }
                                 }
@@ -69,13 +72,13 @@ impl WebSocketService {
                     Err(_) => {
                         ws_failed_count += 1;
                         if ws_failed_count >= MAX_WS_FAILURES {
-                            state.dispatch(Action::SetError(
+                            state.dispatch(AppEvent::SetError(
                                 "Websocket connection failed".to_string(),
                             ));
                             tracing::error!(
                                 "WebSocket failed 3 times. App should switch to HTTP polling.",
                             );
-                            state.dispatch(Action::ClearWsSender);
+                            state.dispatch(AppEvent::ClearWsSender);
                         }
                     }
                 }
