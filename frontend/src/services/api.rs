@@ -1,7 +1,4 @@
-use std::{
-    sync::atomic::{AtomicU64, Ordering},
-    time::{SystemTime, UNIX_EPOCH},
-};
+use std::sync::atomic::{AtomicU64, Ordering};
 
 use common::api::{AppRequest, AppResponse};
 use futures::future::join_all;
@@ -14,12 +11,13 @@ use crate::{
 
 static REQUEST_COUNTER: AtomicU64 = AtomicU64::new(1);
 
+fn current_timestamp_ms() -> u64 {
+    web_sys::js_sys::Date::now() as u64
+}
+
 fn build_request_id(prefix: &str) -> String {
     let counter = REQUEST_COUNTER.fetch_add(1, Ordering::Relaxed);
-    let timestamp = SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .unwrap_or_default()
-        .as_millis();
+    let timestamp = current_timestamp_ms();
 
     format!("{prefix}-{timestamp}-{counter}")
 }
