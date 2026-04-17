@@ -73,7 +73,10 @@ pub fn traceroute_section() -> Html {
 
             let selected_node_value = (*selected_node).clone();
             let target_nodes = if selected_node_value.is_empty() {
-                nodes.iter().map(|node| node.name.clone()).collect::<Vec<_>>()
+                nodes
+                    .iter()
+                    .map(|node| node.name.clone())
+                    .collect::<Vec<_>>()
             } else {
                 vec![selected_node_value]
             };
@@ -89,7 +92,8 @@ pub fn traceroute_section() -> Html {
 
             spawn_local(async move {
                 if let Err(fetch_error) =
-                    perform_traceroute(&state_async, target_nodes, target_value, version_value).await
+                    perform_traceroute(&state_async, target_nodes, target_value, version_value)
+                        .await
                 {
                     tracing::error!("Traceroute request failed: {}", fetch_error);
                 }

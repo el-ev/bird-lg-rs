@@ -25,7 +25,10 @@ pub fn ping() -> Html {
     };
 
     let selected_node_value = if selected_node.is_empty() {
-        nodes.first().map(|node| node.name.clone()).unwrap_or_default()
+        nodes
+            .first()
+            .map(|node| node.name.clone())
+            .unwrap_or_default()
     } else {
         (*selected_node).clone()
     };
@@ -73,7 +76,10 @@ pub fn ping() -> Html {
             }
 
             let node_value = if node.is_empty() {
-                nodes.first().map(|entry| entry.name.clone()).unwrap_or_default()
+                nodes
+                    .first()
+                    .map(|entry| entry.name.clone())
+                    .unwrap_or_default()
             } else {
                 (*node).clone()
             };

@@ -1,6 +1,6 @@
+use ui_components::shell::ShellLine;
 use wasm_bindgen::{JsCast, closure::Closure};
 use web_sys::{HtmlElement, KeyboardEvent, MouseEvent, window};
-use ui_components::shell::ShellLine;
 use yew::prelude::*;
 
 #[derive(Properties, PartialEq)]

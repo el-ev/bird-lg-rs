@@ -142,7 +142,7 @@ pub fn shell_input(props: &ShellInputProps) -> Html {
 fn inline_input_width(props: &ShellInputProps) -> usize {
     let value_width = props.value.chars().count();
     let placeholder_width = props.placeholder.chars().count();
-    value_width.max(placeholder_width).max(8) + 1
+    value_width.max(placeholder_width).max(1)
 }
 
 fn read_cursor_position(input: &HtmlInputElement) -> usize {
@@ -177,15 +177,21 @@ mod tests {
     }
 
     #[test]
-    fn inline_input_width_reserves_room_for_placeholder() {
+    fn inline_input_width_matches_placeholder_length() {
         let props = build_props("", "424242xxxx");
-        assert_eq!(inline_input_width(&props), 11);
+        assert_eq!(inline_input_width(&props), 10);
     }
 
     #[test]
     fn inline_input_width_grows_with_value_length() {
         let props = build_props("birdc show route", "<target>");
-        assert_eq!(inline_input_width(&props), 17);
+        assert_eq!(inline_input_width(&props), 16);
+    }
+
+    #[test]
+    fn inline_input_width_keeps_empty_inputs_clickable() {
+        let props = build_props("", "");
+        assert_eq!(inline_input_width(&props), 1);
     }
 
     #[test]
