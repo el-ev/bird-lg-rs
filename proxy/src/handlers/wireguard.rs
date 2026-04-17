@@ -8,19 +8,13 @@ use axum::{
 use tokio::process::Command;
 use tracing::{error, info};
 
-use crate::config::Config;
+use crate::{config::Config, services::command_runner::split_command};
 
 pub async fn get_wireguard(Extension(config): Extension<Arc<Config>>) -> Response {
     info!("Getting WireGuard status");
 
-    let (program, args) = if let Some(cmd) = &config.wireguard_command {
-        let mut parts = cmd.split_whitespace();
-        let program = parts.next().unwrap_or("wg");
-        let args: Vec<&str> = parts.collect();
-        (program.to_string(), args)
-    } else {
-        ("wg".to_string(), vec!["show", "dump"])
-    };
+    let (program, args) =
+        split_command(config.wireguard_command.as_deref(), "wg", &["show", "dump"]);
 
     let output = match Command::new(&program).args(&args).output().await {
         Ok(output) => output,

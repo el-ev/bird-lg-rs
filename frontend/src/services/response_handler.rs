@@ -25,9 +25,16 @@ pub fn map_response_to_events(response: AppResponse) -> Vec<AppEvent> {
         AppResponse::TracerouteUpdate { node, hops } => vec![AppEvent::Traceroute(
             TracerouteAction::UpdateResult(node, TracerouteResult::Hops(hops)),
         )],
-        AppResponse::TracerouteError { node, error } => vec![AppEvent::Traceroute(
-            TracerouteAction::UpdateResult(node, TracerouteResult::Error(error)),
-        )],
+        AppResponse::TracerouteDone { .. } => {
+            vec![AppEvent::Traceroute(TracerouteAction::EndOne)]
+        }
+        AppResponse::TracerouteError { node, error } => vec![
+            AppEvent::Traceroute(TracerouteAction::UpdateResult(
+                node,
+                TracerouteResult::Error(error),
+            )),
+            AppEvent::Traceroute(TracerouteAction::EndOne),
+        ],
         AppResponse::PingInit { node } => vec![
             AppEvent::Ping(PingAction::InitResult(node)),
             AppEvent::PingModalInit,
@@ -39,17 +46,23 @@ pub fn map_response_to_events(response: AppResponse) -> Vec<AppEvent> {
                 AppEvent::PingModalUpdate { node, result },
             ]
         }
+        AppResponse::PingDone { .. } => vec![AppEvent::Ping(PingAction::End)],
         AppResponse::PingError { node, error } => {
             let result = PingResult::Error(error);
             vec![
                 AppEvent::Ping(PingAction::UpdateResult(node.clone(), result.clone())),
                 AppEvent::PingModalUpdate { node, result },
+                AppEvent::Ping(PingAction::End),
             ]
         }
         AppResponse::RouteLookupInit { node: _ } => vec![AppEvent::RouteLookupInit],
         AppResponse::RouteLookupUpdate { node, lines } => {
             vec![AppEvent::RouteLookupUpdate { node, lines }]
         }
+        AppResponse::RouteLookupDone { .. } => Vec::new(),
+        AppResponse::RouteLookupError { node: _, error } => vec![AppEvent::Modal(
+            crate::store::modal::ModalAction::UpdateContent(format!("Error: {}", error)),
+        )],
         AppResponse::ProtocolDetailsInit {
             node: _,
             protocol: _,
@@ -63,11 +76,55 @@ pub fn map_response_to_events(response: AppResponse) -> Vec<AppEvent> {
             protocol,
             lines,
         }],
+        AppResponse::ProtocolDetailsDone { .. } => Vec::new(),
+        AppResponse::ProtocolDetailsError {
+            node: _,
+            protocol: _,
+            error,
+        } => vec![AppEvent::Modal(
+            crate::store::modal::ModalAction::UpdateContent(format!("Error: {}", error)),
+        )],
         AppResponse::WireGuard { data } => vec![AppEvent::SetWireGuard(data)],
         AppResponse::NetworkInfo(info) => vec![AppEvent::SetNetworkInfo(info)],
         AppResponse::Error(e) => {
             tracing::error!("AppResponse Error: {}", e);
-            Vec::new()
+            vec![AppEvent::SetError(e)]
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use common::api::AppResponse;
+
+    use super::map_response_to_events;
+    use crate::store::{AppEvent, ping::PingAction, traceroute::TracerouteAction};
+
+    #[test]
+    fn ping_done_maps_to_end_event() {
+        let events = map_response_to_events(AppResponse::PingDone {
+            node: "node-a".to_string(),
+        });
+
+        assert!(matches!(
+            events.as_slice(),
+            [AppEvent::Ping(PingAction::End)]
+        ));
+    }
+
+    #[test]
+    fn traceroute_error_maps_to_result_and_end() {
+        let events = map_response_to_events(AppResponse::TracerouteError {
+            node: "node-a".to_string(),
+            error: "timeout".to_string(),
+        });
+
+        assert!(matches!(
+            events.as_slice(),
+            [
+                AppEvent::Traceroute(TracerouteAction::UpdateResult(_, _)),
+                AppEvent::Traceroute(TracerouteAction::EndOne)
+            ]
+        ));
     }
 }

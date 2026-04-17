@@ -1,7 +1,9 @@
 pub mod api;
 pub mod auto_peer;
+pub mod diff;
 pub mod humanize;
 pub mod models;
+pub mod protocols;
 pub mod traceroute;
 pub mod utils;
 pub mod wireguard;

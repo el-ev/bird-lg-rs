@@ -123,3 +123,38 @@ fn opt_fold(diff: Vec<DiffOp>) -> Vec<DiffOp> {
 
     result
 }
+
+#[cfg(test)]
+mod tests {
+    use common::{diff::apply_protocol_diff, models::Protocol};
+
+    use super::calculate_diff;
+
+    fn protocol(name: &str, info: &str) -> Protocol {
+        Protocol {
+            name: name.to_string(),
+            proto: "BGP".to_string(),
+            table: "master4".to_string(),
+            state: "up".to_string(),
+            since: "2026-04-17".to_string(),
+            info: info.to_string(),
+        }
+    }
+
+    #[test]
+    fn diff_round_trips_protocol_lists() {
+        let old = vec![
+            protocol("peer-a", "established"),
+            protocol("peer-b", "active"),
+        ];
+        let new = vec![
+            protocol("peer-a", "established"),
+            protocol("peer-c", "idle"),
+        ];
+
+        let diff = calculate_diff(&old, &new);
+        let applied = apply_protocol_diff(&old, &diff);
+
+        assert_eq!(applied, new);
+    }
+}

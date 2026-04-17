@@ -16,6 +16,7 @@ pub struct TracerouteState {
     pub results: Vec<(String, TracerouteResult)>,
     pub last_target: String,
     pub last_version: String,
+    pub pending: usize,
 }
 
 pub enum TracerouteAction {
@@ -24,8 +25,8 @@ pub enum TracerouteAction {
     SetVersion(String),
     SetError(String),
     ClearError,
-    Start,
-    End,
+    Start(usize),
+    EndOne,
     InitResult(String),
     UpdateResult(String, TracerouteResult),
     SetLastParams(String, String), // target, version
@@ -50,12 +51,16 @@ impl TracerouteState {
             TracerouteAction::ClearError => {
                 self.error = None;
             }
-            TracerouteAction::Start => {
-                self.loading = true;
+            TracerouteAction::Start(pending) => {
+                self.loading = pending > 0;
+                self.pending = pending;
                 self.results.clear();
             }
-            TracerouteAction::End => {
-                self.loading = false;
+            TracerouteAction::EndOne => {
+                if self.pending > 0 {
+                    self.pending -= 1;
+                }
+                self.loading = self.pending > 0;
             }
             TracerouteAction::InitResult(node) => {
                 self.results.retain(|(n, _)| n != &node);

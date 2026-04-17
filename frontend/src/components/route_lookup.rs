@@ -2,6 +2,7 @@ use std::net::IpAddr;
 
 use common::models::NodeProtocol;
 use ipnet::IpNet;
+use wasm_bindgen_futures::spawn_local;
 use web_sys::HtmlInputElement;
 use yew::prelude::*;
 
@@ -23,13 +24,6 @@ pub fn route_lookup() -> Html {
         vec![node.clone()]
     } else {
         state.nodes.clone()
-    };
-
-    let on_route_lookup = {
-        let state = state.clone();
-        Callback::from(move |(node, target, all): (String, String, bool)| {
-            perform_route_lookup(&state, node, target, all);
-        })
     };
 
     let on_node_change = {
@@ -59,7 +53,7 @@ pub fn route_lookup() -> Html {
         let target = target.clone();
         let all = all.clone();
         let error = error.clone();
-        let on_lookup = on_route_lookup.clone();
+        let state = state.clone();
         let nodes = nodes.clone();
 
         Callback::from(move |e: SubmitEvent| {
@@ -90,7 +84,14 @@ pub fn route_lookup() -> Html {
                 node_val
             };
 
-            on_lookup.emit((final_node, target_val, all_val));
+            let state = state.clone();
+            spawn_local(async move {
+                if let Err(error) =
+                    perform_route_lookup(&state, final_node, target_val, all_val).await
+                {
+                    tracing::error!("Route lookup failed: {}", error);
+                }
+            });
         })
     };
 

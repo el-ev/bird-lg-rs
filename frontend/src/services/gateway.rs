@@ -9,22 +9,13 @@ impl ApiGateway {
         crate::services::response_handler::handle_app_response(response, state);
     }
 
-    pub async fn send_or_fetch(
-        state: &LgStateHandle,
-        request: AppRequest,
-        fallback_url: Option<String>,
-    ) -> Result<Option<AppResponse>, String> {
+    pub fn send_ws_request(state: &LgStateHandle, request: AppRequest) -> bool {
         if let Some(sender) = &state.ws_sender {
             sender.emit(request);
-            return Ok(None);
+            true
+        } else {
+            false
         }
-
-        let Some(url) = fallback_url else {
-            return Err("WebSocket unavailable and no HTTP fallback endpoint".to_string());
-        };
-
-        let response = fetch_json::<AppResponse>(&url).await?;
-        Ok(Some(response))
     }
 
     pub async fn fetch_response(url: String) -> Result<AppResponse, String> {

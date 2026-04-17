@@ -56,18 +56,26 @@ pub enum AppResponse {
         node: String,
         hops: Vec<TracerouteHop>,
     },
+    #[serde(rename = "trd")]
+    TracerouteDone { node: String },
     #[serde(rename = "tre")]
     TracerouteError { node: String, error: String },
     #[serde(rename = "pii")]
     PingInit { node: String },
     #[serde(rename = "piu")]
     PingUpdate { node: String, lines: Vec<String> },
+    #[serde(rename = "pid")]
+    PingDone { node: String },
     #[serde(rename = "pie")]
     PingError { node: String, error: String },
     #[serde(rename = "rli")]
     RouteLookupInit { node: String },
     #[serde(rename = "rlu")]
     RouteLookupUpdate { node: String, lines: Vec<String> },
+    #[serde(rename = "rld")]
+    RouteLookupDone { node: String },
+    #[serde(rename = "rle")]
+    RouteLookupError { node: String, error: String },
     #[serde(rename = "pdi")]
     ProtocolDetailsInit { node: String, protocol: String },
     #[serde(rename = "pdu")]
@@ -75,6 +83,14 @@ pub enum AppResponse {
         node: String,
         protocol: String,
         lines: Vec<String>,
+    },
+    #[serde(rename = "pdd")]
+    ProtocolDetailsDone { node: String, protocol: String },
+    #[serde(rename = "pde")]
+    ProtocolDetailsError {
+        node: String,
+        protocol: String,
+        error: String,
     },
     #[serde(rename = "ni")]
     NetworkInfo(NetworkInfo),

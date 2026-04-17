@@ -1,4 +1,5 @@
 use chrono::Local;
+use wasm_bindgen_futures::spawn_local;
 use yew::prelude::*;
 
 use super::{
@@ -17,7 +18,12 @@ pub fn protocols() -> Html {
     let on_protocol_click = {
         let state = state.clone();
         Callback::from(move |(node, proto): (String, String)| {
-            get_protocol_details(&state, node, proto);
+            let state = state.clone();
+            spawn_local(async move {
+                if let Err(error) = get_protocol_details(&state, node, proto).await {
+                    tracing::error!("Failed to load protocol details: {}", error);
+                }
+            });
         })
     };
     let nodes = if let Some(node) = &route_info.node_info {

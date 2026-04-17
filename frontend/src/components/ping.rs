@@ -1,5 +1,5 @@
-
 use common::{models::NodeProtocol, utils::validate_target};
+use wasm_bindgen_futures::spawn_local;
 use web_sys::HtmlInputElement;
 use yew::prelude::*;
 
@@ -19,17 +19,6 @@ pub fn ping() -> Html {
         vec![node.clone()]
     } else {
         state.nodes.clone()
-    };
-
-    let on_ping = {
-        let state = state.clone();
-        Callback::from(move |(node, target, version): (String, String, String)| {
-            state.dispatch(crate::store::AppEvent::Ping(PingAction::SetLastParams(
-                target.clone(),
-                version.clone(),
-            )));
-            perform_ping(&state, node, target, version);
-        })
     };
 
     let on_node_change = {
@@ -57,11 +46,12 @@ pub fn ping() -> Html {
 
     let on_submit = {
         let state = state.clone();
+        let nodes = nodes.clone();
         Callback::from(move |e: SubmitEvent| {
             e.prevent_default();
 
             let target = state.ping.target.clone().trim().to_string();
-            
+
             if let Err(err) = validate_target(&target) {
                 state.dispatch(AppEvent::Ping(PingAction::SetError(err)));
                 return;
@@ -75,10 +65,21 @@ pub fn ping() -> Html {
             state.dispatch(AppEvent::Ping(PingAction::Start));
 
             let validated_target = target;
-            let ping_node = state.ping.node.clone();
+            let ping_node = if state.ping.node.is_empty() {
+                nodes.first().map(|n| n.name.clone()).unwrap_or_default()
+            } else {
+                state.ping.node.clone()
+            };
             let ping_version = state.ping.version.clone();
+            let state_async = state.clone();
 
-            on_ping.emit((ping_node, validated_target, ping_version));
+            spawn_local(async move {
+                if let Err(error) =
+                    perform_ping(&state_async, ping_node, validated_target, ping_version).await
+                {
+                    tracing::error!("Ping request failed: {}", error);
+                }
+            });
         })
     };
 

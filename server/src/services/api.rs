@@ -1,24 +1,20 @@
-use std::{net::IpAddr, pin::Pin, sync::Arc};
+use std::{pin::Pin, sync::Arc};
 
 use common::{
+    api::AppResponse,
     traceroute::{TracerouteHop, parse_traceroute_line},
-    utils::validate_target,
 };
 use futures_util::{Stream, StreamExt, stream};
-use ipnet::IpNet;
 use tracing::warn;
 
 use crate::{
-    config::Config,
-    services::request::{build_get, get_stream, post_stream},
-    state::{AppResponse, AppState},
-    utils::byte_stream_to_lines,
+    config::Config, services::node_client::NodeClient, state::AppState, utils::byte_stream_to_lines,
 };
 
 type BoxStream = Pin<Box<dyn Stream<Item = AppResponse> + Send>>;
 
-fn stream_error(msg: String) -> BoxStream {
-    Box::pin(stream::once(async move { AppResponse::Error(msg) }))
+fn boxed_once(response: AppResponse) -> BoxStream {
+    Box::pin(stream::once(async move { response }))
 }
 
 pub async fn perform_traceroute(
@@ -28,60 +24,50 @@ pub async fn perform_traceroute(
     target: String,
     version: Option<String>,
 ) -> BoxStream {
-    let target_clone = target.clone();
-    if let Err(msg) = validate_target(&target) {
-        return stream_error(msg);
-    }
-
-    let node_config = match config.nodes.iter().find(|n| n.name == node).cloned() {
-        Some(n) => n,
-        None => return stream_error("Node not found".into()),
-    };
-
-    let endpoint = match version.as_deref().unwrap_or("") {
-        "4" => "traceroute4",
-        "6" => "traceroute6",
-        _ => "traceroute",
-    };
-    let endpoint_with_query = format!("/{}?target={}", endpoint, target);
-    let http_client = state.http_client.clone();
-
-    match get_stream(&http_client, &node_config, &endpoint_with_query).await {
-        Ok(byte_stream) => {
-            let node_for_init = node.clone();
-            let init = stream::once(async move {
-                AppResponse::TracerouteInit {
-                    node: node_for_init,
-                }
-            });
-
-            let node_name = node.clone();
-            let updates = byte_stream_to_lines(byte_stream).map(move |lines| {
-                let hops: Vec<TracerouteHop> = lines
-                    .into_iter()
-                    .filter_map(|line| parse_traceroute_line(&line))
-                    .collect();
-                AppResponse::TracerouteUpdate {
-                    node: node_name.clone(),
-                    hops,
-                }
-            });
-
-            Box::pin(init.chain(updates))
+    let client = NodeClient::new(state.http_client.clone());
+    let node_config = match client.resolve_node(&config, &node) {
+        Ok(node_config) => node_config,
+        Err(error) => {
+            return boxed_once(AppResponse::TracerouteError { node, error });
         }
-        Err(err_msg) => {
+    };
+
+    match client
+        .traceroute_stream(&node_config, &target, version.as_deref())
+        .await
+    {
+        Ok(byte_stream) => {
+            let init = stream::once({
+                let node = node.clone();
+                async move { AppResponse::TracerouteInit { node } }
+            });
+
+            let updates = byte_stream_to_lines(byte_stream).map({
+                let node = node.clone();
+                move |lines| {
+                    let hops: Vec<TracerouteHop> = lines
+                        .into_iter()
+                        .filter_map(|line| parse_traceroute_line(&line))
+                        .collect();
+
+                    AppResponse::TracerouteUpdate {
+                        node: node.clone(),
+                        hops,
+                    }
+                }
+            });
+
+            let done = stream::once(async move { AppResponse::TracerouteDone { node } });
+            Box::pin(init.chain(updates).chain(done))
+        }
+        Err(error) => {
             warn!(
                 node = %node,
-                target = %target_clone,
-                error = %err_msg,
+                target = %target,
+                error = %error,
                 "Failed to fetch traceroute information"
             );
-            Box::pin(stream::once(async move {
-                AppResponse::TracerouteError {
-                    node,
-                    error: err_msg,
-                }
-            }))
+            boxed_once(AppResponse::TracerouteError { node, error })
         }
     }
 }
@@ -93,52 +79,40 @@ pub async fn perform_route_lookup(
     target: String,
     all: bool,
 ) -> BoxStream {
-    let target_clone = target.clone();
-    let is_valid_target = target.parse::<IpAddr>().is_ok() || target.parse::<IpNet>().is_ok();
-
-    if !is_valid_target {
-        return stream_error("Invalid target format (must be IP or CIDR)".into());
-    }
-
-    let node_config = match config.nodes.iter().find(|n| n.name == node).cloned() {
-        Some(n) => n,
-        None => return stream_error("Node not found".into()),
+    let client = NodeClient::new(state.http_client.clone());
+    let node_config = match client.resolve_node(&config, &node) {
+        Ok(node_config) => node_config,
+        Err(error) => {
+            return boxed_once(AppResponse::RouteLookupError { node, error });
+        }
     };
 
-    let command = if all {
-        format!("show route for {} all", target)
-    } else {
-        format!("show route for {}", target)
-    };
-
-    let http_client = state.http_client.clone();
-
-    match post_stream(&http_client, &node_config, "/bird", &command).await {
+    match client.route_lookup_stream(&node_config, &target, all).await {
         Ok(byte_stream) => {
-            let node_for_init = node.clone();
-            let init = stream::once(async move {
-                AppResponse::RouteLookupInit {
-                    node: node_for_init,
-                }
+            let init = stream::once({
+                let node = node.clone();
+                async move { AppResponse::RouteLookupInit { node } }
             });
 
-            let node_name = node.clone();
-            let updates = byte_stream_to_lines(byte_stream).map(move |lines| {
-                AppResponse::RouteLookupUpdate {
-                    node: node_name.clone(),
+            let updates = byte_stream_to_lines(byte_stream).map({
+                let node = node.clone();
+                move |lines| AppResponse::RouteLookupUpdate {
+                    node: node.clone(),
                     lines,
                 }
             });
-            Box::pin(init.chain(updates))
+
+            let done = stream::once(async move { AppResponse::RouteLookupDone { node } });
+            Box::pin(init.chain(updates).chain(done))
         }
-        Err(err_msg) => {
+        Err(error) => {
             warn!(
                 node = %node,
-                target = %target_clone,
-                error = %err_msg,
+                target = %target,
+                error = %error,
                 "Failed to fetch route information"
             );
-            stream_error(err_msg)
+            boxed_once(AppResponse::RouteLookupError { node, error })
         }
     }
 }
@@ -149,105 +123,70 @@ pub async fn get_protocol_details(
     node: String,
     protocol: String,
 ) -> BoxStream {
-    let node_config = match config.nodes.iter().find(|n| n.name == node).cloned() {
-        Some(n) => n,
-        None => return stream_error("Node not found".into()),
+    let client = NodeClient::new(state.http_client.clone());
+    let node_config = match client.resolve_node(&config, &node) {
+        Ok(node_config) => node_config,
+        Err(error) => {
+            return boxed_once(AppResponse::ProtocolDetailsError {
+                node,
+                protocol,
+                error,
+            });
+        }
     };
 
-    let command = format!("show protocols all {}", protocol);
-    let http_client = state.http_client.clone();
-
-    match post_stream(&http_client, &node_config, "/bird", &command).await {
+    match client
+        .protocol_details_stream(&node_config, &protocol)
+        .await
+    {
         Ok(byte_stream) => {
-            let node_for_init = node.clone();
-            let protocol_for_init = protocol.clone();
-            let init = stream::once(async move {
-                AppResponse::ProtocolDetailsInit {
-                    node: node_for_init,
-                    protocol: protocol_for_init,
-                }
+            let init = stream::once({
+                let node = node.clone();
+                let protocol = protocol.clone();
+                async move { AppResponse::ProtocolDetailsInit { node, protocol } }
             });
 
-            let node_name = node.clone();
-            let protocol_name = protocol.clone();
-            let updates = byte_stream_to_lines(byte_stream).map(move |lines| {
-                AppResponse::ProtocolDetailsUpdate {
-                    node: node_name.clone(),
-                    protocol: protocol_name.clone(),
+            let updates = byte_stream_to_lines(byte_stream).map({
+                let node = node.clone();
+                let protocol = protocol.clone();
+                move |lines| AppResponse::ProtocolDetailsUpdate {
+                    node: node.clone(),
+                    protocol: protocol.clone(),
                     lines,
                 }
             });
 
-            Box::pin(init.chain(updates))
+            let done =
+                stream::once(async move { AppResponse::ProtocolDetailsDone { node, protocol } });
+            Box::pin(init.chain(updates).chain(done))
         }
-        Err(err_msg) => {
+        Err(error) => {
             warn!(
                 node = %node,
                 protocol = %protocol,
-                error = %err_msg,
+                error = %error,
                 "Failed to fetch protocol details"
             );
-            stream_error(err_msg)
+            boxed_once(AppResponse::ProtocolDetailsError {
+                node,
+                protocol,
+                error,
+            })
         }
     }
 }
 
 pub async fn get_wireguard(state: AppState, config: Arc<Config>) -> BoxStream {
-    use chrono::Utc;
-    use common::{models::NodeWireGuard, wireguard::parse_wireguard_dump};
-
-    let http_client = state.http_client.clone();
+    let client = NodeClient::new(state.http_client.clone());
     let mut wireguard_data = Vec::new();
 
     for node in &config.nodes {
-        let req = build_get(&http_client, node, "/wireguard");
-        match req.send().await {
-            Ok(resp) if resp.status().is_success() => match resp.text().await {
-                Ok(dump_output) => {
-                    let peers = parse_wireguard_dump(&dump_output);
-                    wireguard_data.push(NodeWireGuard {
-                        name: node.name.clone(),
-                        peers,
-                        last_updated: Utc::now(),
-                        error: None,
-                    });
-                }
-                Err(e) => {
-                    warn!(node = %node.name, error = ?e, "Failed to read WireGuard response");
-                    wireguard_data.push(NodeWireGuard {
-                        name: node.name.clone(),
-                        peers: Vec::new(),
-                        last_updated: Utc::now(),
-                        error: Some("Failed to read response".to_string()),
-                    });
-                }
-            },
-            Ok(resp) => {
-                warn!(node = %node.name, status = %resp.status(), "WireGuard endpoint returned error");
-                wireguard_data.push(NodeWireGuard {
-                    name: node.name.clone(),
-                    peers: Vec::new(),
-                    last_updated: Utc::now(),
-                    error: Some(format!("Node returned error: {}", resp.status())),
-                });
-            }
-            Err(e) => {
-                warn!(node = %node.name, error = ?e, "Failed to contact node for WireGuard info");
-                wireguard_data.push(NodeWireGuard {
-                    name: node.name.clone(),
-                    peers: Vec::new(),
-                    last_updated: Utc::now(),
-                    error: Some("Node is not reachable".to_string()),
-                });
-            }
-        }
+        wireguard_data.push(client.fetch_wireguard_snapshot(node).await);
     }
 
-    Box::pin(stream::once(async move {
-        AppResponse::WireGuard {
-            data: wireguard_data,
-        }
-    }))
+    boxed_once(AppResponse::WireGuard {
+        data: wireguard_data,
+    })
 }
 
 pub async fn perform_ping(
@@ -257,55 +196,43 @@ pub async fn perform_ping(
     target: String,
     version: Option<String>,
 ) -> BoxStream {
-    let target_clone = target.clone();
-    if let Err(msg) = validate_target(&target) {
-        return stream_error(msg);
-    }
-
-    let node_config = match config.nodes.iter().find(|n| n.name == node).cloned() {
-        Some(n) => n,
-        None => return stream_error("Node not found".into()),
+    let client = NodeClient::new(state.http_client.clone());
+    let node_config = match client.resolve_node(&config, &node) {
+        Ok(node_config) => node_config,
+        Err(error) => {
+            return boxed_once(AppResponse::PingError { node, error });
+        }
     };
 
-    let endpoint = match version.as_deref().unwrap_or("") {
-        "4" => "ping4",
-        "6" => "ping6",
-        _ => "ping",
-    };
-    let endpoint_with_query = format!("/{}?target={}", endpoint, target);
-    let http_client = state.http_client.clone();
-
-    match get_stream(&http_client, &node_config, &endpoint_with_query).await {
+    match client
+        .ping_stream(&node_config, &target, version.as_deref())
+        .await
+    {
         Ok(byte_stream) => {
-            let node_for_init = node.clone();
-            let init = stream::once(async move {
-                AppResponse::PingInit {
-                    node: node_for_init,
+            let init = stream::once({
+                let node = node.clone();
+                async move { AppResponse::PingInit { node } }
+            });
+
+            let updates = byte_stream_to_lines(byte_stream).map({
+                let node = node.clone();
+                move |lines| AppResponse::PingUpdate {
+                    node: node.clone(),
+                    lines,
                 }
             });
 
-            let node_name = node.clone();
-            let updates =
-                byte_stream_to_lines(byte_stream).map(move |lines| AppResponse::PingUpdate {
-                    node: node_name.clone(),
-                    lines,
-                });
-
-            Box::pin(init.chain(updates))
+            let done = stream::once(async move { AppResponse::PingDone { node } });
+            Box::pin(init.chain(updates).chain(done))
         }
-        Err(err_msg) => {
+        Err(error) => {
             warn!(
                 node = %node,
-                target = %target_clone,
-                error = %err_msg,
+                target = %target,
+                error = %error,
                 "Failed to fetch ping information"
             );
-            Box::pin(stream::once(async move {
-                AppResponse::PingError {
-                    node,
-                    error: err_msg,
-                }
-            }))
+            boxed_once(AppResponse::PingError { node, error })
         }
     }
 }

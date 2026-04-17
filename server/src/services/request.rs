@@ -1,11 +1,13 @@
-use std::io;
+use std::{io, pin::Pin};
 
 use axum::body::Bytes;
-use futures_util::StreamExt;
+use futures_util::{Stream, StreamExt};
 use reqwest::{Body, Client, RequestBuilder};
 use tracing::info;
 
 use crate::config::NodeConfig;
+
+pub type ByteStream = Pin<Box<dyn Stream<Item = Result<Bytes, io::Error>> + Send>>;
 
 pub fn build_get(client: &Client, node: &NodeConfig, endpoint: impl AsRef<str>) -> RequestBuilder {
     let url = format!("{}{}", node.url.trim_end_matches('/'), endpoint.as_ref());
@@ -32,9 +34,7 @@ pub fn build_post<B: Into<Body>>(
     }
 }
 
-pub async fn fetch_stream(
-    request: RequestBuilder,
-) -> Result<impl futures_util::Stream<Item = Result<Bytes, io::Error>> + 'static, String> {
+pub async fn fetch_stream(request: RequestBuilder) -> Result<ByteStream, String> {
     match request.send().await {
         Ok(resp) => {
             let status = resp.status();
@@ -42,7 +42,7 @@ pub async fn fetch_stream(
                 let stream = resp
                     .bytes_stream()
                     .map(|chunk| chunk.map_err(io::Error::other));
-                Ok(stream)
+                Ok(Box::pin(stream))
             } else {
                 Err(resp
                     .text()
@@ -59,7 +59,7 @@ pub async fn post_stream<T: AsRef<str>>(
     node: &NodeConfig,
     url: T,
     command: &str,
-) -> Result<impl futures_util::Stream<Item = Result<Bytes, io::Error>> + 'static, String> {
+) -> Result<ByteStream, String> {
     info!(node = %node.name, url = %url.as_ref(), command = %command, "POST");
     let req = build_post(client, node, url, command.to_string());
     fetch_stream(req).await
@@ -69,7 +69,7 @@ pub async fn get_stream<T: AsRef<str>>(
     client: &Client,
     node: &NodeConfig,
     url: T,
-) -> Result<impl futures_util::Stream<Item = Result<Bytes, io::Error>> + 'static, String> {
+) -> Result<ByteStream, String> {
     info!(node = %node.name, url = %url.as_ref(), "GET");
     let req = build_get(client, node, url);
     fetch_stream(req).await

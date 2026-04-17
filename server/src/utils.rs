@@ -1,43 +1,4 @@
-use common::models::Protocol;
 use futures_util::{Stream, StreamExt, stream};
-
-pub fn parse_protocols(output: &str) -> Vec<Protocol> {
-    let mut protocols = Vec::new();
-
-    for line in output.lines() {
-        let line = line.trim();
-        if line.is_empty() {
-            continue;
-        }
-
-        if ["Name", "Proto", "Table", "State", "Since", "Info"]
-            .iter()
-            .all(|&header| line.contains(header))
-        {
-            continue;
-        }
-
-        let mut parts = line.split_ascii_whitespace();
-        if let (Some(name), Some(proto), Some(table), Some(state), Some(since)) = (
-            parts.next(),
-            parts.next(),
-            parts.next(),
-            parts.next(),
-            parts.next(),
-        ) {
-            let info = parts.next().unwrap_or_default();
-            protocols.push(Protocol {
-                name: name.to_string(),
-                proto: proto.to_string(),
-                table: table.to_string(),
-                state: state.to_string(),
-                since: since.to_string(),
-                info: info.to_string(),
-            });
-        }
-    }
-    protocols
-}
 
 pub fn byte_stream_to_lines<S, E>(stream: S) -> impl Stream<Item = Vec<String>>
 where

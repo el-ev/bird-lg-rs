@@ -6,11 +6,10 @@ use tokio::time::sleep;
 use tracing::warn;
 
 use crate::{
-    config::{Config, NodeConfig, PeeringInfo},
+    config::Config,
     diff::calculate_diff,
-    services::request::{build_get, build_post},
+    services::node_client::NodeClient,
     state::{AppResponse, AppState, NodeProtocol},
-    utils::parse_protocols,
 };
 
 pub fn spawn(state: AppState, config: Arc<Config>) {
@@ -18,7 +17,7 @@ pub fn spawn(state: AppState, config: Arc<Config>) {
 }
 
 async fn run(state: AppState, config: Arc<Config>) {
-    let client = create_client();
+    let client = NodeClient::new(create_client());
 
     let mut poll_counter = 0u32;
     const PEERING_POLL_INTERVAL: u32 = 180;
@@ -107,16 +106,12 @@ async fn check_idle_timeout(state: &AppState, config: &Config) -> bool {
 }
 
 async fn process_node(
-    client: &reqwest::Client,
-    node: &NodeConfig,
+    client: &NodeClient,
+    node: &crate::config::NodeConfig,
     state: &AppState,
     current_nodes: &[NodeProtocol],
     should_fetch_peering: bool,
 ) -> NodeProtocol {
-    let command = "show protocols";
-    let req = build_post(client, node, "/bird", command);
-    let resp = req.send().await;
-
     if (should_fetch_peering || !state.peering.read().unwrap().contains_key(&node.name))
         && let Some(info) = fetch_peering_info(client, node).await
     {
@@ -127,55 +122,8 @@ async fn process_node(
             .insert(node.name.clone(), info);
     }
 
-    match resp {
-        Ok(r) => {
-            if !r.status().is_success() {
-                warn!(node = %node.name, status = %r.status(), "Node returned error status");
-                let existing = current_nodes.iter().find(|n| n.name == node.name);
-                return NodeProtocol {
-                    name: node.name.clone(),
-                    protocols: existing.map(|n| n.protocols.clone()).unwrap_or_default(),
-                    last_updated: Utc::now(),
-                    error: Some(format!("Node returned error: {}", r.status())),
-                };
-            }
-
-            match r.text().await {
-                Ok(text) => {
-                    let protocols = parse_protocols(&text);
-
-                    NodeProtocol {
-                        name: node.name.clone(),
-                        protocols,
-                        last_updated: Utc::now(),
-                        error: None,
-                    }
-                }
-                Err(e) => {
-                    warn!(node = %node.name, error = ?e, "Failed to read BIRD response");
-                    let existing = current_nodes.iter().find(|n| n.name == node.name);
-                    NodeProtocol {
-                        name: node.name.clone(),
-                        protocols: existing.map(|n| n.protocols.clone()).unwrap_or_default(),
-                        last_updated: Utc::now(),
-                        error: Some(
-                            "Received invalid response from node. Showing cached data.".into(),
-                        ),
-                    }
-                }
-            }
-        }
-        Err(e) => {
-            warn!(node = %node.name, error = ?e, "Failed to contact node");
-            let existing = current_nodes.iter().find(|n| n.name == node.name);
-            NodeProtocol {
-                name: node.name.clone(),
-                protocols: existing.map(|n| n.protocols.clone()).unwrap_or_default(),
-                last_updated: Utc::now(),
-                error: Some("Unable to reach node. Showing cached data.".into()),
-            }
-        }
-    }
+    let existing = current_nodes.iter().find(|value| value.name == node.name);
+    client.fetch_protocol_snapshot(node, existing).await
 }
 
 fn broadcast_updates(
@@ -221,24 +169,9 @@ fn broadcast_updates(
     let _ = state.tx.send(resp);
 }
 
-async fn fetch_peering_info(client: &reqwest::Client, node: &NodeConfig) -> Option<PeeringInfo> {
-    let req = build_get(client, node, "/peering");
-
-    match req.send().await {
-        Ok(resp) if resp.status().is_success() => match resp.json::<Option<PeeringInfo>>().await {
-            Ok(peering) => peering,
-            Err(e) => {
-                warn!(node = %node.name, error = ?e, "Failed to parse peering info");
-                None
-            }
-        },
-        Ok(resp) => {
-            warn!(node = %node.name, status = %resp.status(), "Peering endpoint returned non-success status");
-            None
-        }
-        Err(e) => {
-            warn!(node = %node.name, error = ?e, "Failed to fetch peering info");
-            None
-        }
-    }
+async fn fetch_peering_info(
+    client: &NodeClient,
+    node: &crate::config::NodeConfig,
+) -> Option<crate::config::PeeringInfo> {
+    client.fetch_peering_info(node).await
 }

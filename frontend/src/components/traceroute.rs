@@ -68,17 +68,9 @@ pub fn traceroute_section() -> Html {
                 return;
             }
             state.dispatch(AppEvent::Traceroute(TracerouteAction::ClearError));
-            state.dispatch(AppEvent::Traceroute(TracerouteAction::SetLastParams(
-                target.clone(),
-                state.traceroute.version.clone(),
-            )));
-
-            state.dispatch(AppEvent::Traceroute(TracerouteAction::Start));
-
             let validated_target = target;
             let traceroute_node = state.traceroute.node.clone();
             let traceroute_version = state.traceroute.version.clone();
-            let state_async = state.clone();
 
             let selected_node = traceroute_node;
             let target_nodes = if selected_node.is_empty() {
@@ -87,23 +79,32 @@ pub fn traceroute_section() -> Html {
                 vec![selected_node.clone()]
             };
 
-            spawn_local(async move {
-                let version_value = traceroute_version;
-                let target_value = validated_target;
+            state.dispatch(AppEvent::Traceroute(TracerouteAction::SetLastParams(
+                validated_target.clone(),
+                traceroute_version.clone(),
+            )));
+            state.dispatch(AppEvent::Traceroute(TracerouteAction::Start(
+                target_nodes.len(),
+            )));
 
+            let state_async = state.clone();
+
+            spawn_local(async move {
                 let futures = target_nodes.into_iter().map(|node_name| {
-                    let version_value = version_value.clone();
-                    let target_value = target_value.clone();
+                    let version_value = traceroute_version.clone();
+                    let target_value = validated_target.clone();
                     let state = state_async.clone();
 
                     async move {
-                        perform_traceroute(&state, node_name, target_value, version_value);
+                        if let Err(error) =
+                            perform_traceroute(&state, node_name, target_value, version_value).await
+                        {
+                            tracing::error!("Traceroute request failed: {}", error);
+                        }
                     }
                 });
 
                 join_all(futures).await;
-
-                state_async.dispatch(AppEvent::Traceroute(TracerouteAction::End));
             });
         })
     };

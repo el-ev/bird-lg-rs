@@ -37,3 +37,22 @@ pub fn parse_wireguard_dump(output: &str) -> Vec<WireGuardPeer> {
 
     peers
 }
+
+#[cfg(test)]
+mod tests {
+    use super::parse_wireguard_dump;
+
+    #[test]
+    fn parses_and_sorts_wireguard_peers() {
+        let output = "\
+peer-b\tpub\t(redacted)\t198.51.100.1:51820\tallowed\t0\t1024\t2048\tkeepalive\n\
+peer-a\tpub\t(redacted)\t198.51.100.2:51820\tallowed\t3600\t10\t20\tkeepalive\n";
+
+        let peers = parse_wireguard_dump(output);
+
+        assert_eq!(peers.len(), 2);
+        assert_eq!(peers[0].name, "peer-a");
+        assert_eq!(peers[1].name, "peer-b");
+        assert_eq!(peers[0].transfer_rx, "10 B");
+    }
+}

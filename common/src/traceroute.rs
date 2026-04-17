@@ -180,3 +180,48 @@ pub fn fold_timeouts(hops: &[TracerouteHop]) -> Vec<TracerouteHop> {
 
     result
 }
+
+#[cfg(test)]
+mod tests {
+    use super::{HopRange, TracerouteHop, fold_timeouts, parse_traceroute_line};
+
+    #[test]
+    fn parses_hostname_ip_and_rtts() {
+        let hop = parse_traceroute_line("1 edge.example.net (192.0.2.1) 1.23 ms 2.34 ms")
+            .expect("hop should parse");
+
+        assert_eq!(hop.hop, HopRange::Single(1));
+        assert_eq!(hop.hostname.as_deref(), Some("edge.example.net"));
+        assert_eq!(hop.address.as_deref(), Some("192.0.2.1"));
+        assert_eq!(hop.rtts.as_deref(), Some(&[1.23, 2.34][..]));
+    }
+
+    #[test]
+    fn folds_adjacent_timeout_hops() {
+        let hops = vec![
+            TracerouteHop {
+                hop: HopRange::Single(1),
+                address: None,
+                hostname: None,
+                rtts: None,
+            },
+            TracerouteHop {
+                hop: HopRange::Single(2),
+                address: None,
+                hostname: None,
+                rtts: None,
+            },
+            TracerouteHop {
+                hop: HopRange::Single(3),
+                address: Some("192.0.2.3".to_string()),
+                hostname: None,
+                rtts: Some(vec![3.21]),
+            },
+        ];
+
+        let folded = fold_timeouts(&hops);
+        assert_eq!(folded.len(), 2);
+        assert_eq!(folded[0].hop, HopRange::Range(1, 2));
+        assert_eq!(folded[1].hop, HopRange::Single(3));
+    }
+}

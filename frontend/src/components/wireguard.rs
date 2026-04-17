@@ -1,3 +1,4 @@
+use wasm_bindgen_futures::spawn_local;
 use yew::prelude::*;
 
 use super::{
@@ -24,7 +25,12 @@ pub fn wireguard_section() -> Html {
         let state = state.clone();
         Callback::from(move |e: MouseEvent| {
             e.prevent_default();
-            request_wireguard(&state);
+            let state = state.clone();
+            spawn_local(async move {
+                if let Err(error) = request_wireguard(&state).await {
+                    tracing::error!("Failed to refresh WireGuard data: {}", error);
+                }
+            });
         })
     };
 

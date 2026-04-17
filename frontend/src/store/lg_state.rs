@@ -65,7 +65,10 @@ pub enum AppEvent {
     ApplyDiff(Vec<NodeStatusDiff>),
     SetRouteLookupContext(RouteLookupContext),
     RouteLookupInit,
-    RouteLookupUpdate { node: String, lines: Vec<String> },
+    RouteLookupUpdate {
+        node: String,
+        lines: Vec<String>,
+    },
     SetProtocolDetailsContext(ProtocolDetailsContext),
     ProtocolDetailsInit,
     ProtocolDetailsUpdate {
@@ -74,7 +77,10 @@ pub enum AppEvent {
         lines: Vec<String>,
     },
     PingModalInit,
-    PingModalUpdate { node: String, result: PingResult },
+    PingModalUpdate {
+        node: String,
+        result: PingResult,
+    },
 }
 
 impl Reducible for LgState {
@@ -210,7 +216,7 @@ impl Reducible for LgState {
                     next_state.modal.content.push_str(&err);
                     next_state.modal.content.push('\n');
                 }
-            }
+            },
         }
 
         Rc::new(next_state)

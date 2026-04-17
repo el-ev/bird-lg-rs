@@ -1,17 +1,14 @@
 use std::sync::Arc;
 
-use axum::{
-    Extension,
-    extract::Query,
-    response::{IntoResponse, Response},
-};
-use common::utils::validate_target;
+use axum::{Extension, extract::Query, response::Response};
 use serde::Deserialize;
-use tracing::{error, info, warn};
 
 use crate::{
     config::Config,
-    services::traceroute::{IpVersion, build_traceroute_command},
+    services::{
+        command_runner::run_command,
+        traceroute::{IpVersion, build_traceroute_command},
+    },
 };
 
 #[derive(Deserialize)]
@@ -45,38 +42,13 @@ async fn run_traceroute(
     params: TracerouteQuery,
     version: IpVersion,
 ) -> Response {
-    let target = params.target.trim().to_string();
-    if let Err(e) = validate_target(&target) {
-        warn!(%target, "Invalid traceroute target: {}", e);
-        return (
-            axum::http::StatusCode::BAD_REQUEST,
-            format!("Invalid target: {}", e),
-        )
-            .into_response();
-    }
-
-    let mut cmd = match build_traceroute_command(&config, &target, version) {
-        Some(cmd) => cmd,
-        None => {
-            error!("Traceroute requested but traceroute_bin not configured");
-            return (
-                axum::http::StatusCode::INTERNAL_SERVER_ERROR,
-                "traceroute not configured",
-            )
-                .into_response();
-        }
-    };
-
-    info!(%target, version = ?version, "Executing traceroute");
-    match cmd.spawn() {
-        Ok(child) => crate::utils::stream_command_output(child, "traceroute", target).await,
-        Err(e) => {
-            error!(error = %e, %target, "Failed to execute traceroute command");
-            (
-                axum::http::StatusCode::INTERNAL_SERVER_ERROR,
-                format!("Failed to execute traceroute: {}", e),
-            )
-                .into_response()
-        }
-    }
+    run_command(
+        config,
+        params.target,
+        version,
+        "traceroute",
+        "traceroute not configured",
+        build_traceroute_command,
+    )
+    .await
 }

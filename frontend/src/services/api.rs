@@ -1,78 +1,77 @@
 use common::api::{AppRequest, AppResponse};
-use wasm_bindgen_futures::spawn_local;
 use yew::prelude::*;
 
 use crate::{
-    services::gateway::ApiGateway,
+    services::{gateway::ApiGateway, sse::consume_app_sse},
     store::{
-        AppEvent, ProtocolDetailsContext, RouteLookupContext, TracerouteResult, modal::ModalAction,
+        AppEvent, ProtocolDetailsContext, RouteLookupContext, TracerouteResult,
+        modal::ModalAction,
         ping::{PingAction, PingResult},
         traceroute::TracerouteAction,
     },
 };
 
-pub fn perform_traceroute(
-    state: &UseReducerHandle<crate::store::LgState>,
-    node: String,
-    target: String,
-    version: String,
-) {
-    let state = state.clone();
-
-    spawn_local(async move {
-        state.dispatch(AppEvent::Traceroute(TracerouteAction::InitResult(
-            node.clone(),
-        )));
-
-        let version_param = match version.as_str() {
-            "4" => "&version=4",
-            "6" => "&version=6",
-            _ => "",
-        };
-        let url = format!(
-            "{}/api/traceroute?node={}&target={}{}",
-            state.backend_url.trim_end_matches('/'),
-            node,
-            target,
-            version_param
-        );
-
-        match ApiGateway::send_or_fetch(
-            &state,
-            AppRequest::Traceroute {
-                node: node.clone(),
-                target: target.clone(),
-                version: version.clone(),
-            },
-            Some(url),
-        )
-        .await
-        {
-            Ok(Some(AppResponse::Error(err))) => {
-                state.dispatch(AppEvent::Traceroute(TracerouteAction::UpdateResult(
-                    node,
-                    TracerouteResult::Error(err),
-                )));
-            }
-            Ok(Some(response)) => ApiGateway::dispatch_response(&state, response),
-            Ok(None) => {}
-            Err(err) => {
-                tracing::error!("Traceroute failed for {}: {}", node, err);
-                state.dispatch(AppEvent::Traceroute(TracerouteAction::UpdateResult(
-                    node,
-                    TracerouteResult::Error(err),
-                )));
-            }
-        }
-    });
+fn build_version_query(version: &str) -> String {
+    match version {
+        "4" => "&version=4".to_string(),
+        "6" => "&version=6".to_string(),
+        _ => String::new(),
+    }
 }
 
-pub fn perform_ping(
+pub async fn perform_traceroute(
     state: &UseReducerHandle<crate::store::LgState>,
     node: String,
     target: String,
     version: String,
-) {
+) -> Result<(), String> {
+    state.dispatch(AppEvent::Traceroute(TracerouteAction::InitResult(
+        node.clone(),
+    )));
+
+    if ApiGateway::send_ws_request(
+        state,
+        AppRequest::Traceroute {
+            node: node.clone(),
+            target: target.clone(),
+            version: version.clone(),
+        },
+    ) {
+        return Ok(());
+    }
+
+    let url = format!(
+        "{}/api/traceroute/{}?target={}{}",
+        state.backend_url.trim_end_matches('/'),
+        node,
+        target,
+        build_version_query(&version)
+    );
+    let state_for_stream = state.clone();
+
+    if let Err(error) = consume_app_sse(url, move |response| {
+        ApiGateway::dispatch_response(&state_for_stream, response);
+    })
+    .await
+    {
+        tracing::error!("Traceroute failed for {}: {}", node, error);
+        state.dispatch(AppEvent::Traceroute(TracerouteAction::UpdateResult(
+            node,
+            TracerouteResult::Error(error.clone()),
+        )));
+        state.dispatch(AppEvent::Traceroute(TracerouteAction::EndOne));
+        return Err(error);
+    }
+
+    Ok(())
+}
+
+pub async fn perform_ping(
+    state: &UseReducerHandle<crate::store::LgState>,
+    node: String,
+    target: String,
+    version: String,
+) -> Result<(), String> {
     state.dispatch(AppEvent::Modal(ModalAction::Open {
         content: "Loading...".to_string(),
         command: Some(format!(
@@ -80,40 +79,50 @@ pub fn perform_ping(
             state.username, node, version, target
         )),
     }));
-    let state = state.clone();
-    spawn_local(async move {
-        match ApiGateway::send_or_fetch(
-            &state,
-            AppRequest::Ping {
-                node: node.clone(),
-                target,
-                version,
-            },
-            None,
-        )
-        .await
-        {
-            Ok(Some(response)) => ApiGateway::dispatch_response(&state, response),
-            Ok(None) => {}
-            Err(err) => {
-                state.dispatch(AppEvent::Ping(PingAction::SetError(err.clone())));
-                state.dispatch(AppEvent::PingModalUpdate {
-                    node,
-                    result: PingResult::Error(err),
-                });
-            }
-        }
-    });
+
+    if ApiGateway::send_ws_request(
+        state,
+        AppRequest::Ping {
+            node: node.clone(),
+            target: target.clone(),
+            version: version.clone(),
+        },
+    ) {
+        return Ok(());
+    }
+
+    let url = format!(
+        "{}/api/ping/{}?target={}{}",
+        state.backend_url.trim_end_matches('/'),
+        node,
+        target,
+        build_version_query(&version)
+    );
+    let state_for_stream = state.clone();
+
+    if let Err(error) = consume_app_sse(url, move |response| {
+        ApiGateway::dispatch_response(&state_for_stream, response);
+    })
+    .await
+    {
+        state.dispatch(AppEvent::Ping(PingAction::SetError(error.clone())));
+        state.dispatch(AppEvent::PingModalUpdate {
+            node,
+            result: PingResult::Error(error.clone()),
+        });
+        state.dispatch(AppEvent::Ping(PingAction::End));
+        return Err(error);
+    }
+
+    Ok(())
 }
 
-pub fn perform_route_lookup(
+pub async fn perform_route_lookup(
     state: &UseReducerHandle<crate::store::LgState>,
     node: String,
     target: String,
     all: bool,
-) {
-    let state = state.clone();
-
+) -> Result<(), String> {
     let command = if all {
         format!(
             "{}@{}$ birdc show route {} all",
@@ -133,54 +142,54 @@ pub fn perform_route_lookup(
         command: Some(command),
     }));
 
-    spawn_local(async move {
-        let url = format!(
-            "{}/api/routes/{}?target={}&all={}",
-            state.backend_url.trim_end_matches('/'),
-            node,
-            target,
-            all
-        );
+    if ApiGateway::send_ws_request(
+        state,
+        AppRequest::RouteLookup {
+            node: node.clone(),
+            target: target.clone(),
+            all,
+        },
+    ) {
+        return Ok(());
+    }
 
-        match ApiGateway::send_or_fetch(
-            &state,
-            AppRequest::RouteLookup {
-                node: node.clone(),
-                target,
-                all,
-            },
-            Some(url),
-        )
-        .await
-        {
-            Ok(Some(AppResponse::Error(err))) => {
-                state.dispatch(AppEvent::Modal(ModalAction::UpdateContent(format!(
-                    "Error: {}",
-                    err
-                ))));
-            }
-            Ok(Some(response)) => ApiGateway::dispatch_response(&state, response),
-            Ok(None) => {}
-            Err(err) => {
-                state.dispatch(AppEvent::Modal(ModalAction::UpdateContent(format!(
-                    "Failed to load route details: {}",
-                    err
-                ))));
-            }
-        }
-    });
+    let url = format!(
+        "{}/api/routes/{}?target={}&all={}",
+        state.backend_url.trim_end_matches('/'),
+        node,
+        target,
+        all
+    );
+    let state_for_stream = state.clone();
+
+    if let Err(error) = consume_app_sse(url, move |response| {
+        ApiGateway::dispatch_response(&state_for_stream, response);
+    })
+    .await
+    {
+        state.dispatch(AppEvent::Modal(ModalAction::UpdateContent(format!(
+            "Failed to load route details: {}",
+            error
+        ))));
+        return Err(error);
+    }
+
+    Ok(())
 }
 
 pub async fn get_protocols(state: &UseReducerHandle<crate::store::LgState>) -> Result<(), String> {
+    if ApiGateway::send_ws_request(state, AppRequest::GetProtocols) {
+        return Ok(());
+    }
+
     let url = format!("{}/api/protocols", state.backend_url.trim_end_matches('/'));
-    match ApiGateway::send_or_fetch(state, AppRequest::GetProtocols, Some(url)).await {
-        Ok(Some(AppResponse::Error(e))) => Err(e),
-        Ok(Some(response)) => {
+    match ApiGateway::fetch_response(url).await {
+        Ok(AppResponse::Error(error)) => Err(error),
+        Ok(response) => {
             ApiGateway::dispatch_response(state, response);
             Ok(())
         }
-        Ok(None) => Ok(()),
-        Err(e) => Err(e),
+        Err(error) => Err(error),
     }
 }
 
@@ -189,26 +198,26 @@ pub async fn get_network_info(
 ) -> Result<(), String> {
     let url = format!("{}/api/info", state.backend_url.trim_end_matches('/'));
     match ApiGateway::fetch_response(url).await {
-        Ok(AppResponse::Error(e)) => Err(e),
+        Ok(AppResponse::Error(error)) => Err(error),
         Ok(response) => {
             ApiGateway::dispatch_response(state, response);
             Ok(())
         }
-        Err(e) => Err(e.to_string()),
+        Err(error) => Err(error),
     }
 }
 
-pub fn get_protocol_details(
+pub async fn get_protocol_details(
     state: &UseReducerHandle<crate::store::LgState>,
     node: String,
     proto: String,
-) {
-    let state = state.clone();
-
-    state.dispatch(AppEvent::SetProtocolDetailsContext(ProtocolDetailsContext {
-        node: node.clone(),
-        protocol: proto.clone(),
-    }));
+) -> Result<(), String> {
+    state.dispatch(AppEvent::SetProtocolDetailsContext(
+        ProtocolDetailsContext {
+            node: node.clone(),
+            protocol: proto.clone(),
+        },
+    ));
     state.dispatch(AppEvent::Modal(ModalAction::Open {
         content: "Loading...".to_string(),
         command: Some(format!(
@@ -217,47 +226,65 @@ pub fn get_protocol_details(
         )),
     }));
 
-    spawn_local(async move {
-        let url = format!(
-            "{}/api/protocols/{}/{}",
-            state.backend_url.trim_end_matches('/'),
-            node,
-            proto
-        );
+    if ApiGateway::send_ws_request(
+        state,
+        AppRequest::ProtocolDetails {
+            node: node.clone(),
+            protocol: proto.clone(),
+        },
+    ) {
+        return Ok(());
+    }
 
-        match ApiGateway::send_or_fetch(
-            &state,
-            AppRequest::ProtocolDetails {
-                node: node.clone(),
-                protocol: proto,
-            },
-            Some(url),
-        )
-        .await
-        {
-            Ok(Some(AppResponse::Error(err))) => {
-                state.dispatch(AppEvent::Modal(ModalAction::UpdateContent(format!(
-                    "Error: {}",
-                    err
-                ))));
-            }
-            Ok(Some(response)) => ApiGateway::dispatch_response(&state, response),
-            Ok(None) => {}
-            Err(err) => {
-                state.dispatch(AppEvent::Modal(ModalAction::UpdateContent(format!(
-                    "Failed to load protocol details: {}",
-                    err
-                ))));
-            }
-        }
-    });
+    let url = format!(
+        "{}/api/protocols/{}/{}",
+        state.backend_url.trim_end_matches('/'),
+        node,
+        proto
+    );
+    let state_for_stream = state.clone();
+
+    if let Err(error) = consume_app_sse(url, move |response| {
+        ApiGateway::dispatch_response(&state_for_stream, response);
+    })
+    .await
+    {
+        state.dispatch(AppEvent::Modal(ModalAction::UpdateContent(format!(
+            "Failed to load protocol details: {}",
+            error
+        ))));
+        return Err(error);
+    }
+
+    Ok(())
 }
 
-pub fn request_wireguard(state: &UseReducerHandle<crate::store::LgState>) {
-    let state = state.clone();
-    spawn_local(async move {
-        if let Err(err) = ApiGateway::send_or_fetch(&state, AppRequest::GetWireGuard, None).await {
-            state.dispatch(AppEvent::SetError(format!("WireGuard refresh failed: {}", err)));
+pub async fn request_wireguard(
+    state: &UseReducerHandle<crate::store::LgState>,
+) -> Result<(), String> {
+    if ApiGateway::send_ws_request(state, AppRequest::GetWireGuard) {
+        return Ok(());
+    }
+
+    let url = format!("{}/api/wireguard", state.backend_url.trim_end_matches('/'));
+    match ApiGateway::fetch_response(url).await {
+        Ok(AppResponse::Error(error)) => {
+            state.dispatch(AppEvent::SetError(format!(
+                "WireGuard refresh failed: {}",
+                error
+            )));
+            Err(error)
         }
-    });
+        Ok(response) => {
+            ApiGateway::dispatch_response(state, response);
+            Ok(())
+        }
+        Err(error) => {
+            state.dispatch(AppEvent::SetError(format!(
+                "WireGuard refresh failed: {}",
+                error
+            )));
+            Err(error)
+        }
+    }
 }

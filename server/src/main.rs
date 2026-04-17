@@ -21,7 +21,7 @@ use tower_http::cors::CorsLayer;
 use crate::{
     cli::Cli,
     config::Config,
-    handlers::{info, protocol, route, status, traceroute, ws},
+    handlers::{info, ping, protocol, route, status, traceroute, wireguard, ws},
     services::poller,
     state::AppState,
 };
@@ -53,6 +53,7 @@ async fn main() -> anyhow::Result<()> {
             "/api/traceroute/{node_name}",
             get(traceroute::proxy_traceroute),
         )
+        .route("/api/ping/{node_name}", get(ping::proxy_ping))
         .route("/api/routes/{node_name}", get(route::get_route))
         .route("/api/info", get(info::get_network_info))
         .route(
@@ -60,6 +61,7 @@ async fn main() -> anyhow::Result<()> {
             get(info::get_network_info_with_port),
         )
         .route("/api/peering/{node_name}", get(info::get_node_peering))
+        .route("/api/wireguard", get(wireguard::get_wireguard_snapshot))
         .route("/api/ws", get(ws::ws_handler))
         .layer(CorsLayer::permissive())
         .layer(middleware::from_fn(track_request))

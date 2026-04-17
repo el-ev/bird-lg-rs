@@ -27,12 +27,29 @@ pub async fn auth_middleware(
         }
     };
 
+    let client_addr = extract_client_addr(&headers, &req);
+
+    if !has_valid_shared_secret(&config, &headers) {
+        warn!("Rejected request due to invalid shared secret");
+        return (axum::http::StatusCode::UNAUTHORIZED, "Unauthorized").into_response();
+    }
+
+    if is_allowed_client(&config, client_addr) {
+        return next.run(req).await;
+    }
+
+    warn!(client_ip = ?client_addr, "Rejected request from unauthorized network");
+
+    (axum::http::StatusCode::FORBIDDEN, "Forbidden").into_response()
+}
+
+fn extract_client_addr(headers: &HeaderMap, req: &Request<Body>) -> Option<std::net::IpAddr> {
     let connect_info = req
         .extensions()
         .get::<axum::extract::ConnectInfo<std::net::SocketAddr>>()
         .cloned();
 
-    let client_addr = headers
+    headers
         .get("x-forwarded-for")
         .and_then(|v| v.to_str().ok())
         .and_then(|s| s.split(',').next().map(|s| s.trim().to_string()))
@@ -44,30 +61,32 @@ pub async fn auth_middleware(
         })
         .or_else(|| connect_info.map(|info| info.0.ip().to_string()))
         .as_deref()
-        .and_then(|s| s.parse::<std::net::IpAddr>().ok());
+        .and_then(|s| s.parse::<std::net::IpAddr>().ok())
+}
 
-    if let Some(secret) = config.shared_secret.as_ref().filter(|s| !s.is_empty()) {
-        let header_ok = headers
-            .get("x-shared-secret")
-            .and_then(|v| v.to_str().ok())
-            .map(|s| s == secret)
-            .unwrap_or(false);
+fn has_valid_shared_secret(config: &Config, headers: &HeaderMap) -> bool {
+    let Some(secret) = config
+        .shared_secret
+        .as_ref()
+        .filter(|value| !value.is_empty())
+    else {
+        return true;
+    };
 
-        if !header_ok {
-            warn!("Rejected request due to invalid shared secret");
-            return (axum::http::StatusCode::UNAUTHORIZED, "Unauthorized").into_response();
-        }
-    }
+    headers
+        .get("x-shared-secret")
+        .and_then(|v| v.to_str().ok())
+        .map(|value| value == secret)
+        .unwrap_or(false)
+}
 
-    if let Some(addr) = client_addr {
-        for net in config.allowed_nets.iter() {
-            if net.contains(&addr) {
-                return next.run(req).await;
-            }
-        }
-    }
+fn is_allowed_client(config: &Config, client_addr: Option<std::net::IpAddr>) -> bool {
+    let Some(client_addr) = client_addr else {
+        return false;
+    };
 
-    warn!(client_ip = ?client_addr, "Rejected request from unauthorized network");
-
-    (axum::http::StatusCode::FORBIDDEN, "Forbidden").into_response()
+    config
+        .allowed_nets
+        .iter()
+        .any(|net| net.contains(&client_addr))
 }

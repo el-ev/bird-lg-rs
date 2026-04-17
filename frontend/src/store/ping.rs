@@ -24,6 +24,7 @@ pub enum PingAction {
     SetError(String),
     ClearError,
     Start,
+    End,
     InitResult(String),
     UpdateResult(String, PingResult),
     SetLastParams(String, String), // target, version
@@ -51,6 +52,9 @@ impl PingState {
             PingAction::Start => {
                 self.loading = true;
                 self.results.clear();
+            }
+            PingAction::End => {
+                self.loading = false;
             }
             PingAction::InitResult(node) => {
                 self.results.retain(|(n, _)| n != &node);

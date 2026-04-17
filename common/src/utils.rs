@@ -1,11 +1,3 @@
-pub fn filter_protocol_details(raw: &str) -> String {
-    const PROTOCOL_HEADERS: [&str; 6] = ["Name", "Proto", "Table", "State", "Since", "Info"];
-    raw.lines()
-        .filter(|line| PROTOCOL_HEADERS.iter().any(|header| !line.contains(header)))
-        .collect::<Vec<_>>()
-        .join("\n")
-}
-
 use std::net::IpAddr;
 
 use serde::{Deserialize, Deserializer};
@@ -62,5 +54,24 @@ where
             })
             .collect(),
         _ => Err(Error::custom("listen must be a string or array of strings")),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::validate_target;
+
+    #[test]
+    fn accepts_ips_and_hostnames() {
+        assert!(validate_target("1.1.1.1").is_ok());
+        assert!(validate_target("2606:4700:4700::1111").is_ok());
+        assert!(validate_target("router.example.net").is_ok());
+    }
+
+    #[test]
+    fn rejects_invalid_hostnames() {
+        assert!(validate_target("").is_err());
+        assert!(validate_target("bad host").is_err());
+        assert!(validate_target("-bad.example").is_err());
     }
 }
