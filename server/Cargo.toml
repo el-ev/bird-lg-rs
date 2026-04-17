@@ -10,12 +10,12 @@ axum = { version = "0.8", features = ["ws"] }
 tokio = { version = "1.0", features = ["full"] }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
-openssl-sys = { version = "0.9.111", features = ["vendored"] }
 reqwest = { version = "0.12", default-features = false, features = [
     "json",
     "stream",
-    "native-tls",
+    "rustls-tls-native-roots-no-provider",
 ] }
+rustls = { version = "0.23", default-features = false, features = ["std", "tls12", "aws_lc_rs"] }
 tower-http = { version = "0.6", features = ["cors"] }
 tracing = "0.1"
 tracing-subscriber = "0.3"

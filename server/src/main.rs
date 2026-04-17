@@ -29,6 +29,7 @@ use crate::{
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     tracing_subscriber::fmt::init();
+    let _ = rustls::crypto::aws_lc_rs::default_provider().install_default();
 
     let cli = Cli::parse_args();
 
