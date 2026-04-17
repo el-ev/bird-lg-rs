@@ -1,10 +1,8 @@
-use common::auto_peer::{ChallengeMethod, PeeringSession};
+use common::auto_peer::{AutoPeerResponse, ChallengeMethod, PeeringSession};
+use ui_components::shell::{ShellButton, ShellInput, ShellLine, ShellPrompt};
 use yew::prelude::*;
 
-use crate::{
-    components::shell::{ShellButton, ShellInput, ShellLine, ShellPrompt},
-    store::auto_peer::{AutoPeerAction, AutoPeerState, AutoPeerStep},
-};
+use crate::store::{AutoPeerAction, AutoPeerState, AutoPeerStep};
 
 #[function_component(AutoPeerPage)]
 pub fn auto_peer_page() -> Html {
@@ -37,12 +35,9 @@ fn render_asn_input(state: &UseReducerHandle<AutoPeerState>) -> Html {
 
     let state_clone = state.clone();
     let on_submit = Callback::from(move |_| {
-        // TODO: Send request to backend
-        // For now, simulate response for testing
         state_clone.dispatch(AutoPeerAction::SetLoading(true));
 
-        // Mock response - in real implementation, this would come from API
-        let mock_response = common::auto_peer::AutoPeerResponse::InitSuccess {
+        let mock_response = AutoPeerResponse::InitSuccess {
             challenge_methods: vec![ChallengeMethod::Pgp, ChallengeMethod::Email],
         };
         state_clone.dispatch(AutoPeerAction::HandleInitResponse(mock_response));
@@ -91,8 +86,7 @@ fn render_challenge_selection(state: &UseReducerHandle<AutoPeerState>) -> Html {
         state.dispatch(AutoPeerAction::SelectMethod(ChallengeMethod::Pgp));
         state.dispatch(AutoPeerAction::SetLoading(true));
 
-        // Mock response
-        let mock_response = common::auto_peer::AutoPeerResponse::ChallengeSelected {
+        let mock_response = AutoPeerResponse::ChallengeSelected {
             challenge_text: Some(
                 "-----BEGIN PGP MESSAGE-----\nTest challenge text\n-----END PGP MESSAGE-----"
                     .to_string(),
@@ -107,8 +101,7 @@ fn render_challenge_selection(state: &UseReducerHandle<AutoPeerState>) -> Html {
         state.dispatch(AutoPeerAction::SelectMethod(ChallengeMethod::Email));
         state.dispatch(AutoPeerAction::SetLoading(true));
 
-        // Mock response
-        let mock_response = common::auto_peer::AutoPeerResponse::ChallengeSelected {
+        let mock_response = AutoPeerResponse::ChallengeSelected {
             challenge_text: None,
         };
         state.dispatch(AutoPeerAction::HandleChallengeResponse(mock_response));
@@ -157,6 +150,11 @@ fn render_challenge_selection(state: &UseReducerHandle<AutoPeerState>) -> Html {
     }
 }
 
+#[derive(Properties, PartialEq)]
+struct PgpVerificationProps {
+    state: UseReducerHandle<AutoPeerState>,
+}
+
 #[function_component(PgpVerification)]
 fn pgp_verification(props: &PgpVerificationProps) -> Html {
     let pubkey = use_state(String::new);
@@ -179,8 +177,7 @@ fn pgp_verification(props: &PgpVerificationProps) -> Html {
         let state = state_clone.clone();
         state.dispatch(AutoPeerAction::SetLoading(true));
 
-        // Mock response
-        let mock_response = common::auto_peer::AutoPeerResponse::VerifySuccess {
+        let mock_response = AutoPeerResponse::VerifySuccess {
             credential: "mock_credential_token".to_string(),
             sessions: vec![PeeringSession {
                 id: Some("session1".to_string()),
@@ -250,15 +247,15 @@ fn pgp_verification(props: &PgpVerificationProps) -> Html {
     }
 }
 
-#[derive(Properties, PartialEq)]
-struct PgpVerificationProps {
-    state: UseReducerHandle<AutoPeerState>,
-}
-
 fn render_pgp_verification(state: &UseReducerHandle<AutoPeerState>) -> Html {
     html! {
         <PgpVerification state={state.clone()} />
     }
+}
+
+#[derive(Properties, PartialEq)]
+struct EmailVerificationProps {
+    state: UseReducerHandle<AutoPeerState>,
 }
 
 #[function_component(EmailVerification)]
@@ -276,7 +273,7 @@ fn email_verification(props: &EmailVerificationProps) -> Html {
         let state = state_clone.clone();
         state.dispatch(AutoPeerAction::SetLoading(true));
 
-        let mock_response = common::auto_peer::AutoPeerResponse::VerifySuccess {
+        let mock_response = AutoPeerResponse::VerifySuccess {
             credential: "mock_credential_token".to_string(),
             sessions: vec![],
         };
@@ -318,15 +315,15 @@ fn email_verification(props: &EmailVerificationProps) -> Html {
     }
 }
 
-#[derive(Properties, PartialEq)]
-struct EmailVerificationProps {
-    state: UseReducerHandle<AutoPeerState>,
-}
-
 fn render_email_verification(state: &UseReducerHandle<AutoPeerState>) -> Html {
     html! {
         <EmailVerification state={state.clone()} />
     }
+}
+
+#[derive(Properties, PartialEq)]
+struct SessionManagementProps {
+    state: UseReducerHandle<AutoPeerState>,
 }
 
 #[function_component(SessionManagement)]
@@ -367,11 +364,6 @@ fn session_management(props: &SessionManagementProps) -> Html {
     }
 }
 
-#[derive(Properties, PartialEq)]
-struct SessionManagementProps {
-    state: UseReducerHandle<AutoPeerState>,
-}
-
 fn render_session_management(state: &UseReducerHandle<AutoPeerState>) -> Html {
     html! {
         <SessionManagement state={state.clone()} />
@@ -398,7 +390,6 @@ fn render_session_item(
 
     let state_clone = state.clone();
     let on_delete = Callback::from(move |_| {
-        // TODO: Send delete request to backend
         state_clone.dispatch(AutoPeerAction::SetLoading(true));
     });
 

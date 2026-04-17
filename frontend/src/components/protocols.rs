@@ -1,11 +1,9 @@
 use chrono::Local;
+use ui_components::shell::ShellLine;
 use wasm_bindgen_futures::spawn_local;
 use yew::prelude::*;
 
-use super::{
-    data_table::{DataTable, TableRow},
-    shell::ShellLine,
-};
+use super::data_table::{DataTable, TableRow};
 use crate::{
     services::api::get_protocol_details,
     store::{LgStateHandle, route_info::RouteInfoHandle},

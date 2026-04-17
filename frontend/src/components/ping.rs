@@ -1,9 +1,8 @@
 use common::{models::NodeProtocol, utils::validate_target};
+use ui_components::shell::{ShellButton, ShellForm, ShellInput, ShellPrompt, ShellSelect};
 use wasm_bindgen_futures::spawn_local;
 use web_sys::HtmlInputElement;
 use yew::prelude::*;
-
-use super::shell::{ShellButton, ShellForm, ShellInput, ShellPrompt, ShellSelect};
 use crate::{
     services::api::perform_ping,
     store::{AppEvent, LgStateHandle, ping::PingAction, route_info::RouteInfoHandle},

@@ -1,13 +1,11 @@
 use common::{models::NodeProtocol, traceroute::fold_timeouts, utils::validate_target};
 use futures::future::join_all;
+use ui_components::shell::{ShellButton, ShellForm, ShellInput, ShellLine, ShellPrompt, ShellSelect};
 use wasm_bindgen_futures::spawn_local;
 use web_sys::HtmlInputElement;
 use yew::prelude::*;
 
-use super::{
-    data_table::{DataTable, TableRow},
-    shell::{ShellButton, ShellForm, ShellInput, ShellLine, ShellPrompt, ShellSelect},
-};
+use super::data_table::{DataTable, TableRow};
 use crate::{
     services::api::perform_traceroute,
     store::{

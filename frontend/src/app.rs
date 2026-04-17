@@ -1,10 +1,11 @@
+use autopeer::AutoPeerPage;
 use yew::prelude::*;
 use yew_router::prelude::*;
 
 use crate::{
     components::{main_view::MainView, protocols::Protocols, wireguard::WireGuard},
     hooks::use_app_data::use_app_data,
-    pages::{AutoPeerPage, Dn42Page, NcsiPage, NodePage, PeeringPage},
+    pages::{Dn42Page, NcsiPage, NodePage, PeeringPage},
     routes::Route,
     store::{LgState, LgStateHandle, route_info::RouteInfoProvider},
 };

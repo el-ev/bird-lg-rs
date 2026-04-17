@@ -162,8 +162,7 @@ fn cursor_col_for_value(value: &str) -> usize {
 mod tests {
     use yew::{AttrValue, Callback, Classes};
 
-    use super::{cursor_col_for_value, inline_input_width};
-    use crate::components::shell::input::ShellInputProps;
+    use super::{ShellInputProps, cursor_col_for_value, inline_input_width};
 
     fn build_props(value: &str, placeholder: &str) -> ShellInputProps {
         ShellInputProps {

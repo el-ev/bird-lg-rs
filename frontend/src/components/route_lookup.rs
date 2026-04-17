@@ -2,11 +2,12 @@ use std::net::IpAddr;
 
 use common::models::NodeProtocol;
 use ipnet::IpNet;
+use ui_components::shell::{
+    ShellButton, ShellForm, ShellInput, ShellPrompt, ShellSelect, ShellToggle,
+};
 use wasm_bindgen_futures::spawn_local;
 use web_sys::HtmlInputElement;
 use yew::prelude::*;
-
-use super::shell::{ShellButton, ShellForm, ShellInput, ShellPrompt, ShellSelect, ShellToggle};
 use crate::{
     services::api::perform_route_lookup,
     store::{LgStateHandle, route_info::RouteInfoHandle},

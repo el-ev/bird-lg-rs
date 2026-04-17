@@ -7,7 +7,6 @@ pub mod ping;
 pub mod protocols;
 pub mod route_dropdown;
 pub mod route_lookup;
-pub mod shell;
 pub mod status_banner;
 pub mod traceroute;
 pub mod wireguard;
