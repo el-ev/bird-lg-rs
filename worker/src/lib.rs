@@ -1,7 +1,7 @@
 extern crate self as worker;
 
-use serde::Serialize;
 pub use cloudflare_worker::*;
+use serde::Serialize;
 
 // TODO move to common
 const CONFIG_PATH: &str = "/config.json";
