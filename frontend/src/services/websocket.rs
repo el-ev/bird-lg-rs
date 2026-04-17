@@ -23,22 +23,24 @@ impl WebSocketService {
             const MAX_WS_FAILURES: u32 = 3;
 
             loop {
-                let (tx, rx) = mpsc::channel::<AppRequest>(100);
-
-                let callback = Callback::from(move |req: AppRequest| {
-                    let mut tx = tx.clone();
-                    spawn_local(async move {
-                        let _ = tx.send(req).await;
-                    });
-                });
-                state.dispatch(AppEvent::SetWsSender(callback));
-
                 if ws_failed_count >= MAX_WS_FAILURES {
                     break;
                 }
 
+                state.dispatch(AppEvent::SetWsConnecting);
+
                 match WebSocket::open(&ws_url) {
                     Ok(ws) => {
+                        let (tx, rx) = mpsc::channel::<AppRequest>(100);
+                        let callback = Callback::from(move |req: AppRequest| {
+                            let mut tx = tx.clone();
+                            spawn_local(async move {
+                                let _ = tx.send(req).await;
+                            });
+                        });
+
+                        state.dispatch(AppEvent::SetWsConnected(callback));
+
                         let (mut write, read) = ws.split();
                         let mut combined =
                             futures::stream::select(read.map(Either::Left), rx.map(Either::Right));
@@ -62,12 +64,26 @@ impl WebSocketService {
                                     if let Ok(json) = serde_json::to_string(&req)
                                         && write.send(Message::Text(json)).await.is_err()
                                     {
+                                        ws_failed_count += 1;
                                         let _ = write.close().await;
                                         break;
                                     }
                                 }
                             }
                         }
+
+                        if ws_failed_count >= MAX_WS_FAILURES {
+                            state.dispatch(AppEvent::SetError(
+                                "Websocket connection failed".to_string(),
+                            ));
+                            tracing::error!(
+                                "WebSocket failed 3 times. App should switch to HTTP polling.",
+                            );
+                            state.dispatch(AppEvent::SetWsPollingFallback);
+                            break;
+                        }
+
+                        state.dispatch(AppEvent::SetWsDisconnected);
                     }
                     Err(_) => {
                         ws_failed_count += 1;
@@ -78,7 +94,9 @@ impl WebSocketService {
                             tracing::error!(
                                 "WebSocket failed 3 times. App should switch to HTTP polling.",
                             );
-                            state.dispatch(AppEvent::ClearWsSender);
+                            state.dispatch(AppEvent::SetWsPollingFallback);
+                        } else {
+                            state.dispatch(AppEvent::SetWsDisconnected);
                         }
                     }
                 }

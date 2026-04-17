@@ -10,7 +10,11 @@ impl ApiGateway {
     }
 
     pub fn send_ws_request(state: &LgStateHandle, request: AppRequest) -> bool {
-        if let Some(sender) = &state.ws_sender {
+        if state.is_ws_connected() {
+            let sender = state
+                .ws_sender
+                .as_ref()
+                .expect("connected websocket state requires a sender");
             sender.emit(request);
             true
         } else {

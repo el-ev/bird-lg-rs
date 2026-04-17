@@ -75,7 +75,7 @@ pub fn use_app_data(state: LgStateHandle) {
     {
         let state = state.clone();
         use_effect_with(
-            (state.config_ready, state.ws_sender.is_some()),
+            (state.config_ready, state.is_ws_connected()),
             move |(config_ready, ws_connected)| {
                 let active = Rc::new(RefCell::new(true));
 

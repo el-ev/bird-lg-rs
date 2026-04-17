@@ -15,6 +15,15 @@ use super::{
 
 pub type LgStateHandle = UseReducerHandle<LgState>;
 
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub enum WebSocketStatus {
+    #[default]
+    Disconnected,
+    Connecting,
+    Connected,
+    PollingFallback,
+}
+
 #[derive(Clone, Debug, PartialEq, Default)]
 pub struct LgState {
     pub nodes: Vec<NodeProtocol>,
@@ -29,7 +38,14 @@ pub struct LgState {
     pub network_info: Option<NetworkInfo>,
     pub username: String,
     pub backend_url: String,
+    pub websocket_status: WebSocketStatus,
     pub ws_sender: Option<Callback<AppRequest>>,
+}
+
+impl LgState {
+    pub fn is_ws_connected(&self) -> bool {
+        matches!(self.websocket_status, WebSocketStatus::Connected) && self.ws_sender.is_some()
+    }
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -101,8 +117,10 @@ pub enum AppEvent {
         username: String,
         backend_url: String,
     },
-    SetWsSender(Callback<AppRequest>),
-    ClearWsSender,
+    SetWsConnecting,
+    SetWsConnected(Callback<AppRequest>),
+    SetWsDisconnected,
+    SetWsPollingFallback,
     UpdateTimestamp(DateTime<Utc>),
     ApplyDiff(Vec<NodeStatusDiff>),
     StartPing {
@@ -158,10 +176,20 @@ impl Reducible for LgState {
                 next_state.backend_url = backend_url;
                 next_state.config_ready = true;
             }
-            AppEvent::SetWsSender(sender) => {
+            AppEvent::SetWsConnecting => {
+                next_state.websocket_status = WebSocketStatus::Connecting;
+                next_state.ws_sender = None;
+            }
+            AppEvent::SetWsConnected(sender) => {
+                next_state.websocket_status = WebSocketStatus::Connected;
                 next_state.ws_sender = Some(sender);
             }
-            AppEvent::ClearWsSender => {
+            AppEvent::SetWsDisconnected => {
+                next_state.websocket_status = WebSocketStatus::Disconnected;
+                next_state.ws_sender = None;
+            }
+            AppEvent::SetWsPollingFallback => {
+                next_state.websocket_status = WebSocketStatus::PollingFallback;
                 next_state.ws_sender = None;
             }
             AppEvent::UpdateTimestamp(ts) => {
@@ -320,9 +348,10 @@ impl Reducible for LgState {
 mod tests {
     use std::rc::Rc;
 
-    use yew::Reducible;
+    use common::api::AppRequest;
+    use yew::{Callback, Reducible};
 
-    use super::{AppEvent, CommandOutputEvent, LgState, PingStreamEvent};
+    use super::{AppEvent, CommandOutputEvent, LgState, PingStreamEvent, WebSocketStatus};
     use crate::store::command_output::CommandOutputKind;
 
     #[test]
@@ -382,5 +411,33 @@ mod tests {
 
         assert!(state.command_output.active_session().is_none());
         assert!(state.command_output.sessions.is_empty());
+    }
+
+    #[test]
+    fn websocket_status_tracks_real_connection_lifecycle() {
+        let state = Rc::new(LgState::default());
+        assert_eq!(state.websocket_status, WebSocketStatus::Disconnected);
+        assert!(!state.is_ws_connected());
+
+        let state = state.reduce(AppEvent::SetWsConnecting);
+        assert_eq!(state.websocket_status, WebSocketStatus::Connecting);
+        assert!(state.ws_sender.is_none());
+        assert!(!state.is_ws_connected());
+
+        let sender = Callback::from(|_: AppRequest| ());
+        let state = state.reduce(AppEvent::SetWsConnected(sender));
+        assert_eq!(state.websocket_status, WebSocketStatus::Connected);
+        assert!(state.ws_sender.is_some());
+        assert!(state.is_ws_connected());
+
+        let state = state.reduce(AppEvent::SetWsDisconnected);
+        assert_eq!(state.websocket_status, WebSocketStatus::Disconnected);
+        assert!(state.ws_sender.is_none());
+        assert!(!state.is_ws_connected());
+
+        let state = state.reduce(AppEvent::SetWsPollingFallback);
+        assert_eq!(state.websocket_status, WebSocketStatus::PollingFallback);
+        assert!(state.ws_sender.is_none());
+        assert!(!state.is_ws_connected());
     }
 }
