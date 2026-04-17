@@ -32,26 +32,44 @@ impl NodeClient {
             .ok_or_else(|| "Node not found".to_string())
     }
 
+    fn ip_version_suffix(version: Option<&str>) -> &'static str {
+        match version.unwrap_or_default() {
+            "4" => "4",
+            "6" => "6",
+            _ => "",
+        }
+    }
+
+    async fn stream_target_command(
+        &self,
+        node: &NodeConfig,
+        target: &str,
+        base_endpoint: &str,
+        version: Option<&str>,
+    ) -> Result<ByteStream, String> {
+        validate_target(target)?;
+
+        get_stream(
+            &self.client,
+            node,
+            format!(
+                "/{}{}?target={}",
+                base_endpoint,
+                Self::ip_version_suffix(version),
+                target
+            ),
+        )
+        .await
+    }
+
     pub async fn traceroute_stream(
         &self,
         node: &NodeConfig,
         target: &str,
         version: Option<&str>,
     ) -> Result<ByteStream, String> {
-        validate_target(target)?;
-
-        let endpoint = match version.unwrap_or_default() {
-            "4" => "traceroute4",
-            "6" => "traceroute6",
-            _ => "traceroute",
-        };
-
-        get_stream(
-            &self.client,
-            node,
-            format!("/{}?target={}", endpoint, target),
-        )
-        .await
+        self.stream_target_command(node, target, "traceroute", version)
+            .await
     }
 
     pub async fn ping_stream(
@@ -60,20 +78,8 @@ impl NodeClient {
         target: &str,
         version: Option<&str>,
     ) -> Result<ByteStream, String> {
-        validate_target(target)?;
-
-        let endpoint = match version.unwrap_or_default() {
-            "4" => "ping4",
-            "6" => "ping6",
-            _ => "ping",
-        };
-
-        get_stream(
-            &self.client,
-            node,
-            format!("/{}?target={}", endpoint, target),
-        )
-        .await
+        self.stream_target_command(node, target, "ping", version)
+            .await
     }
 
     pub async fn route_lookup_stream(

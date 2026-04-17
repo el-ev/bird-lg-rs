@@ -5,8 +5,8 @@ use axum::{
     response::sse::{Event, Sse},
 };
 use common::traceroute::TracerouteParams;
-use futures_util::stream::StreamExt;
 
+use super::response_stream_to_sse;
 use crate::{config::Config, services::api::perform_traceroute, state::AppState};
 
 pub async fn proxy_traceroute(
@@ -18,10 +18,5 @@ pub async fn proxy_traceroute(
     let TracerouteParams { target, version } = params;
     let response_stream = perform_traceroute(state, config, node_name, target, Some(version)).await;
 
-    let sse_stream = response_stream.map(|resp| match serde_json::to_string(&resp) {
-        Ok(json) => Ok(Event::default().data(json)),
-        Err(_) => Ok(Event::default().data("{\"t\":\"e\",\"error\":\"Serialization failed\"}")),
-    });
-
-    Sse::new(sse_stream)
+    Sse::new(response_stream_to_sse(response_stream))
 }

@@ -4,9 +4,9 @@ use axum::{
     extract::{Extension, Path, Query},
     response::sse::{Event, Sse},
 };
-use futures_util::stream::StreamExt;
 use serde::Deserialize;
 
+use super::response_stream_to_sse;
 use crate::{config::Config, services::api::perform_route_lookup, state::AppState};
 
 #[derive(Deserialize)]
@@ -25,10 +25,5 @@ pub async fn get_route(
     let response_stream =
         perform_route_lookup(state, config, node_name, params.target, params.all).await;
 
-    let sse_stream = response_stream.map(|resp| match serde_json::to_string(&resp) {
-        Ok(json) => Ok(Event::default().data(json)),
-        Err(_) => Ok(Event::default().data("{\"t\":\"e\",\"error\":\"Serialization failed\"}")),
-    });
-
-    Sse::new(sse_stream)
+    Sse::new(response_stream_to_sse(response_stream))
 }

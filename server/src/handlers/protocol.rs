@@ -4,8 +4,8 @@ use axum::{
     extract::{Extension, Path},
     response::sse::{Event, Sse},
 };
-use futures_util::stream::StreamExt;
 
+use super::response_stream_to_sse;
 use crate::{config::Config, state::AppState};
 
 pub async fn get_protocol_details(
@@ -16,10 +16,5 @@ pub async fn get_protocol_details(
     let response_stream =
         crate::services::api::get_protocol_details(state, config, node_name, protocol).await;
 
-    let sse_stream = response_stream.map(|resp| match serde_json::to_string(&resp) {
-        Ok(json) => Ok(Event::default().data(json)),
-        Err(_) => Ok(Event::default().data("{\"t\":\"e\",\"error\":\"Serialization failed\"}")),
-    });
-
-    Sse::new(sse_stream)
+    Sse::new(response_stream_to_sse(response_stream))
 }
