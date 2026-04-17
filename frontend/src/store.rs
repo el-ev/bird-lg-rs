@@ -4,7 +4,5 @@ pub mod ping;
 pub mod route_info;
 pub mod traceroute;
 
-pub use lg_state::{
-    AppEvent, CommandOutputEvent, LgState, LgStateHandle, PingStreamEvent, TracerouteStreamEvent,
-};
+pub use lg_state::{AppEvent, LgState, LgStateHandle};
 pub use traceroute::TracerouteResult;

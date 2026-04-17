@@ -1,12 +1,15 @@
 use common::api::{AppRequest, AppResponse};
 
-use crate::{store::LgStateHandle, utils::fetch_json};
+use crate::{
+    store::{AppEvent, LgStateHandle},
+    utils::fetch_json,
+};
 
 pub struct ApiGateway;
 
 impl ApiGateway {
     pub fn dispatch_response(state: &LgStateHandle, response: AppResponse) {
-        crate::services::response_handler::handle_app_response(response, state);
+        state.dispatch(AppEvent::ApplyResponse(response));
     }
 
     pub fn send_ws_request(state: &LgStateHandle, request: AppRequest) -> bool {

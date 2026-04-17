@@ -9,10 +9,7 @@ use yew::prelude::*;
 
 use crate::{
     services::{gateway::ApiGateway, sse::consume_app_sse},
-    store::{
-        command_output::CommandOutputKind, AppEvent, CommandOutputEvent, PingStreamEvent,
-        TracerouteStreamEvent,
-    },
+    store::{AppEvent, command_output::CommandOutputKind},
 };
 
 static REQUEST_COUNTER: AtomicU64 = AtomicU64::new(1);
@@ -76,7 +73,13 @@ pub async fn perform_traceroute(
     });
 
     let futures = target_nodes.into_iter().map(|node| {
-        send_traceroute_request(state.clone(), request_id.clone(), node, target.clone(), version.clone())
+        send_traceroute_request(
+            state.clone(),
+            request_id.clone(),
+            node,
+            target.clone(),
+            version.clone(),
+        )
     });
 
     let results = join_all(futures).await;
@@ -117,11 +120,14 @@ async fn send_traceroute_request(
 
     if let Err(error) = dispatch_streamed_response(&state, url).await {
         tracing::error!("Traceroute failed for {}: {}", node, error);
-        state.dispatch(AppEvent::TracerouteStream(TracerouteStreamEvent::Error {
-            request_id,
-            node,
-            error: error.clone(),
-        }));
+        ApiGateway::dispatch_response(
+            &state,
+            AppResponse::TracerouteError {
+                request_id,
+                node,
+                error: error.clone(),
+            },
+        );
         return Err(error);
     }
 
@@ -171,11 +177,14 @@ pub async fn perform_ping(
     );
 
     if let Err(error) = dispatch_streamed_response(state, url).await {
-        state.dispatch(AppEvent::PingStream(PingStreamEvent::Error {
-            request_id,
-            node,
-            error: error.clone(),
-        }));
+        ApiGateway::dispatch_response(
+            state,
+            AppResponse::PingError {
+                request_id,
+                node,
+                error: error.clone(),
+            },
+        );
         return Err(error);
     }
 
@@ -226,10 +235,14 @@ pub async fn perform_route_lookup(
     );
 
     if let Err(error) = dispatch_streamed_response(state, url).await {
-        state.dispatch(AppEvent::CommandOutputStream(CommandOutputEvent::Error {
-            request_id,
-            error: error.clone(),
-        }));
+        ApiGateway::dispatch_response(
+            state,
+            AppResponse::RouteLookupError {
+                request_id,
+                node,
+                error: error.clone(),
+            },
+        );
         return Err(error);
     }
 
@@ -301,10 +314,15 @@ pub async fn get_protocol_details(
     );
 
     if let Err(error) = dispatch_streamed_response(state, url).await {
-        state.dispatch(AppEvent::CommandOutputStream(CommandOutputEvent::Error {
-            request_id,
-            error: error.clone(),
-        }));
+        ApiGateway::dispatch_response(
+            state,
+            AppResponse::ProtocolDetailsError {
+                request_id,
+                node,
+                protocol: proto,
+                error: error.clone(),
+            },
+        );
         return Err(error);
     }
 

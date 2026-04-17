@@ -108,7 +108,7 @@ impl WebSocketService {
 
     fn handle_message(text: &str, state: &LgStateHandle) {
         if let Ok(response) = serde_json::from_str::<AppResponse>(text) {
-            crate::services::response_handler::handle_app_response(response, state);
+            crate::services::gateway::ApiGateway::dispatch_response(state, response);
         } else {
             tracing::error!("Unexpected message from the backend: {}", text);
         }
