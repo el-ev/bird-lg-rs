@@ -32,7 +32,12 @@ pub fn data_table(props: &DataTableProps) -> Html {
                                 ""
                             }
                         } onclick={on_click}>
-                            { for row.cells.iter().map(|cell| html! { <td>{ cell.clone() }</td> }) }
+                            { for row.cells.iter().enumerate().map(|(index, cell)| {
+                                let label = props.headers.get(index).cloned().unwrap_or_default();
+                                html! {
+                                    <td data-label={label}>{ cell.clone() }</td>
+                                }
+                            }) }
                         </tr>
                     }
                 }) }

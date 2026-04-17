@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
-members = ["autopeer","common", "frontend", "proxy", "server"]
+members = ["autopeer","common", "frontend", "proxy", "server", "wg-wrapper"]
 
 [profile.release]
 strip = true

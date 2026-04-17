@@ -6,3 +6,4 @@ node_modules/
 .wrangler/
 .dev.vars
 .env
+lg-release*

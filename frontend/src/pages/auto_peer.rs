@@ -215,6 +215,8 @@ fn pgp_verification(props: &PgpVerificationProps) -> Html {
                     on_change={on_pubkey_change}
                     placeholder="-----BEGIN PGP PUBLIC KEY BLOCK-----"
                     disabled={props.state.loading}
+                    multiline=true
+                    rows={6}
                 />
             </ShellLine>
 
@@ -226,6 +228,8 @@ fn pgp_verification(props: &PgpVerificationProps) -> Html {
                     on_change={on_signature_change}
                     placeholder="-----BEGIN PGP SIGNED MESSAGE-----"
                     disabled={props.state.loading}
+                    multiline=true
+                    rows={8}
                 />
             </ShellLine>
 

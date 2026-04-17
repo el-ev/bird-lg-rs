@@ -1,4 +1,4 @@
-use web_sys::HtmlInputElement;
+use web_sys::{HtmlInputElement, HtmlTextAreaElement};
 use yew::prelude::*;
 
 #[derive(Properties, PartialEq)]
@@ -6,136 +6,192 @@ pub struct ShellInputProps {
     pub value: AttrValue,
     pub on_change: Callback<String>,
     #[prop_or_default]
+    pub class: Classes,
+    #[prop_or_default]
     pub placeholder: AttrValue,
     #[prop_or_default]
     pub disabled: bool,
+    #[prop_or_default]
+    pub multiline: bool,
+    #[prop_or(4)]
+    pub rows: usize,
 }
 
 #[function_component(ShellInput)]
 pub fn shell_input(props: &ShellInputProps) -> Html {
     let input_ref = use_node_ref();
-    let is_focused = use_state(|| false);
-    let cursor_pos = use_state(|| 0);
+    let cursor_col = use_state(|| cursor_col_for_value(props.value.as_str()));
 
-    let update_cursor = {
-        let cursor_pos = cursor_pos.clone();
-        Callback::from(move |input: HtmlInputElement| {
-            let pos = input.selection_start().unwrap_or(Some(0)).unwrap_or(0) as usize;
-            cursor_pos.set(pos);
-        })
-    };
+    {
+        let cursor_col = cursor_col.clone();
+        let value = props.value.clone();
+        use_effect_with(value, move |value| {
+            cursor_col.set(cursor_col_for_value(value.as_str()));
+            || ()
+        });
+    }
 
-    let oninput = {
+    let frame_classes = classes!(
+        "shell-input-frame",
+        props.multiline.then_some("shell-input-frame--multiline"),
+        (!props.multiline).then_some("shell-input-frame--inline")
+    );
+    let classes = classes!(
+        "shell-input",
+        (!props.multiline).then_some("shell-input--inline"),
+        props.multiline.then_some("shell-input--multiline"),
+        props.class.clone()
+    );
+
+    if props.multiline {
         let on_change = props.on_change.clone();
-        let update_cursor = update_cursor.clone();
-        Callback::from(move |e: InputEvent| {
-            let input: HtmlInputElement = e.target_unchecked_into();
+        let oninput = Callback::from(move |e: InputEvent| {
+            let input: HtmlTextAreaElement = e.target_unchecked_into();
             on_change.emit(input.value());
-            update_cursor.emit(input);
-        })
-    };
+        });
 
-    let onkeyup = {
-        let update_cursor = update_cursor.clone();
-        Callback::from(move |e: KeyboardEvent| {
-            let input: HtmlInputElement = e.target_unchecked_into();
-            update_cursor.emit(input);
-        })
-    };
-
-    let onfocus = {
-        let is_focused = is_focused.clone();
-        Callback::from(move |_| is_focused.set(true))
-    };
-
-    let onblur = {
-        let is_focused = is_focused.clone();
-        Callback::from(move |_| is_focused.set(false))
-    };
-
-    let on_wrapper_click = {
-        let input_ref = input_ref.clone();
-        Callback::from(move |_| {
-            if let Some(input) = input_ref.cast::<HtmlInputElement>() {
-                let _ = input.focus();
-            }
-        })
-    };
-
-    let render_content = {
-        let value = props.value.as_str();
-        let pos = *cursor_pos;
-        let is_focused = *is_focused;
-
-        if value.is_empty() {
-            let placeholder = props.placeholder.as_str();
-            if placeholder.is_empty() {
-                html! {
-                    if is_focused {
-                        <span class="shell-cursor-char">{" "}</span>
-                    }
-                }
-            } else {
-                let mut chars = placeholder.chars();
-                let first = chars.next().unwrap_or(' ');
-                let rest: String = chars.collect();
-
-                html! {
-                    <span class="shell-input-content placeholder">
-                        if is_focused {
-                            <span class="shell-cursor-char">{ first }</span>
-                        } else {
-                            { first }
-                        }
-                        { rest }
-                    </span>
-                }
-            }
-        } else {
-            let chars: Vec<char> = value.chars().collect();
-            let len = chars.len();
-
-            let pos = pos.min(len);
-
-            if !is_focused {
-                html! { <span class="shell-input-content">{ value }</span> }
-            } else if pos >= len {
-                html! {
-                    <span class="shell-input-content">
-                        { value }
-                        // FIXME
-                        <span class="shell-cursor-char" style="background-color: var(--bg-shell)">{" "}</span>
-                    </span>
-                }
-            } else {
-                let left: String = chars[0..pos].iter().collect();
-                let current = chars[pos];
-                let right: String = chars[pos + 1..].iter().collect();
-                html! {
-                    <span class="shell-input-content">
-                        { left }
-                        <span class="shell-cursor-char">{ current }</span>
-                        { right }
-                    </span>
-                }
-            }
+        html! {
+            <div class={frame_classes}>
+                <textarea
+                    class={classes}
+                    value={props.value.clone()}
+                    placeholder={props.placeholder.clone()}
+                    oninput={oninput}
+                    rows={props.rows.to_string()}
+                    disabled={props.disabled}
+                    spellcheck="false"
+                />
+            </div>
         }
-    };
+    } else {
+        let update_cursor = {
+            let cursor_col = cursor_col.clone();
+            Callback::from(move |input: HtmlInputElement| {
+                cursor_col.set(read_cursor_position(&input));
+            })
+        };
 
-    html! {
-        <div class="shell-input-wrapper" onclick={on_wrapper_click}>
-            { render_content }
-            <input
-                ref={input_ref}
-                class="shell-input-hidden"
-                type="text"
-                value={&props.value}
-                oninput={oninput}
-                onkeyup={onkeyup}
-                onfocus={onfocus}
-                onblur={onblur}
-                disabled={props.disabled}
-            />
-        </div>
+        let on_change = props.on_change.clone();
+        let width_style = format!("--shell-input-ch: {}", inline_input_width(props));
+        let oninput = {
+            let update_cursor = update_cursor.clone();
+            Callback::from(move |e: InputEvent| {
+                let input: HtmlInputElement = e.target_unchecked_into();
+                update_cursor.emit(input.clone());
+                on_change.emit(input.value());
+            })
+        };
+        let onkeyup = {
+            let update_cursor = update_cursor.clone();
+            Callback::from(move |e: KeyboardEvent| {
+                let input: HtmlInputElement = e.target_unchecked_into();
+                update_cursor.emit(input);
+            })
+        };
+        let onclick = {
+            let update_cursor = update_cursor.clone();
+            Callback::from(move |e: MouseEvent| {
+                let input: HtmlInputElement = e.target_unchecked_into();
+                update_cursor.emit(input);
+            })
+        };
+        let onmouseup = {
+            let update_cursor = update_cursor.clone();
+            Callback::from(move |e: MouseEvent| {
+                let input: HtmlInputElement = e.target_unchecked_into();
+                update_cursor.emit(input);
+            })
+        };
+        let onfocus = {
+            let input_ref = input_ref.clone();
+            let cursor_col = cursor_col.clone();
+            Callback::from(move |_| {
+                if let Some(input) = input_ref.cast::<HtmlInputElement>() {
+                    cursor_col.set(read_cursor_position(&input));
+                }
+            })
+        };
+
+        html! {
+            <span
+                class={frame_classes}
+                style={format!("{width_style}; --shell-caret-col: {}", *cursor_col)}
+            >
+                <input
+                    ref={input_ref}
+                    class={classes}
+                    type="text"
+                    value={props.value.clone()}
+                    placeholder={props.placeholder.clone()}
+                    oninput={oninput}
+                    onkeyup={onkeyup}
+                    onclick={onclick}
+                    onmouseup={onmouseup}
+                    onfocus={onfocus}
+                    disabled={props.disabled}
+                    spellcheck="false"
+                    autocomplete="off"
+                    autocapitalize="off"
+                    autocorrect="off"
+                />
+            </span>
+        }
+    }
+}
+
+fn inline_input_width(props: &ShellInputProps) -> usize {
+    let value_width = props.value.chars().count();
+    let placeholder_width = props.placeholder.chars().count();
+    value_width.max(placeholder_width).max(8) + 1
+}
+
+fn read_cursor_position(input: &HtmlInputElement) -> usize {
+    input
+        .selection_start()
+        .ok()
+        .flatten()
+        .map(|pos| pos as usize)
+        .unwrap_or_else(|| cursor_col_for_value(&input.value()))
+}
+
+fn cursor_col_for_value(value: &str) -> usize {
+    value.chars().count()
+}
+
+#[cfg(test)]
+mod tests {
+    use yew::{AttrValue, Callback, Classes};
+
+    use super::{cursor_col_for_value, inline_input_width};
+    use crate::components::shell::input::ShellInputProps;
+
+    fn build_props(value: &str, placeholder: &str) -> ShellInputProps {
+        ShellInputProps {
+            value: AttrValue::from(value.to_owned()),
+            on_change: Callback::noop(),
+            class: Classes::new(),
+            placeholder: AttrValue::from(placeholder.to_owned()),
+            disabled: false,
+            multiline: false,
+            rows: 4,
+        }
+    }
+
+    #[test]
+    fn inline_input_width_reserves_room_for_placeholder() {
+        let props = build_props("", "424242xxxx");
+        assert_eq!(inline_input_width(&props), 11);
+    }
+
+    #[test]
+    fn inline_input_width_grows_with_value_length() {
+        let props = build_props("birdc show route", "<target>");
+        assert_eq!(inline_input_width(&props), 17);
+    }
+
+    #[test]
+    fn cursor_col_counts_characters() {
+        assert_eq!(cursor_col_for_value("dn42"), 4);
+        assert_eq!(cursor_col_for_value("fd00::1"), 7);
     }
 }

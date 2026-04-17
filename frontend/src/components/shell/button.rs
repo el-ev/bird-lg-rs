@@ -5,6 +5,8 @@ pub struct ShellButtonProps {
     #[prop_or(AttrValue::from("button"))]
     pub type_: AttrValue,
     #[prop_or_default]
+    pub class: Classes,
+    #[prop_or_default]
     pub onclick: Callback<MouseEvent>,
     #[prop_or_default]
     pub disabled: bool,
@@ -19,7 +21,7 @@ pub fn shell_button(props: &ShellButtonProps) -> Html {
     html! {
         <button
             type={&props.type_}
-            class="shell-button"
+            class={classes!("shell-button", props.class.clone())}
             onclick={&props.onclick}
             disabled={props.disabled}
         >

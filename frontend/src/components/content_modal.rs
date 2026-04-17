@@ -74,6 +74,7 @@ pub fn content_modal(props: &ContentModalProps) -> Html {
 
     let on_close = props.on_close.clone();
     let stop_click = Callback::from(|e: MouseEvent| e.stop_propagation());
+    let has_command = props.command.is_some();
 
     let (prompt, cmd_text) = if let Some(full_cmd) = &props.command {
         if let Some(idx) = full_cmd.find("$ ") {
@@ -100,26 +101,18 @@ pub fn content_modal(props: &ContentModalProps) -> Html {
                 onclick={stop_click.clone()}
             >
                 {
-                    if props.command.is_some() {
+                    if has_command {
                         html! {
-                            <ShellLine
-                                prompt={prompt}
-                                command={cmd_text}
-                                style="margin-bottom: 0; border-bottom: none; border-radius: 4px 4px 0 0;"
-                            />
+                            <div class="modal-shell-line">
+                                <ShellLine prompt={prompt} command={cmd_text} />
+                            </div>
                         }
                     } else {
                         html! {}
                     }
                 }
                 <pre
-                    style={
-                        if props.command.is_some() {
-                            "margin: 0; border: 1px solid var(--border); border-top: none; border-radius: 0 0 4px 4px;"
-                        } else {
-                            ""
-                        }
-                    }
+                    class={classes!("modal-output", has_command.then_some("modal-output--with-command"))}
                 >
                     { &props.content }
                 </pre>

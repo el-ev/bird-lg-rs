@@ -227,9 +227,47 @@ fn append_modal_lines(content: &mut String, lines: &[String]) {
     if lines.is_empty() {
         return;
     }
-    if !content.is_empty() {
+
+    if !content.is_empty() && !content.ends_with('\n') {
         content.push('\n');
     }
+
     content.push_str(&lines.join("\n"));
-    content.push('\n');
+
+    if !content.ends_with('\n') {
+        content.push('\n');
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::rc::Rc;
+
+    use super::{AppEvent, LgState};
+    use crate::store::ping::PingResult;
+    use yew::Reducible;
+
+    #[test]
+    fn ping_modal_updates_do_not_insert_blank_lines_between_batches() {
+        let state = Rc::new(LgState::default());
+
+        let state = state.reduce(AppEvent::PingModalUpdate {
+            node: "node-1".to_string(),
+            result: PingResult::Lines(vec![
+                "64 bytes from 1.1.1.1: icmp_seq=1 ttl=57 time=1.09 ms".to_string(),
+            ]),
+        });
+
+        let state = state.reduce(AppEvent::PingModalUpdate {
+            node: "node-1".to_string(),
+            result: PingResult::Lines(vec![
+                "64 bytes from 1.1.1.1: icmp_seq=2 ttl=57 time=1.10 ms".to_string(),
+            ]),
+        });
+
+        assert_eq!(
+            state.modal.content,
+            "64 bytes from 1.1.1.1: icmp_seq=1 ttl=57 time=1.09 ms\n64 bytes from 1.1.1.1: icmp_seq=2 ttl=57 time=1.10 ms\n"
+        );
+    }
 }

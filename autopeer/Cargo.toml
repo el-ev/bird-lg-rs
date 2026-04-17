@@ -9,6 +9,6 @@ crate-type = ["cdylib"]
 
 [dependencies]
 common = { path = "../common" }
-worker = "0.7.1"
+worker = "0.8.0"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"

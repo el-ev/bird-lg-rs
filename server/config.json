@@ -10,7 +10,8 @@
         "contacts": {
             "NOC": "noc@example.net",
             "Matrix": "@noc:example.net",
-            "Phone": "+1-555-0100"
+            "Phone": "+1-555-0100",
+            "AnyField": "AnyValue"
         },
         "ipv4_prefix": [
             "172.20.0.0/16"
@@ -25,6 +26,11 @@
             "name": "local",
             "url": "http://127.0.0.1:8000",
             "shared_secret": null
+        },
+        {
+            "name": "Node 1",
+            "url": "http://172.21.8.8:8888",
+            "shared_secret": "DontTellAnyone"
         }
     ],
     "poll_idle_timeout": 180

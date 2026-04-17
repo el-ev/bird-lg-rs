@@ -3,7 +3,7 @@ use wasm_bindgen_futures::spawn_local;
 use web_sys::HtmlInputElement;
 use yew::prelude::*;
 
-use super::shell::{ShellButton, ShellInput, ShellPrompt, ShellSelect};
+use super::shell::{ShellButton, ShellForm, ShellInput, ShellPrompt, ShellSelect};
 use crate::{
     services::api::perform_ping,
     store::{AppEvent, LgStateHandle, ping::PingAction, route_info::RouteInfoHandle},
@@ -86,7 +86,7 @@ pub fn ping() -> Html {
     html! {
         <section>
             <h3>{"Ping"}</h3>
-            <form class="shell-line" onsubmit={on_submit}>
+            <ShellForm onsubmit={on_submit}>
                 <ShellPrompt>
                     {format!("{}@", state.username)}
                     <ShellSelect
@@ -114,8 +114,8 @@ pub fn ping() -> Html {
                     on_change={on_target_change}
                     placeholder="<target>"
                 />
-                <ShellButton type_="submit" text="↵" />
-            </form>
+                <ShellButton type_="submit" text="↵" class="shell-button--submit" />
+            </ShellForm>
             {
                 if let Some(err) = &ping_state.error {
                     html! { <div class="error-message">{ err }</div> }

@@ -6,7 +6,7 @@ use yew::prelude::*;
 
 use super::{
     data_table::{DataTable, TableRow},
-    shell::{ShellButton, ShellInput, ShellLine, ShellPrompt, ShellSelect},
+    shell::{ShellButton, ShellForm, ShellInput, ShellLine, ShellPrompt, ShellSelect},
 };
 use crate::{
     services::api::perform_traceroute,
@@ -112,7 +112,7 @@ pub fn traceroute_section() -> Html {
     html! {
         <section>
             <h3>{"Traceroute"}</h3>
-            <form class="shell-line" onsubmit={on_submit}>
+            <ShellForm onsubmit={on_submit}>
                 <ShellPrompt>
                     {format!("{}@", state.username)}
                     <ShellSelect
@@ -150,11 +150,12 @@ pub fn traceroute_section() -> Html {
                 />
                 <ShellButton
                     type_="submit"
+                    class="shell-button--submit"
                     disabled={traceroute_state.loading}
                 >
                     { if traceroute_state.loading { "..." } else { "↵" } }
                 </ShellButton>
-            </form>
+            </ShellForm>
             {
                 if let Some(err) = &traceroute_state.error {
                     html! { <div class="error-message">{ err }</div> }

@@ -6,7 +6,7 @@ use wasm_bindgen_futures::spawn_local;
 use web_sys::HtmlInputElement;
 use yew::prelude::*;
 
-use super::shell::{ShellButton, ShellInput, ShellPrompt, ShellSelect, ShellToggle};
+use super::shell::{ShellButton, ShellForm, ShellInput, ShellPrompt, ShellSelect, ShellToggle};
 use crate::{
     services::api::perform_route_lookup,
     store::{LgStateHandle, route_info::RouteInfoHandle},
@@ -98,7 +98,7 @@ pub fn route_lookup() -> Html {
     html! {
         <section>
             <h3>{"Route Lookup"}</h3>
-            <form class="shell-line" onsubmit={on_submit}>
+            <ShellForm onsubmit={on_submit}>
                 <ShellPrompt>
                     {format!("{}@", state.username)}
                     <ShellSelect
@@ -123,8 +123,8 @@ pub fn route_lookup() -> Html {
                     on_toggle={on_all_toggle}
                     label="all"
                 />
-                <ShellButton type_="submit" text="↵" />
-            </form>
+                <ShellButton type_="submit" text="↵" class="shell-button--submit" />
+            </ShellForm>
             {
                 if let Some(err) = &*error {
                     html! { <div class="error-message">{ err }</div> }
