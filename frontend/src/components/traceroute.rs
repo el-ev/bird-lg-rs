@@ -1,6 +1,7 @@
 use common::{models::NodeProtocol, traceroute::fold_timeouts, utils::validate_target};
-use futures::future::join_all;
-use ui_components::shell::{ShellButton, ShellForm, ShellInput, ShellLine, ShellPrompt, ShellSelect};
+use ui_components::shell::{
+    ShellButton, ShellForm, ShellInput, ShellLine, ShellPrompt, ShellSelect,
+};
 use wasm_bindgen_futures::spawn_local;
 use web_sys::HtmlInputElement;
 use yew::prelude::*;
@@ -8,101 +9,90 @@ use yew::prelude::*;
 use super::data_table::{DataTable, TableRow};
 use crate::{
     services::api::perform_traceroute,
-    store::{
-        AppEvent, LgStateHandle, TracerouteResult, route_info::RouteInfoHandle,
-        traceroute::TracerouteAction,
-    },
+    store::{LgStateHandle, TracerouteResult, route_info::RouteInfoHandle},
 };
 
 #[function_component(Traceroute)]
 pub fn traceroute_section() -> Html {
     let state = use_context::<LgStateHandle>().expect("no app state found");
-    let traceroute_state = &state.traceroute;
-
     let route_info = use_context::<RouteInfoHandle>().expect("no route info found");
+    let selected_node = use_state(String::new);
+    let target = use_state(String::new);
+    let version = use_state(String::new);
+    let error = use_state(|| None::<String>);
+
     let nodes: Vec<NodeProtocol> = if let Some(node) = &route_info.node_info {
         vec![node.clone()]
     } else {
         state.nodes.clone()
     };
 
+    let active_session = state.traceroute.active_session();
+
     let on_node_change = {
-        let state = state.clone();
+        let selected_node = selected_node.clone();
         Callback::from(move |e: Event| {
             let target: HtmlInputElement = e.target_unchecked_into();
-            state.dispatch(AppEvent::Traceroute(TracerouteAction::SetNode(
-                target.value(),
-            )));
+            selected_node.set(target.value());
         })
     };
 
     let on_version_change = {
-        let state = state.clone();
+        let version = version.clone();
         Callback::from(move |e: Event| {
             let target: HtmlInputElement = e.target_unchecked_into();
-            state.dispatch(AppEvent::Traceroute(TracerouteAction::SetVersion(
-                target.value(),
-            )));
+            version.set(target.value());
         })
     };
 
     let on_target_change = {
-        let state = state.clone();
+        let target = target.clone();
+        let error = error.clone();
         Callback::from(move |value: String| {
-            state.dispatch(AppEvent::Traceroute(TracerouteAction::SetTarget(value)));
+            target.set(value);
+            error.set(None);
         })
     };
 
     let on_submit = {
+        let error = error.clone();
+        let selected_node = selected_node.clone();
+        let target = target.clone();
+        let version = version.clone();
         let state = state.clone();
         let nodes = nodes.clone();
 
         Callback::from(move |e: SubmitEvent| {
             e.prevent_default();
 
-            let target = state.traceroute.target.clone().trim().to_string();
-            if let Err(err) = validate_target(&target) {
-                state.dispatch(AppEvent::Traceroute(TracerouteAction::SetError(err)));
+            let target_value = (*target).trim().to_string();
+            if let Err(err) = validate_target(&target_value) {
+                error.set(Some(err));
                 return;
             }
-            state.dispatch(AppEvent::Traceroute(TracerouteAction::ClearError));
-            let validated_target = target;
-            let traceroute_node = state.traceroute.node.clone();
-            let traceroute_version = state.traceroute.version.clone();
 
-            let selected_node = traceroute_node;
-            let target_nodes = if selected_node.is_empty() {
-                nodes.iter().map(|n| n.name.clone()).collect::<Vec<_>>()
+            let selected_node_value = (*selected_node).clone();
+            let target_nodes = if selected_node_value.is_empty() {
+                nodes.iter().map(|node| node.name.clone()).collect::<Vec<_>>()
             } else {
-                vec![selected_node.clone()]
+                vec![selected_node_value]
             };
 
-            state.dispatch(AppEvent::Traceroute(TracerouteAction::SetLastParams(
-                validated_target.clone(),
-                traceroute_version.clone(),
-            )));
-            state.dispatch(AppEvent::Traceroute(TracerouteAction::Start(
-                target_nodes.len(),
-            )));
+            if target_nodes.is_empty() {
+                error.set(Some("No nodes available".to_string()));
+                return;
+            }
 
+            error.set(None);
+            let version_value = (*version).clone();
             let state_async = state.clone();
 
             spawn_local(async move {
-                let futures = target_nodes.into_iter().map(|node_name| {
-                    let version_value = traceroute_version.clone();
-                    let target_value = validated_target.clone();
-                    let state = state_async.clone();
-
-                    async move {
-                        if let Err(error) =
-                            perform_traceroute(&state, node_name, target_value, version_value).await
-                        {
-                            tracing::error!("Traceroute request failed: {}", error);
-                        }
-                    }
-                });
-
-                join_all(futures).await;
+                if let Err(fetch_error) =
+                    perform_traceroute(&state_async, target_nodes, target_value, version_value).await
+                {
+                    tracing::error!("Traceroute request failed: {}", fetch_error);
+                }
             });
         })
     };
@@ -115,7 +105,7 @@ pub fn traceroute_section() -> Html {
                     {format!("{}@", state.username)}
                     <ShellSelect
                         class="node-select"
-                        value={traceroute_state.node.clone()}
+                        value={(*selected_node).clone()}
                         on_change={on_node_change}
                     >
                         {
@@ -125,51 +115,53 @@ pub fn traceroute_section() -> Html {
                                 html! {}
                             }
                         }
-                        { for nodes.iter().map(|n| html! {
-                            <option value={n.name.clone()}>{ &n.name }</option>
+                        { for nodes.iter().map(|node| html! {
+                            <option value={node.name.clone()}>{ &node.name }</option>
                         }) }
                     </ShellSelect>
                     {"$ "}
                 </ShellPrompt>
                 { "traceroute " }
-                <ShellSelect
-                    value={traceroute_state.version.clone()}
-                    on_change={on_version_change}
-                >
+                <ShellSelect value={(*version).clone()} on_change={on_version_change}>
                     <option value="" selected=true>{"  "}</option>
                     <option value="4">{"-4"}</option>
                     <option value="6">{"-6"}</option>
                 </ShellSelect>
                 <span>{ " " }</span>
                 <ShellInput
-                    value={traceroute_state.target.clone()}
+                    value={(*target).clone()}
                     on_change={on_target_change}
                     placeholder="<target>"
                 />
-                <ShellButton
-                    type_="submit"
-                    class="shell-button--submit"
-                    disabled={traceroute_state.loading}
-                >
-                    { if traceroute_state.loading { "..." } else { "↵" } }
+                <ShellButton type_="submit" class="shell-button--submit">
+                    { if state.traceroute.is_loading() { "..." } else { "↵" } }
                 </ShellButton>
             </ShellForm>
             {
-                if let Some(err) = &traceroute_state.error {
+                if let Some(err) = &*error {
                     html! { <div class="error-message">{ err }</div> }
                 } else {
                     html! {}
                 }
             }
             <div>
-                { for nodes.iter().filter_map(|n| {
-                    traceroute_state.results.iter().find(|(node_name, _)| node_name == &n.name)
-                }).map(|(node_name, result)| {
-                    let version_flag = match traceroute_state.last_version.as_str() {
+                { for nodes.iter().filter_map(|node| {
+                    active_session.and_then(|session| {
+                        session
+                            .results
+                            .iter()
+                            .find(|(node_name, _)| node_name == &node.name)
+                            .map(|result| (&node.name, result))
+                    })
+                }).map(|(node_name, (_, result))| {
+                    let version_flag = active_session.map(|session| session.version.clone()).unwrap_or_default();
+                    let version_flag = match version_flag.as_str() {
                         "4" => " -4",
                         "6" => " -6",
                         _ => "",
                     };
+                    let target_value = active_session.map(|session| session.target.clone()).unwrap_or_default();
+
                     html! {
                         <details class="expandable-item" open=true>
                             <summary class="summary-header">
@@ -177,7 +169,7 @@ pub fn traceroute_section() -> Html {
                             </summary>
                             <ShellLine
                                 prompt={format!("{}@{}$ ", state.username, node_name)}
-                                command={format!("traceroute{} {}", version_flag, traceroute_state.last_target)}
+                                command={format!("traceroute{} {}", version_flag, target_value)}
                                 style={"font-size: 0.9em;".to_string()}
                             />
                             {
@@ -185,14 +177,9 @@ pub fn traceroute_section() -> Html {
                                     TracerouteResult::Hops(hops) => html! {
                                         <DataTable
                                             headers={
-                                                [
-                                                    "Hop",
-                                                    "Host",
-                                                    "IP",
-                                                    "RTTs",
-                                                ]
-                                                .map(AttrValue::from)
-                                                .to_vec()
+                                                ["Hop", "Host", "IP", "RTTs"]
+                                                    .map(AttrValue::from)
+                                                    .to_vec()
                                             }
                                             rows={
                                                 fold_timeouts(hops).iter().map(|hop| {
@@ -203,22 +190,21 @@ pub fn traceroute_section() -> Html {
                                                             html! { hop.address.clone().unwrap_or_default() },
                                                             html! {
                                                                 {
-                                                                    if let Some(rtts) = &hop.rtts {
-                                                                        rtts
-                                                                            .iter()
-                                                                            .map(|r| format!("{:.2}ms", r))
-                                                                            .collect::<Vec<_>>()
-                                                                            .join(" / ")
-                                                                    } else {
-                                                                        "*".to_string()
-                                                                    }
+                                                                    hop.rtts
+                                                                        .as_ref()
+                                                                        .map(|rtts| {
+                                                                            rtts.iter()
+                                                                                .map(|rtt| format!("{:.2}ms", rtt))
+                                                                                .collect::<Vec<_>>()
+                                                                                .join(" / ")
+                                                                        })
+                                                                        .unwrap_or_else(|| "*".to_string())
                                                                 }
                                                             },
                                                         ],
                                                         on_click: None,
                                                     }
-                                                })
-                                                .collect::<Vec<_>>()
+                                                }).collect::<Vec<_>>()
                                             }
                                         />
                                     },

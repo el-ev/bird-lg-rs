@@ -145,6 +145,7 @@ async fn handle_request(
             .await
             .right_stream(),
         AppRequest::Traceroute {
+            request_id,
             node,
             target,
             version,
@@ -155,21 +156,31 @@ async fn handle_request(
                 Some(version)
             };
 
-            crate::services::api::perform_traceroute(state, config, node, target, version)
+            crate::services::api::perform_traceroute(
+                state, config, request_id, node, target, version,
+            )
+            .await
+            .right_stream()
+        }
+        AppRequest::RouteLookup {
+            request_id,
+            node,
+            target,
+            all,
+        } => {
+            crate::services::api::perform_route_lookup(state, config, request_id, node, target, all)
                 .await
                 .right_stream()
         }
-        AppRequest::RouteLookup { node, target, all } => {
-            crate::services::api::perform_route_lookup(state, config, node, target, all)
-                .await
-                .right_stream()
-        }
-        AppRequest::ProtocolDetails { node, protocol } => {
-            crate::services::api::get_protocol_details(state, config, node, protocol)
-                .await
-                .right_stream()
-        }
+        AppRequest::ProtocolDetails {
+            request_id,
+            node,
+            protocol,
+        } => crate::services::api::get_protocol_details(state, config, request_id, node, protocol)
+            .await
+            .right_stream(),
         AppRequest::Ping {
+            request_id,
             node,
             target,
             version,
@@ -180,7 +191,7 @@ async fn handle_request(
                 Some(version)
             };
 
-            crate::services::api::perform_ping(state, config, node, target, version)
+            crate::services::api::perform_ping(state, config, request_id, node, target, version)
                 .await
                 .right_stream()
         }

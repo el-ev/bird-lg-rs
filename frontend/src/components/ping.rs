@@ -3,16 +3,20 @@ use ui_components::shell::{ShellButton, ShellForm, ShellInput, ShellPrompt, Shel
 use wasm_bindgen_futures::spawn_local;
 use web_sys::HtmlInputElement;
 use yew::prelude::*;
+
 use crate::{
     services::api::perform_ping,
-    store::{AppEvent, LgStateHandle, ping::PingAction, route_info::RouteInfoHandle},
+    store::{LgStateHandle, route_info::RouteInfoHandle},
 };
 
 #[function_component(Ping)]
 pub fn ping() -> Html {
     let state = use_context::<LgStateHandle>().expect("no app state found");
     let route_info = use_context::<RouteInfoHandle>().expect("no route info found");
-    let ping_state = &state.ping;
+    let selected_node = use_state(String::new);
+    let target = use_state(String::new);
+    let version = use_state(String::new);
+    let error = use_state(|| None::<String>);
 
     let nodes: Vec<NodeProtocol> = if let Some(node) = &route_info.node_info {
         vec![node.clone()]
@@ -20,63 +24,69 @@ pub fn ping() -> Html {
         state.nodes.clone()
     };
 
+    let selected_node_value = if selected_node.is_empty() {
+        nodes.first().map(|node| node.name.clone()).unwrap_or_default()
+    } else {
+        (*selected_node).clone()
+    };
+
     let on_node_change = {
-        let state = state.clone();
+        let selected_node = selected_node.clone();
         Callback::from(move |e: Event| {
             let target: HtmlInputElement = e.target_unchecked_into();
-            state.dispatch(AppEvent::Ping(PingAction::SetNode(target.value())));
+            selected_node.set(target.value());
         })
     };
 
     let on_version_change = {
-        let state = state.clone();
+        let version = version.clone();
         Callback::from(move |e: Event| {
             let target: HtmlInputElement = e.target_unchecked_into();
-            state.dispatch(AppEvent::Ping(PingAction::SetVersion(target.value())));
+            version.set(target.value());
         })
     };
 
     let on_target_change = {
-        let state = state.clone();
+        let target = target.clone();
+        let error = error.clone();
         Callback::from(move |value: String| {
-            state.dispatch(AppEvent::Ping(PingAction::SetTarget(value)));
+            target.set(value);
+            error.set(None);
         })
     };
 
     let on_submit = {
+        let error = error.clone();
+        let node = selected_node.clone();
+        let target = target.clone();
+        let version = version.clone();
         let state = state.clone();
         let nodes = nodes.clone();
+
         Callback::from(move |e: SubmitEvent| {
             e.prevent_default();
 
-            let target = state.ping.target.clone().trim().to_string();
-
-            if let Err(err) = validate_target(&target) {
-                state.dispatch(AppEvent::Ping(PingAction::SetError(err)));
+            let target_value = (*target).trim().to_string();
+            if let Err(err) = validate_target(&target_value) {
+                error.set(Some(err));
                 return;
             }
-            state.dispatch(AppEvent::Ping(PingAction::ClearError));
-            state.dispatch(AppEvent::Ping(PingAction::SetLastParams(
-                target.clone(),
-                state.ping.version.clone(),
-            )));
 
-            state.dispatch(AppEvent::Ping(PingAction::Start));
-
-            let validated_target = target;
-            let ping_node = if state.ping.node.is_empty() {
-                nodes.first().map(|n| n.name.clone()).unwrap_or_default()
+            let node_value = if node.is_empty() {
+                nodes.first().map(|entry| entry.name.clone()).unwrap_or_default()
             } else {
-                state.ping.node.clone()
+                (*node).clone()
             };
-            let ping_version = state.ping.version.clone();
+
+            error.set(None);
+            let version_value = (*version).clone();
             let state_async = state.clone();
 
             spawn_local(async move {
-                if let Err(error) =
-                    perform_ping(&state_async, ping_node, validated_target, ping_version).await
+                if let Err(fetch_error) =
+                    perform_ping(&state_async, node_value, target_value, version_value).await
                 {
-                    tracing::error!("Ping request failed: {}", error);
+                    tracing::error!("Ping request failed: {}", fetch_error);
                 }
             });
         })
@@ -88,35 +98,29 @@ pub fn ping() -> Html {
             <ShellForm onsubmit={on_submit}>
                 <ShellPrompt>
                     {format!("{}@", state.username)}
-                    <ShellSelect
-                        value={ping_state.node.clone()}
-                        on_change={on_node_change}
-                    >
-                        { for nodes.iter().enumerate().map(|(i, n)| html! {
-                            <option value={n.name.clone()} selected={i == 0}>{ &n.name }</option>
+                    <ShellSelect value={selected_node_value} on_change={on_node_change}>
+                        { for nodes.iter().enumerate().map(|(i, node)| html! {
+                            <option value={node.name.clone()} selected={i == 0}>{ &node.name }</option>
                         }) }
                     </ShellSelect>
                     {"$ "}
                 </ShellPrompt>
                 { "ping -c 5 " }
-                <ShellSelect
-                    value={ping_state.version.clone()}
-                    on_change={on_version_change}
-                >
+                <ShellSelect value={(*version).clone()} on_change={on_version_change}>
                     <option value="" selected=true>{"  "}</option>
                     <option value="4">{"-4"}</option>
                     <option value="6">{"-6"}</option>
                 </ShellSelect>
                 <span>{ " " }</span>
                 <ShellInput
-                    value={ping_state.target.clone()}
+                    value={(*target).clone()}
                     on_change={on_target_change}
                     placeholder="<target>"
                 />
                 <ShellButton type_="submit" text="↵" class="shell-button--submit" />
             </ShellForm>
             {
-                if let Some(err) = &ping_state.error {
+                if let Some(err) = &*error {
                     html! { <div class="error-message">{ err }</div> }
                 } else {
                     html! {}

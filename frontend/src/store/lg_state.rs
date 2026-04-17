@@ -8,11 +8,11 @@ use common::{
 use yew::prelude::*;
 
 use super::{
-    modal::{ModalAction, ModalState},
-    ping::{PingAction, PingResult, PingState},
-    traceroute::{TracerouteAction, TracerouteState},
+    command_output::{CommandOutputKind, CommandOutputState},
+    ping::{PingResult, PingState},
+    traceroute::{TracerouteResult, TracerouteState},
 };
-// ... (skip lines)
+
 pub type LgStateHandle = UseReducerHandle<LgState>;
 
 #[derive(Clone, Debug, PartialEq, Default)]
@@ -20,7 +20,7 @@ pub struct LgState {
     pub nodes: Vec<NodeProtocol>,
     pub wireguard: Vec<NodeWireGuard>,
     pub peering: HashMap<String, PeeringInfo>,
-    pub modal: ModalState,
+    pub command_output: CommandOutputState,
     pub error: Option<String>,
     pub data_ready: bool,
     pub config_ready: bool,
@@ -30,30 +30,72 @@ pub struct LgState {
     pub username: String,
     pub backend_url: String,
     pub ws_sender: Option<Callback<AppRequest>>,
-    pub route_lookup_context: Option<RouteLookupContext>,
-    pub protocol_details_context: Option<ProtocolDetailsContext>,
 }
 
 #[derive(Clone, Debug, PartialEq)]
-pub struct RouteLookupContext {
-    pub node: String,
-    pub target: String,
-    pub all: bool,
+pub enum PingStreamEvent {
+    Init {
+        request_id: String,
+        node: String,
+    },
+    Update {
+        request_id: String,
+        node: String,
+        lines: Vec<String>,
+    },
+    Done {
+        request_id: String,
+    },
+    Error {
+        request_id: String,
+        node: String,
+        error: String,
+    },
 }
 
 #[derive(Clone, Debug, PartialEq)]
-pub struct ProtocolDetailsContext {
-    pub node: String,
-    pub protocol: String,
+pub enum TracerouteStreamEvent {
+    Init {
+        request_id: String,
+        node: String,
+    },
+    Update {
+        request_id: String,
+        node: String,
+        result: TracerouteResult,
+    },
+    Done {
+        request_id: String,
+    },
+    Error {
+        request_id: String,
+        node: String,
+        error: String,
+    },
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub enum CommandOutputEvent {
+    Init {
+        request_id: String,
+    },
+    Update {
+        request_id: String,
+        lines: Vec<String>,
+    },
+    Done {
+        request_id: String,
+    },
+    Error {
+        request_id: String,
+        error: String,
+    },
 }
 
 pub enum AppEvent {
     SetNodes(Vec<NodeProtocol>),
     SetWireGuard(Vec<NodeWireGuard>),
     SetError(String),
-    Modal(ModalAction),
-    Traceroute(TracerouteAction),
-    Ping(PingAction),
     SetNetworkInfo(NetworkInfo),
     SetConfig {
         username: String,
@@ -63,24 +105,28 @@ pub enum AppEvent {
     ClearWsSender,
     UpdateTimestamp(DateTime<Utc>),
     ApplyDiff(Vec<NodeStatusDiff>),
-    SetRouteLookupContext(RouteLookupContext),
-    RouteLookupInit,
-    RouteLookupUpdate {
+    StartPing {
+        request_id: String,
         node: String,
-        lines: Vec<String>,
+        target: String,
+        version: String,
+        command: String,
     },
-    SetProtocolDetailsContext(ProtocolDetailsContext),
-    ProtocolDetailsInit,
-    ProtocolDetailsUpdate {
-        node: String,
-        protocol: String,
-        lines: Vec<String>,
+    PingStream(PingStreamEvent),
+    StartTraceroute {
+        request_id: String,
+        target: String,
+        version: String,
+        pending: usize,
     },
-    PingModalInit,
-    PingModalUpdate {
-        node: String,
-        result: PingResult,
+    TracerouteStream(TracerouteStreamEvent),
+    StartCommandOutput {
+        request_id: String,
+        kind: CommandOutputKind,
+        command: String,
     },
+    CommandOutputStream(CommandOutputEvent),
+    CloseActiveCommandOutput,
 }
 
 impl Reducible for LgState {
@@ -101,15 +147,6 @@ impl Reducible for LgState {
             AppEvent::SetError(err) => {
                 next_state.error = Some(err);
             }
-            AppEvent::Modal(act) => {
-                next_state.modal.reduce(act);
-            }
-            AppEvent::Traceroute(act) => {
-                next_state.traceroute.reduce(act);
-            }
-            AppEvent::Ping(act) => {
-                next_state.ping.reduce(act);
-            }
             AppEvent::SetNetworkInfo(info) => {
                 next_state.network_info = Some(info);
             }
@@ -129,7 +166,6 @@ impl Reducible for LgState {
             }
             AppEvent::UpdateTimestamp(ts) => {
                 for node in &mut next_state.nodes {
-                    // NoChange implies no error
                     node.last_updated = ts;
                 }
             }
@@ -170,72 +206,113 @@ impl Reducible for LgState {
                     }
                 }
             }
-            AppEvent::SetRouteLookupContext(ctx) => {
-                next_state.route_lookup_context = Some(ctx);
-            }
-            AppEvent::RouteLookupInit => {
-                next_state.modal.content = String::new();
-            }
-            AppEvent::RouteLookupUpdate { node, lines } => {
-                if let Some(ctx) = &mut next_state.route_lookup_context {
-                    ctx.node = node;
-                }
-                append_modal_lines(&mut next_state.modal.content, &lines);
-            }
-            AppEvent::SetProtocolDetailsContext(ctx) => {
-                next_state.protocol_details_context = Some(ctx);
-            }
-            AppEvent::ProtocolDetailsInit => {
-                next_state.modal.content = String::new();
-            }
-            AppEvent::ProtocolDetailsUpdate {
+            AppEvent::StartPing {
+                request_id,
                 node,
-                protocol,
-                lines,
+                target,
+                version,
+                command,
             } => {
-                if let Some(ctx) = &mut next_state.protocol_details_context {
-                    ctx.node = node;
-                    ctx.protocol = protocol;
-                }
-                append_modal_lines(&mut next_state.modal.content, &lines);
+                next_state
+                    .ping
+                    .start(request_id.clone(), node, target, version);
+                next_state
+                    .command_output
+                    .start(request_id, CommandOutputKind::Ping, command);
             }
-            AppEvent::PingModalInit => {
-                next_state.modal.content = String::new();
-            }
-            AppEvent::PingModalUpdate { node, result } => match result {
-                PingResult::Lines(lines) => {
-                    next_state.ping.node = node;
-                    append_modal_lines(&mut next_state.modal.content, &lines);
+            AppEvent::PingStream(event) => match event {
+                PingStreamEvent::Init { request_id, node } => {
+                    next_state.ping.initialize(&request_id, node);
+                    next_state.command_output.initialize(&request_id);
                 }
-                PingResult::Error(err) => {
-                    next_state.ping.node = node;
-                    if !next_state.modal.content.is_empty() {
-                        next_state.modal.content.push('\n');
-                    }
-                    next_state.modal.content.push_str("Error: ");
-                    next_state.modal.content.push_str(&err);
-                    next_state.modal.content.push('\n');
+                PingStreamEvent::Update {
+                    request_id,
+                    node,
+                    lines,
+                } => {
+                    next_state
+                        .ping
+                        .update(&request_id, node, PingResult::Lines(lines.clone()));
+                    next_state.command_output.append_lines(&request_id, &lines);
+                }
+                PingStreamEvent::Done { request_id } => {
+                    next_state.ping.finish(&request_id);
+                    next_state.command_output.finish(&request_id);
+                }
+                PingStreamEvent::Error {
+                    request_id,
+                    node,
+                    error,
+                } => {
+                    next_state
+                        .ping
+                        .update(&request_id, node, PingResult::Error(error.clone()));
+                    next_state.ping.finish(&request_id);
+                    next_state.command_output.append_error(&request_id, &error);
                 }
             },
+            AppEvent::StartTraceroute {
+                request_id,
+                target,
+                version,
+                pending,
+            } => {
+                next_state
+                    .traceroute
+                    .start(request_id, target, version, pending);
+            }
+            AppEvent::TracerouteStream(event) => match event {
+                TracerouteStreamEvent::Init { request_id, node } => {
+                    next_state.traceroute.initialize(&request_id, node);
+                }
+                TracerouteStreamEvent::Update {
+                    request_id,
+                    node,
+                    result,
+                } => {
+                    next_state.traceroute.update(&request_id, node, result);
+                }
+                TracerouteStreamEvent::Done { request_id } => {
+                    next_state.traceroute.finish_one(&request_id);
+                }
+                TracerouteStreamEvent::Error {
+                    request_id,
+                    node,
+                    error,
+                } => {
+                    next_state
+                        .traceroute
+                        .update(&request_id, node, TracerouteResult::Error(error));
+                    next_state.traceroute.finish_one(&request_id);
+                }
+            },
+            AppEvent::StartCommandOutput {
+                request_id,
+                kind,
+                command,
+            } => {
+                next_state.command_output.start(request_id, kind, command);
+            }
+            AppEvent::CommandOutputStream(event) => match event {
+                CommandOutputEvent::Init { request_id } => {
+                    next_state.command_output.initialize(&request_id);
+                }
+                CommandOutputEvent::Update { request_id, lines } => {
+                    next_state.command_output.append_lines(&request_id, &lines);
+                }
+                CommandOutputEvent::Done { request_id } => {
+                    next_state.command_output.finish(&request_id);
+                }
+                CommandOutputEvent::Error { request_id, error } => {
+                    next_state.command_output.append_error(&request_id, &error);
+                }
+            },
+            AppEvent::CloseActiveCommandOutput => {
+                next_state.command_output.close_active();
+            }
         }
 
         Rc::new(next_state)
-    }
-}
-
-fn append_modal_lines(content: &mut String, lines: &[String]) {
-    if lines.is_empty() {
-        return;
-    }
-
-    if !content.is_empty() && !content.ends_with('\n') {
-        content.push('\n');
-    }
-
-    content.push_str(&lines.join("\n"));
-
-    if !content.ends_with('\n') {
-        content.push('\n');
     }
 }
 
@@ -243,31 +320,67 @@ fn append_modal_lines(content: &mut String, lines: &[String]) {
 mod tests {
     use std::rc::Rc;
 
-    use super::{AppEvent, LgState};
-    use crate::store::ping::PingResult;
     use yew::Reducible;
 
+    use super::{AppEvent, CommandOutputEvent, LgState, PingStreamEvent};
+    use crate::store::command_output::CommandOutputKind;
+
     #[test]
-    fn ping_modal_updates_do_not_insert_blank_lines_between_batches() {
+    fn ping_output_updates_do_not_insert_blank_lines_between_batches() {
         let state = Rc::new(LgState::default());
 
-        let state = state.reduce(AppEvent::PingModalUpdate {
+        let state = state.reduce(AppEvent::StartPing {
+            request_id: "req-1".to_string(),
             node: "node-1".to_string(),
-            result: PingResult::Lines(vec![
-                "64 bytes from 1.1.1.1: icmp_seq=1 ttl=57 time=1.09 ms".to_string(),
-            ]),
+            target: "1.1.1.1".to_string(),
+            version: "4".to_string(),
+            command: "tester@node-1$ ping -c 5 -4 1.1.1.1".to_string(),
         });
 
-        let state = state.reduce(AppEvent::PingModalUpdate {
+        let state = state.reduce(AppEvent::PingStream(PingStreamEvent::Init {
+            request_id: "req-1".to_string(),
             node: "node-1".to_string(),
-            result: PingResult::Lines(vec![
-                "64 bytes from 1.1.1.1: icmp_seq=2 ttl=57 time=1.10 ms".to_string(),
-            ]),
-        });
+        }));
+
+        let state = state.reduce(AppEvent::PingStream(PingStreamEvent::Update {
+            request_id: "req-1".to_string(),
+            node: "node-1".to_string(),
+            lines: vec!["64 bytes from 1.1.1.1: icmp_seq=1 ttl=57 time=1.09 ms".to_string()],
+        }));
+
+        let state = state.reduce(AppEvent::PingStream(PingStreamEvent::Update {
+            request_id: "req-1".to_string(),
+            node: "node-1".to_string(),
+            lines: vec!["64 bytes from 1.1.1.1: icmp_seq=2 ttl=57 time=1.10 ms".to_string()],
+        }));
 
         assert_eq!(
-            state.modal.content,
-            "64 bytes from 1.1.1.1: icmp_seq=1 ttl=57 time=1.09 ms\n64 bytes from 1.1.1.1: icmp_seq=2 ttl=57 time=1.10 ms\n"
+            state
+                .command_output
+                .active_session()
+                .map(|session| session.content.as_str()),
+            Some(
+                "64 bytes from 1.1.1.1: icmp_seq=1 ttl=57 time=1.09 ms\n64 bytes from 1.1.1.1: icmp_seq=2 ttl=57 time=1.10 ms\n"
+            )
         );
+    }
+
+    #[test]
+    fn closed_output_session_ignores_late_updates() {
+        let state = Rc::new(LgState::default());
+
+        let state = state.reduce(AppEvent::StartCommandOutput {
+            request_id: "req-1".to_string(),
+            kind: CommandOutputKind::RouteLookup,
+            command: "tester@node-1$ birdc show route 1.1.1.0/24".to_string(),
+        });
+        let state = state.reduce(AppEvent::CloseActiveCommandOutput);
+        let state = state.reduce(AppEvent::CommandOutputStream(CommandOutputEvent::Update {
+            request_id: "req-1".to_string(),
+            lines: vec!["should be ignored".to_string()],
+        }));
+
+        assert!(state.command_output.active_session().is_none());
+        assert!(state.command_output.sessions.is_empty());
     }
 }

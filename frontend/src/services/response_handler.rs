@@ -1,94 +1,127 @@
 use common::api::AppResponse;
 
 use crate::store::{
-    AppEvent, LgStateHandle, TracerouteResult,
-    ping::{PingAction, PingResult},
-    traceroute::TracerouteAction,
+    AppEvent, CommandOutputEvent, LgStateHandle, PingStreamEvent, TracerouteResult,
+    TracerouteStreamEvent,
 };
 
 pub fn handle_app_response(response: AppResponse, state: &LgStateHandle) {
-    let events = map_response_to_events(response);
-    tracing::debug!(event_count = events.len(), "Dispatching mapped app events");
-    for event in events {
+    if let Some(event) = map_response_to_event(response) {
+        tracing::debug!("Dispatching mapped app event");
         state.dispatch(event);
     }
 }
 
-pub fn map_response_to_events(response: AppResponse) -> Vec<AppEvent> {
+pub fn map_response_to_event(response: AppResponse) -> Option<AppEvent> {
     match response {
-        AppResponse::Protocols { data } => vec![AppEvent::SetNodes(data)],
-        AppResponse::NoChange { last_updated } => vec![AppEvent::UpdateTimestamp(last_updated)],
-        AppResponse::ProtocolsDiff { data } => vec![AppEvent::ApplyDiff(data)],
-        AppResponse::TracerouteInit { node } => {
-            vec![AppEvent::Traceroute(TracerouteAction::InitResult(node))]
-        }
-        AppResponse::TracerouteUpdate { node, hops } => vec![AppEvent::Traceroute(
-            TracerouteAction::UpdateResult(node, TracerouteResult::Hops(hops)),
-        )],
-        AppResponse::TracerouteDone { .. } => {
-            vec![AppEvent::Traceroute(TracerouteAction::EndOne)]
-        }
-        AppResponse::TracerouteError { node, error } => vec![
-            AppEvent::Traceroute(TracerouteAction::UpdateResult(
+        AppResponse::Protocols { data } => Some(AppEvent::SetNodes(data)),
+        AppResponse::NoChange { last_updated } => Some(AppEvent::UpdateTimestamp(last_updated)),
+        AppResponse::ProtocolsDiff { data } => Some(AppEvent::ApplyDiff(data)),
+        AppResponse::TracerouteInit { request_id, node } => {
+            Some(AppEvent::TracerouteStream(TracerouteStreamEvent::Init {
+                request_id,
                 node,
-                TracerouteResult::Error(error),
-            )),
-            AppEvent::Traceroute(TracerouteAction::EndOne),
-        ],
-        AppResponse::PingInit { node } => vec![
-            AppEvent::Ping(PingAction::InitResult(node)),
-            AppEvent::PingModalInit,
-        ],
-        AppResponse::PingUpdate { node, lines } => {
-            let result = PingResult::Lines(lines);
-            vec![
-                AppEvent::Ping(PingAction::UpdateResult(node.clone(), result.clone())),
-                AppEvent::PingModalUpdate { node, result },
-            ]
+            }))
         }
-        AppResponse::PingDone { .. } => vec![AppEvent::Ping(PingAction::End)],
-        AppResponse::PingError { node, error } => {
-            let result = PingResult::Error(error);
-            vec![
-                AppEvent::Ping(PingAction::UpdateResult(node.clone(), result.clone())),
-                AppEvent::PingModalUpdate { node, result },
-                AppEvent::Ping(PingAction::End),
-            ]
-        }
-        AppResponse::RouteLookupInit { node: _ } => vec![AppEvent::RouteLookupInit],
-        AppResponse::RouteLookupUpdate { node, lines } => {
-            vec![AppEvent::RouteLookupUpdate { node, lines }]
-        }
-        AppResponse::RouteLookupDone { .. } => Vec::new(),
-        AppResponse::RouteLookupError { node: _, error } => vec![AppEvent::Modal(
-            crate::store::modal::ModalAction::UpdateContent(format!("Error: {}", error)),
-        )],
-        AppResponse::ProtocolDetailsInit {
-            node: _,
-            protocol: _,
-        } => vec![AppEvent::ProtocolDetailsInit],
-        AppResponse::ProtocolDetailsUpdate {
+        AppResponse::TracerouteUpdate {
+            request_id,
             node,
-            protocol,
-            lines,
-        } => vec![AppEvent::ProtocolDetailsUpdate {
+            hops,
+        } => Some(AppEvent::TracerouteStream(TracerouteStreamEvent::Update {
+            request_id,
             node,
-            protocol,
-            lines,
-        }],
-        AppResponse::ProtocolDetailsDone { .. } => Vec::new(),
-        AppResponse::ProtocolDetailsError {
-            node: _,
-            protocol: _,
+            result: TracerouteResult::Hops(hops),
+        })),
+        AppResponse::TracerouteDone { request_id, .. } => {
+            Some(AppEvent::TracerouteStream(TracerouteStreamEvent::Done {
+                request_id,
+            }))
+        }
+        AppResponse::TracerouteError {
+            request_id,
+            node,
             error,
-        } => vec![AppEvent::Modal(
-            crate::store::modal::ModalAction::UpdateContent(format!("Error: {}", error)),
-        )],
-        AppResponse::WireGuard { data } => vec![AppEvent::SetWireGuard(data)],
-        AppResponse::NetworkInfo(info) => vec![AppEvent::SetNetworkInfo(info)],
+        } => Some(AppEvent::TracerouteStream(TracerouteStreamEvent::Error {
+            request_id,
+            node,
+            error,
+        })),
+        AppResponse::PingInit { request_id, node } => {
+            Some(AppEvent::PingStream(PingStreamEvent::Init {
+                request_id,
+                node,
+            }))
+        }
+        AppResponse::PingUpdate {
+            request_id,
+            node,
+            lines,
+        } => Some(AppEvent::PingStream(PingStreamEvent::Update {
+            request_id,
+            node,
+            lines,
+        })),
+        AppResponse::PingDone { request_id, .. } => {
+            Some(AppEvent::PingStream(PingStreamEvent::Done { request_id }))
+        }
+        AppResponse::PingError {
+            request_id,
+            node,
+            error,
+        } => Some(AppEvent::PingStream(PingStreamEvent::Error {
+            request_id,
+            node,
+            error,
+        })),
+        AppResponse::RouteLookupInit { request_id, .. } => {
+            Some(AppEvent::CommandOutputStream(CommandOutputEvent::Init {
+                request_id,
+            }))
+        }
+        AppResponse::RouteLookupUpdate {
+            request_id, lines, ..
+        } => Some(AppEvent::CommandOutputStream(CommandOutputEvent::Update {
+            request_id,
+            lines,
+        })),
+        AppResponse::RouteLookupDone { request_id, .. } => {
+            Some(AppEvent::CommandOutputStream(CommandOutputEvent::Done {
+                request_id,
+            }))
+        }
+        AppResponse::RouteLookupError {
+            request_id, error, ..
+        } => Some(AppEvent::CommandOutputStream(CommandOutputEvent::Error {
+            request_id,
+            error,
+        })),
+        AppResponse::ProtocolDetailsInit { request_id, .. } => {
+            Some(AppEvent::CommandOutputStream(CommandOutputEvent::Init {
+                request_id,
+            }))
+        }
+        AppResponse::ProtocolDetailsUpdate {
+            request_id, lines, ..
+        } => Some(AppEvent::CommandOutputStream(CommandOutputEvent::Update {
+            request_id,
+            lines,
+        })),
+        AppResponse::ProtocolDetailsDone { request_id, .. } => {
+            Some(AppEvent::CommandOutputStream(CommandOutputEvent::Done {
+                request_id,
+            }))
+        }
+        AppResponse::ProtocolDetailsError {
+            request_id, error, ..
+        } => Some(AppEvent::CommandOutputStream(CommandOutputEvent::Error {
+            request_id,
+            error,
+        })),
+        AppResponse::WireGuard { data } => Some(AppEvent::SetWireGuard(data)),
+        AppResponse::NetworkInfo(info) => Some(AppEvent::SetNetworkInfo(info)),
         AppResponse::Error(e) => {
             tracing::error!("AppResponse Error: {}", e);
-            vec![AppEvent::SetError(e)]
+            Some(AppEvent::SetError(e))
         }
     }
 }
@@ -97,34 +130,55 @@ pub fn map_response_to_events(response: AppResponse) -> Vec<AppEvent> {
 mod tests {
     use common::api::AppResponse;
 
-    use super::map_response_to_events;
-    use crate::store::{AppEvent, ping::PingAction, traceroute::TracerouteAction};
+    use super::map_response_to_event;
+    use crate::store::{AppEvent, CommandOutputEvent, PingStreamEvent, TracerouteStreamEvent};
 
     #[test]
-    fn ping_done_maps_to_end_event() {
-        let events = map_response_to_events(AppResponse::PingDone {
+    fn ping_done_maps_to_single_end_event() {
+        let event = map_response_to_event(AppResponse::PingDone {
+            request_id: "req-1".to_string(),
             node: "node-a".to_string(),
         });
 
         assert!(matches!(
-            events.as_slice(),
-            [AppEvent::Ping(PingAction::End)]
+            event,
+            Some(AppEvent::PingStream(PingStreamEvent::Done { request_id }))
+                if request_id == "req-1"
         ));
     }
 
     #[test]
-    fn traceroute_error_maps_to_result_and_end() {
-        let events = map_response_to_events(AppResponse::TracerouteError {
+    fn traceroute_error_maps_to_single_error_event() {
+        let event = map_response_to_event(AppResponse::TracerouteError {
+            request_id: "req-1".to_string(),
             node: "node-a".to_string(),
             error: "timeout".to_string(),
         });
 
         assert!(matches!(
-            events.as_slice(),
-            [
-                AppEvent::Traceroute(TracerouteAction::UpdateResult(_, _)),
-                AppEvent::Traceroute(TracerouteAction::EndOne)
-            ]
+            event,
+            Some(AppEvent::TracerouteStream(TracerouteStreamEvent::Error {
+                request_id,
+                node,
+                error,
+            })) if request_id == "req-1" && node == "node-a" && error == "timeout"
+        ));
+    }
+
+    #[test]
+    fn route_lookup_update_maps_to_single_output_event() {
+        let event = map_response_to_event(AppResponse::RouteLookupUpdate {
+            request_id: "req-1".to_string(),
+            node: "node-a".to_string(),
+            lines: vec!["route".to_string()],
+        });
+
+        assert!(matches!(
+            event,
+            Some(AppEvent::CommandOutputStream(CommandOutputEvent::Update {
+                request_id,
+                lines,
+            })) if request_id == "req-1" && lines == vec!["route".to_string()]
         ));
     }
 }

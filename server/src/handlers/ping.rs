@@ -15,8 +15,13 @@ pub async fn proxy_ping(
     Extension(config): Extension<Arc<Config>>,
     Extension(state): Extension<AppState>,
 ) -> Sse<impl futures_util::Stream<Item = Result<Event, Infallible>>> {
-    let TracerouteParams { target, version } = params;
-    let response_stream = perform_ping(state, config, node_name, target, Some(version)).await;
+    let TracerouteParams {
+        request_id,
+        target,
+        version,
+    } = params;
+    let response_stream =
+        perform_ping(state, config, request_id, node_name, target, Some(version)).await;
 
     Sse::new(response_stream_to_sse(response_stream))
 }

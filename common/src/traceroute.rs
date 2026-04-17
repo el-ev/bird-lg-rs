@@ -41,6 +41,7 @@ pub struct TracerouteHop {
 
 #[derive(Deserialize)]
 pub struct TracerouteParams {
+    pub request_id: String,
     pub target: String,
     #[serde(default)]
     pub version: String,

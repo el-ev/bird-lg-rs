@@ -2,7 +2,7 @@ use yew::prelude::*;
 
 use crate::{
     components::{content_modal::ContentModal, header::Header, status_banner::StatusBanner},
-    store::{AppEvent, LgStateHandle, modal::ModalAction},
+    store::{AppEvent, LgStateHandle},
 };
 
 #[derive(Properties, PartialEq)]
@@ -15,6 +15,8 @@ pub struct MainViewProps {
 pub fn main_view(props: &MainViewProps) -> Html {
     let state = use_context::<LgStateHandle>().expect("no app state found");
     let waiting_for_data = state.nodes.is_empty() && !state.data_ready;
+    let active_output = state.command_output.active_session();
+
     html! {
         <main class="hero">
             <div class="container">
@@ -28,13 +30,13 @@ pub fn main_view(props: &MainViewProps) -> Html {
                 />
 
                 <ContentModal
-                    visible={state.modal.active}
-                    content={state.modal.content.clone()}
-                    command={state.modal.command.clone()}
+                    visible={active_output.is_some()}
+                    content={active_output.map(|session| session.content.clone()).unwrap_or_default()}
+                    command={active_output.map(|session| session.command.clone())}
                     on_close={
                         let state = state.clone();
                         Callback::from(move |_| {
-                            state.dispatch(AppEvent::Modal(ModalAction::Close));
+                            state.dispatch(AppEvent::CloseActiveCommandOutput);
                         })
                     }
                 />

@@ -53,6 +53,7 @@ where
 pub async fn perform_traceroute(
     state: AppState,
     config: Arc<Config>,
+    request_id: String,
     node: String,
     target: String,
     version: Option<String>,
@@ -60,6 +61,7 @@ pub async fn perform_traceroute(
     let client = NodeClient::new(state.http_client.clone());
     let node_config = match resolve_node_or_error(&client, &config, &node, |error| {
         AppResponse::TracerouteError {
+            request_id: request_id.clone(),
             node: node.clone(),
             error,
         }
@@ -76,9 +78,13 @@ pub async fn perform_traceroute(
     {
         Ok(byte_stream) => stream_with_terminal_events(
             byte_stream,
-            AppResponse::TracerouteInit { node: node.clone() },
+            AppResponse::TracerouteInit {
+                request_id: request_id.clone(),
+                node: node.clone(),
+            },
             {
                 let node = node.clone();
+                let request_id = request_id.clone();
                 move |lines| {
                     let hops: Vec<TracerouteHop> = lines
                         .into_iter()
@@ -86,12 +92,13 @@ pub async fn perform_traceroute(
                         .collect();
 
                     AppResponse::TracerouteUpdate {
+                        request_id: request_id.clone(),
                         node: node.clone(),
                         hops,
                     }
                 }
             },
-            AppResponse::TracerouteDone { node },
+            AppResponse::TracerouteDone { request_id, node },
         ),
         Err(error) => {
             warn!(
@@ -100,7 +107,11 @@ pub async fn perform_traceroute(
                 error = %error,
                 "Failed to fetch traceroute information"
             );
-            boxed_once(AppResponse::TracerouteError { node, error })
+            boxed_once(AppResponse::TracerouteError {
+                request_id,
+                node,
+                error,
+            })
         }
     }
 }
@@ -108,6 +119,7 @@ pub async fn perform_traceroute(
 pub async fn perform_route_lookup(
     state: AppState,
     config: Arc<Config>,
+    request_id: String,
     node: String,
     target: String,
     all: bool,
@@ -115,6 +127,7 @@ pub async fn perform_route_lookup(
     let client = NodeClient::new(state.http_client.clone());
     let node_config = match resolve_node_or_error(&client, &config, &node, |error| {
         AppResponse::RouteLookupError {
+            request_id: request_id.clone(),
             node: node.clone(),
             error,
         }
@@ -128,15 +141,20 @@ pub async fn perform_route_lookup(
     match client.route_lookup_stream(&node_config, &target, all).await {
         Ok(byte_stream) => stream_with_terminal_events(
             byte_stream,
-            AppResponse::RouteLookupInit { node: node.clone() },
+            AppResponse::RouteLookupInit {
+                request_id: request_id.clone(),
+                node: node.clone(),
+            },
             {
                 let node = node.clone();
+                let request_id = request_id.clone();
                 move |lines| AppResponse::RouteLookupUpdate {
+                    request_id: request_id.clone(),
                     node: node.clone(),
                     lines,
                 }
             },
-            AppResponse::RouteLookupDone { node },
+            AppResponse::RouteLookupDone { request_id, node },
         ),
         Err(error) => {
             warn!(
@@ -145,7 +163,11 @@ pub async fn perform_route_lookup(
                 error = %error,
                 "Failed to fetch route information"
             );
-            boxed_once(AppResponse::RouteLookupError { node, error })
+            boxed_once(AppResponse::RouteLookupError {
+                request_id,
+                node,
+                error,
+            })
         }
     }
 }
@@ -153,12 +175,14 @@ pub async fn perform_route_lookup(
 pub async fn get_protocol_details(
     state: AppState,
     config: Arc<Config>,
+    request_id: String,
     node: String,
     protocol: String,
 ) -> BoxStream {
     let client = NodeClient::new(state.http_client.clone());
     let node_config = match resolve_node_or_error(&client, &config, &node, |error| {
         AppResponse::ProtocolDetailsError {
+            request_id: request_id.clone(),
             node: node.clone(),
             protocol: protocol.clone(),
             error,
@@ -181,19 +205,26 @@ pub async fn get_protocol_details(
             stream_with_terminal_events(
                 byte_stream,
                 AppResponse::ProtocolDetailsInit {
+                    request_id: request_id.clone(),
                     node: init_node,
                     protocol: init_protocol,
                 },
                 {
                     let node = node.clone();
                     let protocol = protocol.clone();
+                    let request_id = request_id.clone();
                     move |lines| AppResponse::ProtocolDetailsUpdate {
+                        request_id: request_id.clone(),
                         node: node.clone(),
                         protocol: protocol.clone(),
                         lines,
                     }
                 },
-                AppResponse::ProtocolDetailsDone { node, protocol },
+                AppResponse::ProtocolDetailsDone {
+                    request_id,
+                    node,
+                    protocol,
+                },
             )
         }
         Err(error) => {
@@ -204,6 +235,7 @@ pub async fn get_protocol_details(
                 "Failed to fetch protocol details"
             );
             boxed_once(AppResponse::ProtocolDetailsError {
+                request_id,
                 node,
                 protocol,
                 error,
@@ -228,6 +260,7 @@ pub async fn get_wireguard(state: AppState, config: Arc<Config>) -> BoxStream {
 pub async fn perform_ping(
     state: AppState,
     config: Arc<Config>,
+    request_id: String,
     node: String,
     target: String,
     version: Option<String>,
@@ -235,6 +268,7 @@ pub async fn perform_ping(
     let client = NodeClient::new(state.http_client.clone());
     let node_config =
         match resolve_node_or_error(&client, &config, &node, |error| AppResponse::PingError {
+            request_id: request_id.clone(),
             node: node.clone(),
             error,
         }) {
@@ -250,15 +284,20 @@ pub async fn perform_ping(
     {
         Ok(byte_stream) => stream_with_terminal_events(
             byte_stream,
-            AppResponse::PingInit { node: node.clone() },
+            AppResponse::PingInit {
+                request_id: request_id.clone(),
+                node: node.clone(),
+            },
             {
                 let node = node.clone();
+                let request_id = request_id.clone();
                 move |lines| AppResponse::PingUpdate {
+                    request_id: request_id.clone(),
                     node: node.clone(),
                     lines,
                 }
             },
-            AppResponse::PingDone { node },
+            AppResponse::PingDone { request_id, node },
         ),
         Err(error) => {
             warn!(
@@ -267,7 +306,11 @@ pub async fn perform_ping(
                 error = %error,
                 "Failed to fetch ping information"
             );
-            boxed_once(AppResponse::PingError { node, error })
+            boxed_once(AppResponse::PingError {
+                request_id,
+                node,
+                error,
+            })
         }
     }
 }
@@ -290,13 +333,16 @@ mod tests {
         let responses = stream_with_terminal_events(
             byte_stream,
             AppResponse::PingInit {
+                request_id: "req-1".to_string(),
                 node: "edge-a".to_string(),
             },
             |lines| AppResponse::PingUpdate {
+                request_id: "req-1".to_string(),
                 node: "edge-a".to_string(),
                 lines,
             },
             AppResponse::PingDone {
+                request_id: "req-1".to_string(),
                 node: "edge-a".to_string(),
             },
         )
@@ -306,21 +352,35 @@ mod tests {
         assert_eq!(responses.len(), 4);
         assert!(matches!(
             &responses[0],
-            AppResponse::PingInit { node } if node == "edge-a"
+            AppResponse::PingInit { request_id, node }
+                if request_id == "req-1" && node == "edge-a"
         ));
         assert!(matches!(
             &responses[1],
-            AppResponse::PingUpdate { node, lines }
-                if node == "edge-a" && lines == &vec!["line one".to_string(), "line two".to_string()]
+            AppResponse::PingUpdate {
+                request_id,
+                node,
+                lines,
+            }
+                if request_id == "req-1"
+                    && node == "edge-a"
+                    && lines == &vec!["line one".to_string(), "line two".to_string()]
         ));
         assert!(matches!(
             &responses[2],
-            AppResponse::PingUpdate { node, lines }
-                if node == "edge-a" && lines == &vec!["line three".to_string()]
+            AppResponse::PingUpdate {
+                request_id,
+                node,
+                lines,
+            }
+                if request_id == "req-1"
+                    && node == "edge-a"
+                    && lines == &vec!["line three".to_string()]
         ));
         assert!(matches!(
             &responses[3],
-            AppResponse::PingDone { node } if node == "edge-a"
+            AppResponse::PingDone { request_id, node }
+                if request_id == "req-1" && node == "edge-a"
         ));
     }
 }
