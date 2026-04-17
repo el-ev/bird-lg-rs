@@ -497,9 +497,9 @@ details[open] .summary-header {
 .shell-line {
     display: flex;
     flex-wrap: wrap;
-    align-items: flex-start;
+    align-items: baseline;
     column-gap: 0;
-    row-gap: 8px;
+    row-gap: 2px;
     background: var(--bg-shell);
     padding: 10px;
     border-radius: var(--radius-sm);
@@ -507,14 +507,17 @@ details[open] .summary-header {
     border: 1px solid var(--border);
     white-space: pre-wrap;
     word-break: break-all;
+    line-height: 1.05;
 }
 
 .shell-form {
-    align-items: center;
+    display: block;
+    font-size: 13px;
+    line-height: normal;
 }
 
-.shell-form > * {
-    flex: 0 0 auto;
+.shell-form > .shell-input-frame--multiline {
+    flex-basis: 100%;
 }
 
 .shell-prompt {
@@ -523,38 +526,47 @@ details[open] .summary-header {
     white-space: pre-wrap;
     display: inline-flex;
     flex-wrap: wrap;
-    align-items: center;
+    align-items: baseline;
 }
 
 :is(.shell-select, .shell-input-frame) {
     background: var(--bg-shell-input);
     border: none;
-    border-radius: var(--radius-sm);
+    border-radius: 3px;
 }
 
 .shell-select {
     font-size: 1em;
     color: inherit;
     font-weight: inherit;
-    padding: 0.04rem 0.18rem;
+    padding: 0.02rem 0.12rem;
     outline: none;
     cursor: pointer;
     appearance: none;
     -webkit-appearance: none;
     user-select: text;
     -webkit-user-select: text;
+    line-height: inherit;
+    margin: 0;
+    vertical-align: baseline;
+}
+
+.shell-select:focus-visible {
+    outline: 1px dotted var(--text);
 }
 
 .shell-input-frame {
     position: relative;
     display: inline-flex;
     align-items: baseline;
+    cursor: text;
+    line-height: inherit;
 }
 
 .shell-input-frame--inline {
-    --shell-inline-pad-x: 0.18rem;
-    min-width: max(1ch, calc(var(--shell-input-ch, 8) * 1ch));
-    padding: 0.04rem var(--shell-inline-pad-x);
+    --shell-inline-pad-x: 0.12rem;
+    min-width: max(1ch, calc(var(--shell-input-ch, 1) * 1ch));
+    padding: 0.02rem var(--shell-inline-pad-x);
 }
 
 .shell-input-frame--inline:focus-within::after {
@@ -562,9 +574,9 @@ details[open] .summary-header {
     position: absolute;
     left: calc(var(--shell-inline-pad-x) + var(--shell-caret-col, 0) * 1ch);
     top: 50%;
-    width: 0.72ch;
-    height: 1.15em;
-    transform: translateY(-52%);
+    width: 0.62ch;
+    height: 1.02em;
+    transform: translateY(-50%);
     background: color-mix(in srgb, var(--shell-prompt) 82%, var(--text));
     animation: shell-caret-blink 1s step-end infinite;
     pointer-events: none;
@@ -576,7 +588,7 @@ details[open] .summary-header {
 }
 
 .shell-input {
-    min-width: max(1ch, calc(var(--shell-input-ch, 8) * 1ch));
+    min-width: max(1ch, calc(var(--shell-input-ch, 1) * 1ch));
     max-width: 100%;
     padding: 0;
     border: none;
@@ -589,6 +601,11 @@ details[open] .summary-header {
     box-sizing: border-box;
     caret-color: color-mix(in srgb, var(--shell-prompt) 82%, var(--text));
     text-shadow: none;
+    appearance: none;
+    -webkit-appearance: none;
+    margin: 0;
+    min-height: 0;
+    vertical-align: baseline;
 }
 
 .shell-input::placeholder {
@@ -604,6 +621,11 @@ details[open] .summary-header {
     caret-color: transparent;
 }
 
+.shell-input--inline {
+    width: calc(var(--shell-input-ch, 1) * 1ch);
+    min-width: 0;
+}
+
 .shell-input:disabled {
     opacity: 0.6;
     cursor: not-allowed;
@@ -612,8 +634,8 @@ details[open] .summary-header {
 .shell-input--multiline {
     flex: 1 1 100%;
     width: 100%;
-    min-height: calc(1.4em * 4);
-    padding: 0.4rem 0.5rem;
+    min-height: calc(1.25em * 4);
+    padding: 0.32rem 0.42rem;
     resize: vertical;
     white-space: pre-wrap;
     word-break: break-word;
@@ -647,7 +669,8 @@ details[open] .summary-header {
 }
 
 .shell-button--submit {
-    margin-left: auto;
+    float: right;
+    margin-left: 0;
     border-color: transparent;
     color: var(--shell-prompt);
 }
