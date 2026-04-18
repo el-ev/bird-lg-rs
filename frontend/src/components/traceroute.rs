@@ -174,7 +174,6 @@ pub fn traceroute_section() -> Html {
                             <ShellLine
                                 prompt={format!("{}@{}$ ", state.username, node_name)}
                                 command={format!("traceroute{} {}", version_flag, target_value)}
-                                style={"font-size: 0.9em;".to_string()}
                             />
                             {
                                 match result {

@@ -495,11 +495,7 @@ details[open] .summary-header {
 }
 
 .shell-line {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: baseline;
-    column-gap: 0;
-    row-gap: 2px;
+    display: block;
     background: var(--bg-shell);
     padding: 10px;
     border-radius: var(--radius-sm);
@@ -507,13 +503,14 @@ details[open] .summary-header {
     border: 1px solid var(--border);
     white-space: pre-wrap;
     word-break: break-all;
-    line-height: 1.05;
+    font-size: 13px;
+    line-height: normal;
 }
 
 .shell-form {
     display: block;
-    font-size: 13px;
-    line-height: normal;
+    font-size: inherit;
+    line-height: inherit;
 }
 
 .shell-form > .shell-input-frame--multiline {
