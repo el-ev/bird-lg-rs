@@ -2,6 +2,8 @@
 set -e
 
 BACKEND_URL="${BACKEND_URL:-wss://lg.example.com/ws}"
+AUTOPEER_URL="${AUTOPEER_URL:-}"
+AUTOPEER_SITE_URL="${AUTOPEER_SITE_URL:-}"
 USERNAME="${USERNAME:-admin}"
 OUTPUT_DIR="${OUTPUT_DIR:-./dist-packed}"
 
@@ -9,6 +11,14 @@ while [[ $# -gt 0 ]]; do
     case $1 in
         --backend-url)
             BACKEND_URL="$2"
+            shift 2
+            ;;
+        --autopeer-url)
+            AUTOPEER_URL="$2"
+            shift 2
+            ;;
+        --autopeer-site-url)
+            AUTOPEER_SITE_URL="$2"
             shift 2
             ;;
         --username)
@@ -24,11 +34,13 @@ while [[ $# -gt 0 ]]; do
             echo ""
             echo "Options:"
             echo "  --backend-url URL   WebSocket backend URL (default: wss://lg.example.com/ws)"
+            echo "  --autopeer-url URL  Autopeer backend URL (default: empty)"
+            echo "  --autopeer-site-url URL  Autopeer site URL (default: empty)"
             echo "  --username NAME     Username for the looking glass (default: admin)"
             echo "  --output DIR        Output directory (default: ./dist-packed)"
             echo ""
             echo "Environment variables:"
-            echo "  BACKEND_URL, USERNAME, OUTPUT_DIR can also be set via env vars"
+            echo "  BACKEND_URL, AUTOPEER_URL, AUTOPEER_SITE_URL, USERNAME, OUTPUT_DIR can also be set via env vars"
             exit 0
             ;;
         *)
@@ -55,6 +67,8 @@ echo "==> Generating config.json..."
 cat > "$OUTPUT_DIR/config.json" << EOF
 {
     "backend_url": "$BACKEND_URL",
+    "autopeer_url": "$AUTOPEER_URL",
+    "autopeer_site_url": "$AUTOPEER_SITE_URL",
     "username": "$USERNAME"
 }
 EOF

@@ -38,6 +38,7 @@ pub struct LgState {
     pub network_info: Option<NetworkInfo>,
     pub username: String,
     pub backend_url: String,
+    pub autopeer_site_url: Option<String>,
     pub websocket_status: WebSocketStatus,
     pub ws_sender: Option<Callback<AppRequest>>,
 }
@@ -193,6 +194,7 @@ pub enum AppEvent {
     SetConfig {
         username: String,
         backend_url: String,
+        autopeer_site_url: Option<String>,
     },
     SetWsConnecting,
     SetWsConnected(Callback<AppRequest>),
@@ -233,9 +235,11 @@ impl Reducible for LgState {
             AppEvent::SetConfig {
                 username,
                 backend_url,
+                autopeer_site_url,
             } => {
                 next_state.username = username;
                 next_state.backend_url = backend_url;
+                next_state.autopeer_site_url = autopeer_site_url;
                 next_state.config_ready = true;
             }
             AppEvent::SetWsConnecting => {

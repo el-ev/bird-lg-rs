@@ -13,7 +13,7 @@ pub struct Protocol {
     pub info: String,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub struct PeeringInfo {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub ipv4: Option<String>,

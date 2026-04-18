@@ -7,6 +7,8 @@ const CONFIG_PATH: &str = "/config.json";
 pub struct Config {
     pub username: String,
     pub backend_url: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub autopeer_site_url: Option<String>,
 }
 
 pub async fn load_config() -> Result<Config, String> {

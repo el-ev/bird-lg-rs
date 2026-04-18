@@ -8,6 +8,8 @@ pub struct ShellInputProps {
     #[prop_or_default]
     pub class: Classes,
     #[prop_or_default]
+    pub frame_class: Classes,
+    #[prop_or_default]
     pub placeholder: AttrValue,
     #[prop_or_default]
     pub disabled: bool,
@@ -15,6 +17,10 @@ pub struct ShellInputProps {
     pub multiline: bool,
     #[prop_or(4)]
     pub rows: usize,
+    #[prop_or_default]
+    pub on_blur: Callback<FocusEvent>,
+    #[prop_or_default]
+    pub on_keydown: Callback<KeyboardEvent>,
 }
 
 #[function_component(ShellInput)]
@@ -34,7 +40,8 @@ pub fn shell_input(props: &ShellInputProps) -> Html {
     let frame_classes = classes!(
         "shell-input-frame",
         props.multiline.then_some("shell-input-frame--multiline"),
-        (!props.multiline).then_some("shell-input-frame--inline")
+        (!props.multiline).then_some("shell-input-frame--inline"),
+        props.frame_class.clone()
     );
     let classes = classes!(
         "shell-input",
@@ -60,6 +67,8 @@ pub fn shell_input(props: &ShellInputProps) -> Html {
                     rows={props.rows.to_string()}
                     disabled={props.disabled}
                     spellcheck="false"
+                    onblur={props.on_blur.clone()}
+                    onkeydown={props.on_keydown.clone()}
                 />
             </div>
         }
@@ -128,6 +137,8 @@ pub fn shell_input(props: &ShellInputProps) -> Html {
                     onclick={onclick}
                     onmouseup={onmouseup}
                     onfocus={onfocus}
+                    onblur={props.on_blur.clone()}
+                    onkeydown={props.on_keydown.clone()}
                     disabled={props.disabled}
                     spellcheck="false"
                     autocomplete="off"
@@ -142,7 +153,11 @@ pub fn shell_input(props: &ShellInputProps) -> Html {
 fn inline_input_width(props: &ShellInputProps) -> usize {
     let value_width = props.value.chars().count();
     let placeholder_width = props.placeholder.chars().count();
-    value_width.max(placeholder_width).max(1)
+    if value_width > 0 {
+        value_width
+    } else {
+        placeholder_width.max(1)
+    }
 }
 
 fn read_cursor_position(input: &HtmlInputElement) -> usize {
@@ -169,23 +184,26 @@ mod tests {
             value: AttrValue::from(value.to_owned()),
             on_change: Callback::noop(),
             class: Classes::new(),
+            frame_class: Classes::new(),
             placeholder: AttrValue::from(placeholder.to_owned()),
             disabled: false,
             multiline: false,
             rows: 4,
+            on_blur: Callback::noop(),
+            on_keydown: Callback::noop(),
         }
     }
 
     #[test]
-    fn inline_input_width_matches_placeholder_length() {
+    fn inline_input_width_matches_placeholder_length_when_empty() {
         let props = build_props("", "424242xxxx");
         assert_eq!(inline_input_width(&props), 10);
     }
 
     #[test]
-    fn inline_input_width_grows_with_value_length() {
-        let props = build_props("birdc show route", "<target>");
-        assert_eq!(inline_input_width(&props), 16);
+    fn inline_input_width_tracks_value_even_when_placeholder_is_longer() {
+        let props = build_props("20454", "the default port, e.g. 20454");
+        assert_eq!(inline_input_width(&props), 5);
     }
 
     #[test]

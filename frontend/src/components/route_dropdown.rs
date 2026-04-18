@@ -12,6 +12,7 @@ struct RouteMenuItem {
     label: String,
     path: String,
     route: Option<Route>,
+    href: Option<String>,
     children: Vec<RouteMenuChild>,
 }
 
@@ -21,7 +22,18 @@ struct RouteMenuChild {
     route: Route,
 }
 
-fn build_route_menu_items(nodes: &[NodeProtocol]) -> Vec<RouteMenuItem> {
+fn resolved_autopeer_href(autopeer_site_url: Option<&str>) -> String {
+    autopeer_site_url
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .unwrap_or("/autopeer")
+        .to_string()
+}
+
+fn build_route_menu_items(
+    nodes: &[NodeProtocol],
+    autopeer_site_url: Option<&str>,
+) -> Vec<RouteMenuItem> {
     let mut static_routes = vec![
         Route::Protocols,
         Route::Peering,
@@ -41,10 +53,22 @@ fn build_route_menu_items(nodes: &[NodeProtocol]) -> Vec<RouteMenuItem> {
                 label: path.clone(),
                 path,
                 route: Some(route.clone()),
+                href: None,
                 children: Vec::new(),
             }
         })
         .collect();
+
+    items.insert(
+        2,
+        RouteMenuItem {
+            label: String::from("/autopeer"),
+            path: String::from("/autopeer"),
+            route: None,
+            href: Some(resolved_autopeer_href(autopeer_site_url)),
+            children: Vec::new(),
+        },
+    );
 
     let node_children: Vec<RouteMenuChild> = nodes
         .iter()
@@ -67,6 +91,7 @@ fn build_route_menu_items(nodes: &[NodeProtocol]) -> Vec<RouteMenuItem> {
             label: String::from("/node"),
             path: String::from("/node"),
             route: None,
+            href: None,
             children: node_children,
         },
     );
@@ -153,7 +178,7 @@ pub fn route_dropdown(props: &RouteDropdownProps) -> Html {
         })
     };
 
-    let items = build_route_menu_items(&state.nodes);
+    let items = build_route_menu_items(&state.nodes, state.autopeer_site_url.as_deref());
     let aria_expanded = if *menu_open { "true" } else { "false" };
 
     html! {
@@ -198,12 +223,14 @@ pub fn route_dropdown(props: &RouteDropdownProps) -> Html {
                                 item_classes.push("has-children");
                             }
 
-                            let item_onclick = item.route.as_ref().map(|_| {
+                            let item_onclick = if item.route.is_some() || item.href.is_some() {
                                 let menu_open = menu_open.clone();
-                                Callback::from(move |_| {
+                                Some(Callback::from(move |_| {
                                     menu_open.set(false);
-                                })
-                            });
+                                }))
+                            } else {
+                                None
+                            };
 
                             let has_children = !item.children.is_empty();
                             let child_menu = if !has_children {
@@ -276,6 +303,12 @@ pub fn route_dropdown(props: &RouteDropdownProps) -> Html {
                                                     { item.label }
                                                 </Link<Route>>
                                             }
+                                        } else if let Some(href) = item.href {
+                                            html! {
+                                                <a href={href} class="route-dropdown__link">
+                                                    { item.label }
+                                                </a>
+                                            }
                                         } else {
                                             html! {
                                                 <span
@@ -297,5 +330,24 @@ pub fn route_dropdown(props: &RouteDropdownProps) -> Html {
                 </ul>
             </div>
         </span>
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::resolved_autopeer_href;
+
+    #[test]
+    fn prefers_configured_autopeer_site_url() {
+        assert_eq!(
+            resolved_autopeer_href(Some("https://autopeer.example.net")),
+            "https://autopeer.example.net"
+        );
+    }
+
+    #[test]
+    fn falls_back_to_shared_autopeer_path() {
+        assert_eq!(resolved_autopeer_href(None), "/autopeer");
+        assert_eq!(resolved_autopeer_href(Some("   ")), "/autopeer");
     }
 }
