@@ -779,6 +779,10 @@ details[open] .summary-header {
 }
 
 .shell-toggle__state {
+    display: inline-flex;
+    flex: 0 0 2.4em;
+    justify-content: center;
+    width: 2.4em;
     font-size: 0.72em;
     text-transform: uppercase;
     letter-spacing: 0.08em;
@@ -1181,6 +1185,7 @@ details[open] .summary-header {
     border-radius: var(--radius-md);
     border: 1px solid var(--border);
     background: color-mix(in srgb, var(--card) 96%, var(--bg-secondary));
+    min-width: 0;
 }
 
 .autopeer-node-option:hover:not(:disabled),
@@ -1200,6 +1205,7 @@ details[open] .summary-header {
     justify-content: space-between;
     align-items: center;
     gap: var(--spacing-sm);
+    min-width: 0;
 }
 
 .autopeer-node-option-status {
@@ -1208,10 +1214,22 @@ details[open] .summary-header {
     gap: 6px;
     flex-wrap: wrap;
     justify-content: flex-end;
+    min-width: 0;
+    max-width: 100%;
 }
 
 .autopeer-node-name {
     font-size: 1rem;
+}
+
+.autopeer-node-name,
+.autopeer-node-meta,
+.autopeer-node-note,
+.autopeer-node-state-note {
+    min-width: 0;
+    white-space: normal;
+    overflow-wrap: anywhere;
+    word-break: break-word;
 }
 
 .autopeer-node-meta,
@@ -1368,6 +1386,7 @@ details[open] .summary-header {
     display: inline-flex;
     align-items: center;
     width: fit-content;
+    max-width: 100%;
     padding: 2px 8px;
     border-radius: var(--radius-pill);
     background: color-mix(in srgb, var(--accent) 16%, transparent);
@@ -1375,18 +1394,26 @@ details[open] .summary-header {
     font-size: 0.72rem;
     text-transform: uppercase;
     letter-spacing: 0.04em;
+    line-height: 1.35;
+    white-space: normal;
+    overflow-wrap: anywhere;
+    word-break: break-word;
 }
 
 .autopeer-node-badge {
     display: inline-flex;
     align-items: center;
     gap: 4px;
+    max-width: 100%;
     padding: 4px 8px;
     border-radius: var(--radius-pill);
     background: var(--bg-secondary);
     color: var(--text-secondary);
     font-size: 0.76rem;
-    line-height: 1;
+    line-height: 1.35;
+    white-space: normal;
+    overflow-wrap: anywhere;
+    word-break: break-word;
 }
 
 .autopeer-links {
