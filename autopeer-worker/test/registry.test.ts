@@ -64,9 +64,8 @@ describe("registry auth metadata", () => {
 
     expect(methodsFromMaintainers(maintainers, [])).toContainEqual({
       kind: "registry_email",
-      label: "Registry Email Magic Link",
-      description:
-        "Choose one of your maintainers and send a magic link plus one-time code to the admin-c and tech-c emails published in the registry.",
+      label: "Registry Email",
+      description: "Choose a maintainer and send a sign-in link to its registry email contacts.",
       ssh_fingerprints: [],
       pgp_fingerprints: [],
       email_targets: [

@@ -23,7 +23,7 @@ impl AuthMethodKind {
         match self {
             Self::RegistrySsh => "Registry SSH Signature",
             Self::RegistryPgp => "Registry PGP Signature",
-            Self::RegistryEmail => "Registry Email Magic Link",
+            Self::RegistryEmail => "Registry Email",
             Self::Oidc => "Third-Party Login",
             Self::HostImpersonation => "Host ASN Impersonation",
         }

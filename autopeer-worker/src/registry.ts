@@ -178,10 +178,10 @@ export function methodsFromMaintainers(
   if (emailTargets.length > 0) {
     methods.push({
       kind: "registry_email",
-      label: "Registry Email Magic Link",
+      label: "Registry Email",
       description: emailTargets.length === 1
-        ? `Send a magic link and one-time code to the admin-c and tech-c emails published for ${emailTargets[0].maintainer}.`
-        : "Choose one of your maintainers and send a magic link plus one-time code to the admin-c and tech-c emails published in the registry.",
+        ? `Send a sign-in link and one-time code to ${emailTargets[0].emails.join(", ")}.`
+        : "Choose a maintainer and send a sign-in link to its registry email contacts.",
       ssh_fingerprints: [],
       pgp_fingerprints: [],
       email_targets: emailTargets,

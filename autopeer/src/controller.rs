@@ -1117,7 +1117,7 @@ pub fn use_autopeer_controller(
             start_loading(
                 &loading,
                 &loading_message,
-                "Sending a magic link and one-time code to your registry email contacts...",
+                "Sending a sign-in link and one-time code to your registry email contacts...",
             );
             error.set(None);
 

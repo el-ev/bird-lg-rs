@@ -2,7 +2,7 @@ import type { RegistryEmailAuthRequestRecord } from "./types";
 import { readSecret } from "./utils";
 
 const RESEND_EMAILS_ENDPOINT = "https://api.resend.com/emails";
-const AUTOPEER_FROM = "DN42 Autopeer <autopeer@owo.li>";
+const AUTOPEER_FROM = "IRIS-AS Autopeer <autopeer@owo.li>";
 
 function escapeHtml(value: string): string {
   return value
@@ -27,8 +27,8 @@ function emailHtml(
 
   return [
     "<div style=\"font-family:system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;line-height:1.5;color:#111827\">",
-    `<p>Use this link or one-time code to sign in to DN42 Autopeer for <strong>AS${escapedAsn}</strong> as <strong>${escapedMaintainer}</strong>.</p>`,
-    `<p><a href="${escapedLink}">Open Autopeer Magic Link</a></p>`,
+    `<p>Use this sign-in link or one-time code to sign in to DN42 Autopeer for <strong>AS${escapedAsn}</strong> as <strong>${escapedMaintainer}</strong>.</p>`,
+    `<p><a href="${escapedLink}">Open Autopeer Sign-In Link</a></p>`,
     `<p>Your one-time auth code is:</p>`,
     `<p style="font-size:1.5rem;font-weight:700;letter-spacing:0.18em">${escapedCode}</p>`,
     `<p>This code expires at ${escapedExpiry}.</p>`,
@@ -44,7 +44,7 @@ function emailText(
   magicLinkUrl: string,
 ): string {
   return [
-    `Use this link or one-time code to sign in to DN42 Autopeer for AS${asn} as ${effectiveMnt}.`,
+    `Use this sign-in link or one-time code to sign in to DN42 Autopeer for AS${asn} as ${effectiveMnt}.`,
     "",
     `Magic link: ${magicLinkUrl}`,
     "",

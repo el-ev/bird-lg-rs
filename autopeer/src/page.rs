@@ -474,7 +474,7 @@ pub fn auto_peer_page() -> Html {
             <div class="autopeer-step">
                 <ShellLine>
                     <ShellPrompt>{"autopeer"}</ShellPrompt>
-                    {" Enter your DN42 ASN for registry SSH or PGP auth"}
+                    {" Enter your DN42 ASN for registry SSH, PGP, or email auth"}
                 </ShellLine>
                 <ShellLine>
                     <ShellPrompt>{"asn"}</ShellPrompt>
@@ -746,16 +746,16 @@ pub fn auto_peer_page() -> Html {
                         };
                         let on_code_change = on_registry_email_code_change.clone();
                         let send_button_text = if registry_email_sent_to.is_empty() {
-                            "Send Magic Link"
+                            "Send Sign-In Link"
                         } else {
-                            "Resend Magic Link"
+                            "Resend Sign-In Link"
                         };
 
                         html! {
                             <>
                                 <ShellLine>
                                     <span class="text-secondary">
-                                        {"Send a magic link and one-time code to the registry email contacts for one maintainer object, then either click the link or paste the code below."}
+                                        {"Send a sign-in link and one-time code to the registry email contacts for one maintainer object, then either click the link or paste the code below."}
                                     </span>
                                 </ShellLine>
                                 if method.email_targets.is_empty() {
@@ -793,7 +793,7 @@ pub fn auto_peer_page() -> Html {
                                     <ShellLine>
                                         <span class="text-secondary">
                                             {format!(
-                                                "We sent a magic link and auth code to {}.",
+                                                "We sent a sign-in link and auth code to {}.",
                                                 registry_email_sent_to.join(", ")
                                             )}
                                         </span>

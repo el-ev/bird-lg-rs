@@ -238,7 +238,7 @@ export function createRegistryEmailSession(
 ): SessionRecord {
   return buildSessionRecord(challenge.asn, effectiveMnt, {
     kind: "registry_email",
-    label: "Registry Email Magic Link",
+    label: "Registry Email",
     description: `You authenticated with ${effectiveMnt} using registry email auth.`,
   });
 }
