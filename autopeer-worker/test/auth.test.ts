@@ -72,6 +72,7 @@ function pgpMaintainer(fingerprint: string): MaintainerRecord {
     ssh_public_keys: [],
     ssh_fingerprints: [],
     pgp_fingerprints: [fingerprint],
+    contact_emails: [],
   };
 }
 

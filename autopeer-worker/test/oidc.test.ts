@@ -142,6 +142,7 @@ describe("OIDC claim paths", () => {
             ssh_public_keys: [],
             ssh_fingerprints: [],
             pgp_fingerprints: [],
+            contact_emails: [],
           },
         ],
       ),

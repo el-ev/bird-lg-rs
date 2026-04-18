@@ -7,6 +7,7 @@ use crate::models::PeeringInfo;
 pub enum AuthMethodKind {
     RegistrySsh,
     RegistryPgp,
+    RegistryEmail,
     Oidc,
     HostImpersonation,
 }
@@ -22,10 +23,18 @@ impl AuthMethodKind {
         match self {
             Self::RegistrySsh => "Registry SSH Signature",
             Self::RegistryPgp => "Registry PGP Signature",
+            Self::RegistryEmail => "Registry Email Magic Link",
             Self::Oidc => "Third-Party Login",
             Self::HostImpersonation => "Host ASN Impersonation",
         }
     }
+}
+
+#[derive(Clone, Debug, Default, Serialize, Deserialize, PartialEq, Eq)]
+pub struct RegistryEmailTarget {
+    pub maintainer: String,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub emails: Vec<String>,
 }
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize, PartialEq, Eq)]
@@ -39,6 +48,8 @@ pub struct AuthMethod {
     pub ssh_fingerprints: Vec<String>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub pgp_fingerprints: Vec<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub email_targets: Vec<RegistryEmailTarget>,
 }
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize, PartialEq, Eq)]
@@ -67,6 +78,32 @@ pub struct RegistryPgpVerifyRequest {
     pub challenge_id: String,
     pub public_key: String,
     pub signed_message: String,
+}
+
+#[derive(Clone, Debug, Default, Serialize, Deserialize, PartialEq, Eq)]
+pub struct RegistryEmailSendRequest {
+    pub challenge_id: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub effective_mnt: Option<String>,
+}
+
+#[derive(Clone, Debug, Default, Serialize, Deserialize, PartialEq, Eq)]
+pub struct RegistryEmailSendResponse {
+    pub effective_mnt: String,
+    #[serde(default)]
+    pub emails: Vec<String>,
+    pub expires_at: String,
+}
+
+#[derive(Clone, Debug, Default, Serialize, Deserialize, PartialEq, Eq)]
+pub struct RegistryEmailVerifyRequest {
+    pub challenge_id: String,
+    pub code: String,
+}
+
+#[derive(Clone, Debug, Default, Serialize, Deserialize, PartialEq, Eq)]
+pub struct RegistryEmailCompleteRequest {
+    pub token: String,
 }
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize, PartialEq, Eq)]

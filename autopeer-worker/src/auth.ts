@@ -5,6 +5,7 @@ import type {
   AuthMethod,
   ChallengeRecord,
   MaintainerRecord,
+  RegistryEmailAuthRequestRecord,
   RegistryPgpVerifyRequest,
   RegistrySshVerifyRequest,
   SessionRecord,
@@ -25,6 +26,7 @@ const PGP_SIGNED_MESSAGE_HINT =
   "PGP signed message is invalid. Clear-sign the challenge and paste the full signed block.";
 const PGP_VERIFICATION_HINT =
   "PGP signature verification failed. Re-sign the challenge with the matching registry key and paste the full signed block.";
+const EMAIL_AUTH_TTL_SECONDS = 15 * 60;
 
 type Reader = {
   bytes: Uint8Array;
@@ -154,6 +156,17 @@ function buildSessionRecord(asn: string, effectiveMnt: string, authMethod: AuthM
   };
 }
 
+function randomDigits(length: number): string {
+  const bytes = crypto.getRandomValues(new Uint8Array(length));
+  return Array.from(bytes, (byte) => String(byte % 10)).join("");
+}
+
+function randomBase64Url(length = 32): string {
+  const bytes = crypto.getRandomValues(new Uint8Array(length));
+  const binary = Array.from(bytes, (byte) => String.fromCharCode(byte)).join("");
+  return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/u, "");
+}
+
 function matchingMaintainerBySshKey(
   maintainers: MaintainerRecord[],
   publicKey: string,
@@ -199,6 +212,35 @@ export function createChallenge(asn: string): ChallengeRecord {
     created_at: createdAt,
     expires_at: addSeconds(createdAt, CHALLENGE_TTL_SECONDS),
   };
+}
+
+export function createRegistryEmailAuthRequest(
+  challenge: ChallengeRecord,
+  effectiveMnt: string,
+  emails: string[],
+): RegistryEmailAuthRequestRecord {
+  const createdAt = nowIso();
+  return {
+    challenge_id: challenge.id,
+    effective_mnt: effectiveMnt,
+    email_snapshot: [...new Set(emails)],
+    code: randomDigits(8),
+    token: randomBase64Url(32),
+    session_token: null,
+    created_at: createdAt,
+    expires_at: addSeconds(createdAt, EMAIL_AUTH_TTL_SECONDS),
+  };
+}
+
+export function createRegistryEmailSession(
+  challenge: ChallengeRecord,
+  effectiveMnt: string,
+): SessionRecord {
+  return buildSessionRecord(challenge.asn, effectiveMnt, {
+    kind: "registry_email",
+    label: "Registry Email Magic Link",
+    description: `You authenticated with ${effectiveMnt} using registry email auth.`,
+  });
 }
 
 export function assertChallengeFresh(challenge: ChallengeRecord): void {

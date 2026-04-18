@@ -249,7 +249,7 @@ export function readNonNegativeIntegerEnv(
 
 export function readSecret(
   env: Env,
-  name: "GITHUB_TOKEN" | "DN42_GIT_TOKEN",
+  name: "GITHUB_TOKEN" | "DN42_GIT_TOKEN" | "RESEND_API_KEY",
 ): string {
   return readNamedSecret(env, name);
 }

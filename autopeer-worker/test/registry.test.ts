@@ -20,6 +20,7 @@ describe("registry auth metadata", () => {
         ssh_public_keys: [registrySshKey],
         ssh_fingerprints: [registrySshFingerprint],
         pgp_fingerprints: [],
+        contact_emails: [],
       },
       {
         name: "EXAMPLE2-MNT",
@@ -27,6 +28,7 @@ describe("registry auth metadata", () => {
         ssh_public_keys: [registrySshKey],
         ssh_fingerprints: [registrySshFingerprint],
         pgp_fingerprints: [],
+        contact_emails: [],
       },
     ];
 
@@ -36,6 +38,47 @@ describe("registry auth metadata", () => {
       description: "Sign our challenge with an SSH key from your DN42 maintainer object.",
       ssh_fingerprints: [registrySshFingerprint],
       pgp_fingerprints: [],
+      email_targets: [],
+    });
+  });
+
+  it("exposes registry email auth targets grouped by maintainer", () => {
+    const maintainers: MaintainerRecord[] = [
+      {
+        name: "EXAMPLE-MNT",
+        auth_lines: [],
+        ssh_public_keys: [],
+        ssh_fingerprints: [],
+        pgp_fingerprints: [],
+        contact_emails: ["admin@example.net", "noc@example.net"],
+      },
+      {
+        name: "SECOND-MNT",
+        auth_lines: [],
+        ssh_public_keys: [],
+        ssh_fingerprints: [],
+        pgp_fingerprints: [],
+        contact_emails: ["ops@example.net"],
+      },
+    ];
+
+    expect(methodsFromMaintainers(maintainers, [])).toContainEqual({
+      kind: "registry_email",
+      label: "Registry Email Magic Link",
+      description:
+        "Choose one of your maintainers and send a magic link plus one-time code to the admin-c and tech-c emails published in the registry.",
+      ssh_fingerprints: [],
+      pgp_fingerprints: [],
+      email_targets: [
+        {
+          maintainer: "EXAMPLE-MNT",
+          emails: ["admin@example.net", "noc@example.net"],
+        },
+        {
+          maintainer: "SECOND-MNT",
+          emails: ["ops@example.net"],
+        },
+      ],
     });
   });
 });

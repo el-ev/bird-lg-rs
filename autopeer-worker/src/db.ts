@@ -1,6 +1,7 @@
 import type {
   AuthMethod,
   ChallengeRecord,
+  RegistryEmailAuthRequestRecord,
   OidcAuthRequestRecord,
   OperationKind,
   OperationRecord,
@@ -83,6 +84,21 @@ function mapOidcAuthRequestRow(row: Record<string, unknown>): OidcAuthRequestRec
     nonce: String(row.nonce),
     code_verifier: String(row.code_verifier),
     redirect_uri: String(row.redirect_uri),
+    session_token: row.session_token === null ? null : String(row.session_token),
+    created_at: String(row.created_at),
+    expires_at: String(row.expires_at),
+  };
+}
+
+function mapRegistryEmailAuthRequestRow(
+  row: Record<string, unknown>,
+): RegistryEmailAuthRequestRecord {
+  return {
+    challenge_id: String(row.challenge_id),
+    effective_mnt: String(row.effective_mnt),
+    email_snapshot: JSON.parse(String(row.email_snapshot)) as string[],
+    code: String(row.code),
+    token: String(row.token),
     session_token: row.session_token === null ? null : String(row.session_token),
     created_at: String(row.created_at),
     expires_at: String(row.expires_at),
@@ -206,6 +222,67 @@ export async function getOidcAuthRequest(env: Env, state: string): Promise<OidcA
 
 export async function deleteOidcAuthRequest(env: Env, state: string): Promise<void> {
   await env.DB.prepare("DELETE FROM oidc_auth_requests WHERE state = ?").bind(state).run();
+}
+
+export async function putRegistryEmailAuthRequest(
+  env: Env,
+  record: RegistryEmailAuthRequestRecord,
+): Promise<void> {
+  await env.DB.prepare(
+    `INSERT OR REPLACE INTO registry_email_auth_requests
+      (challenge_id, effective_mnt, email_snapshot, code, token, session_token, created_at, expires_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+  )
+    .bind(
+      record.challenge_id,
+      record.effective_mnt,
+      JSON.stringify(record.email_snapshot),
+      record.code,
+      record.token,
+      record.session_token ?? null,
+      record.created_at,
+      record.expires_at,
+    )
+    .run();
+}
+
+export async function getRegistryEmailAuthRequest(
+  env: Env,
+  challengeId: string,
+): Promise<RegistryEmailAuthRequestRecord | null> {
+  const row = await env.DB.prepare(
+    `SELECT challenge_id, effective_mnt, email_snapshot, code, token, session_token, created_at, expires_at
+      FROM registry_email_auth_requests WHERE challenge_id = ?`,
+  )
+    .bind(challengeId)
+    .first<Record<string, unknown>>();
+
+  return row ? mapRegistryEmailAuthRequestRow(row) : null;
+}
+
+export async function getRegistryEmailAuthRequestByToken(
+  env: Env,
+  token: string,
+): Promise<RegistryEmailAuthRequestRecord | null> {
+  const row = await env.DB.prepare(
+    `SELECT challenge_id, effective_mnt, email_snapshot, code, token, session_token, created_at, expires_at
+      FROM registry_email_auth_requests WHERE token = ?`,
+  )
+    .bind(token)
+    .first<Record<string, unknown>>();
+
+  return row ? mapRegistryEmailAuthRequestRow(row) : null;
+}
+
+export async function deleteRegistryEmailAuthRequest(
+  env: Env,
+  challengeId: string,
+): Promise<void> {
+  await env.DB.prepare(
+    "DELETE FROM registry_email_auth_requests WHERE challenge_id = ?",
+  )
+    .bind(challengeId)
+    .run();
 }
 
 export async function putAuthSession(env: Env, record: SessionRecord): Promise<void> {

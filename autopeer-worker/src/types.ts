@@ -1,8 +1,14 @@
 export type AuthMethodKind =
   | "registry_ssh"
   | "registry_pgp"
+  | "registry_email"
   | "oidc"
   | "host_impersonation";
+
+export interface RegistryEmailTarget {
+  maintainer: string;
+  emails: string[];
+}
 
 export interface AuthMethod {
   kind: AuthMethodKind;
@@ -11,6 +17,7 @@ export interface AuthMethod {
   provider?: string;
   ssh_fingerprints?: string[];
   pgp_fingerprints?: string[];
+  email_targets?: RegistryEmailTarget[];
 }
 
 export interface AuthStartRequest {
@@ -34,6 +41,26 @@ export interface RegistryPgpVerifyRequest {
   challenge_id: string;
   public_key: string;
   signed_message: string;
+}
+
+export interface RegistryEmailSendRequest {
+  challenge_id: string;
+  effective_mnt?: string | null;
+}
+
+export interface RegistryEmailSendResponse {
+  effective_mnt: string;
+  emails: string[];
+  expires_at: string;
+}
+
+export interface RegistryEmailVerifyRequest {
+  challenge_id: string;
+  code: string;
+}
+
+export interface RegistryEmailCompleteRequest {
+  token: string;
 }
 
 export interface OidcStartRequest {
@@ -179,6 +206,7 @@ export interface MaintainerRecord {
   ssh_public_keys: string[];
   ssh_fingerprints: string[];
   pgp_fingerprints: string[];
+  contact_emails: string[];
 }
 
 export interface ChallengeRecord {
@@ -257,6 +285,17 @@ export interface OidcAuthRequestRecord {
   nonce: string;
   code_verifier: string;
   redirect_uri: string;
+  session_token?: string | null;
+  created_at: string;
+  expires_at: string;
+}
+
+export interface RegistryEmailAuthRequestRecord {
+  challenge_id: string;
+  effective_mnt: string;
+  email_snapshot: string[];
+  code: string;
+  token: string;
   session_token?: string | null;
   created_at: string;
   expires_at: string;

@@ -2,7 +2,8 @@ use std::collections::BTreeSet;
 
 use common::auto_peer::{
     AuthMethod, AuthMethodKind, AuthSessionResponse, CreateSessionRequest, NodeView,
-    OperationStatus, SessionListResponse, SessionView, UpdateSessionRequest,
+    OperationStatus, RegistryEmailTarget, SessionListResponse, SessionView,
+    UpdateSessionRequest,
 };
 use gloo_timers::future::TimeoutFuture;
 use wasm_bindgen_futures::spawn_local;
@@ -60,6 +61,26 @@ pub(crate) fn validate_ssh_signature_input(signature: &str) -> Result<(), &'stat
 
 pub(crate) fn default_pgp_key(method: &AuthMethod) -> String {
     method.pgp_fingerprints.first().cloned().unwrap_or_default()
+}
+
+pub(crate) fn default_registry_email_target(method: &AuthMethod) -> String {
+    method
+        .email_targets
+        .first()
+        .map(|target| target.maintainer.clone())
+        .unwrap_or_default()
+}
+
+pub(crate) fn selected_registry_email_target<'a>(
+    method: &'a AuthMethod,
+    selected_maintainer: &str,
+) -> Option<&'a RegistryEmailTarget> {
+    let selected = selected_maintainer.trim();
+    if !selected.is_empty() {
+        method.email_targets.iter().find(|target| target.maintainer == selected)
+    } else {
+        method.email_targets.first()
+    }
 }
 
 pub(crate) fn filter_supported_methods(
@@ -173,7 +194,7 @@ fn clear_loading(loading: &UseStateHandle<bool>, loading_message: &UseStateHandl
     loading_message.set(None);
 }
 
-fn oidc_hash_param(name: &str) -> Option<String> {
+fn hash_param(name: &str) -> Option<String> {
     web_sys::window().and_then(|window| {
         let hash = window.location().hash().ok()?;
         let query = hash.strip_prefix('#').unwrap_or(&hash);
@@ -182,7 +203,7 @@ fn oidc_hash_param(name: &str) -> Option<String> {
     })
 }
 
-fn clear_oidc_hash() {
+fn clear_location_hash() {
     if let Some(window) = web_sys::window() {
         let _ = window.location().set_hash("");
     }
@@ -366,6 +387,9 @@ pub struct AutoPeerController {
     pub selected_pgp_key: UseStateHandle<String>,
     pub pgp_public_key: UseStateHandle<String>,
     pub pgp_signed_message: UseStateHandle<String>,
+    pub selected_email_maintainer: UseStateHandle<String>,
+    pub registry_email_code: UseStateHandle<String>,
+    pub registry_email_sent_to: UseStateHandle<Vec<String>>,
     pub on_asn_change: Callback<String>,
     pub on_submit_asn: Callback<MouseEvent>,
     pub on_asn_keydown: Callback<KeyboardEvent>,
@@ -374,6 +398,9 @@ pub struct AutoPeerController {
     pub on_select_method_back: Callback<MouseEvent>,
     pub on_verify_back: Callback<MouseEvent>,
     pub on_verify: Callback<MouseEvent>,
+    pub on_selected_email_maintainer_change: Callback<String>,
+    pub on_registry_email_code_change: Callback<String>,
+    pub on_send_registry_email: Callback<MouseEvent>,
     pub on_refresh: Callback<MouseEvent>,
     pub on_logout: Callback<MouseEvent>,
     pub on_impersonate_asn_change: Callback<String>,
@@ -432,6 +459,9 @@ pub fn use_autopeer_controller(
     let selected_pgp_key = use_state(String::new);
     let pgp_public_key = use_state(String::new);
     let pgp_signed_message = use_state(String::new);
+    let selected_email_maintainer = use_state(String::new);
+    let registry_email_code = use_state(String::new);
+    let registry_email_sent_to = use_state(Vec::<String>::new);
 
     let session_handles = SessionHandles {
         asn: asn.clone(),
@@ -474,22 +504,29 @@ pub fn use_autopeer_controller(
                         oidc_methods.set(config.oidc_methods);
                         api_base.set(Some(api_url.clone()));
 
-                        if let Some(message) = oidc_hash_param("oidc_error") {
-                            clear_oidc_hash();
+                        if let Some(message) = hash_param("oidc_error") {
+                            clear_location_hash();
                             error.set(Some(message));
                             auth_handles.step.set(AutoPeerStep::EnterAsn);
                             return;
                         }
 
-                        if let Some(state) = oidc_hash_param("oidc_state") {
+                        if let Some(message) = hash_param("email_error") {
+                            clear_location_hash();
+                            error.set(Some(message));
+                            auth_handles.step.set(AutoPeerStep::EnterAsn);
+                            return;
+                        }
+
+                        if let Some(token) = hash_param("email_token") {
                             start_loading(
                                 &loading,
                                 &loading_message,
-                                "Finishing your OIDC login and loading your sessions...",
+                                "Finishing your email login and loading your sessions...",
                             );
-                            match service::complete_oidc(&api_url, &state).await {
+                            match service::complete_registry_email(&api_url, &token).await {
                                 Ok(session) => {
-                                    clear_oidc_hash();
+                                    clear_location_hash();
                                     activate_authenticated_session(
                                         &api_url,
                                         session,
@@ -502,7 +539,37 @@ pub fn use_autopeer_controller(
                                     return;
                                 }
                                 Err(message) => {
-                                    clear_oidc_hash();
+                                    clear_location_hash();
+                                    clear_loading(&loading, &loading_message);
+                                    error.set(Some(message));
+                                    auth_handles.step.set(AutoPeerStep::EnterAsn);
+                                    return;
+                                }
+                            }
+                        }
+
+                        if let Some(state) = hash_param("oidc_state") {
+                            start_loading(
+                                &loading,
+                                &loading_message,
+                                "Finishing your OIDC login and loading your sessions...",
+                            );
+                            match service::complete_oidc(&api_url, &state).await {
+                                Ok(session) => {
+                                    clear_location_hash();
+                                    activate_authenticated_session(
+                                        &api_url,
+                                        session,
+                                        &session_handles,
+                                        &auth_handles,
+                                        &error,
+                                    )
+                                    .await;
+                                    clear_loading(&loading, &loading_message);
+                                    return;
+                                }
+                                Err(message) => {
+                                    clear_location_hash();
                                     clear_loading(&loading, &loading_message);
                                     error.set(Some(message));
                                     auth_handles.step.set(AutoPeerStep::EnterAsn);
@@ -717,6 +784,16 @@ pub fn use_autopeer_controller(
         Callback::from(move |value: String| impersonate_mnt.set(value))
     };
 
+    let on_selected_email_maintainer_change = {
+        let selected_email_maintainer = selected_email_maintainer.clone();
+        Callback::from(move |value: String| selected_email_maintainer.set(value))
+    };
+
+    let on_registry_email_code_change = {
+        let registry_email_code = registry_email_code.clone();
+        Callback::from(move |value: String| registry_email_code.set(value))
+    };
+
     let submit_asn = {
         let api_base = api_base.clone();
         let asn = asn.clone();
@@ -738,6 +815,9 @@ pub fn use_autopeer_controller(
         let draft = draft.clone();
         let editing_node = editing_node.clone();
         let config_stage = config_stage.clone();
+        let selected_email_maintainer = selected_email_maintainer.clone();
+        let registry_email_code = registry_email_code.clone();
+        let registry_email_sent_to = registry_email_sent_to.clone();
 
         Callback::from(move |_| {
             let Some(api_base) = require_api_base(&api_base, &error) else {
@@ -775,6 +855,9 @@ pub fn use_autopeer_controller(
             let draft = draft.clone();
             let editing_node = editing_node.clone();
             let config_stage = config_stage.clone();
+            let selected_email_maintainer = selected_email_maintainer.clone();
+            let registry_email_code = registry_email_code.clone();
+            let registry_email_sent_to = registry_email_sent_to.clone();
 
             spawn_local(async move {
                 match service::start_auth(&api_base, &asn_value).await {
@@ -786,6 +869,9 @@ pub fn use_autopeer_controller(
                         methods.set(available_methods);
                         selected_method.set(None);
                         selected_pgp_key.set(String::new());
+                        selected_email_maintainer.set(String::new());
+                        registry_email_code.set(String::new());
+                        registry_email_sent_to.set(Vec::new());
                         auth_session.set(None);
                         host_session.set(None);
                         nodes.set(Vec::new());
@@ -868,11 +954,17 @@ pub fn use_autopeer_controller(
         let challenge_id = challenge_id.clone();
         let challenge_text = challenge_text.clone();
         let selected_pgp_key = selected_pgp_key.clone();
+        let selected_email_maintainer = selected_email_maintainer.clone();
+        let registry_email_code = registry_email_code.clone();
+        let registry_email_sent_to = registry_email_sent_to.clone();
         Callback::from(move |_| {
             selected_method.set(None);
             challenge_id.set(None);
             challenge_text.set(None);
             selected_pgp_key.set(String::new());
+            selected_email_maintainer.set(String::new());
+            registry_email_code.set(String::new());
+            registry_email_sent_to.set(Vec::new());
             step.set(AutoPeerStep::EnterAsn);
         })
     };
@@ -893,6 +985,12 @@ pub fn use_autopeer_controller(
         let ssh_signature = ssh_signature.clone();
         let pgp_public_key = pgp_public_key.clone();
         let pgp_signed_message = pgp_signed_message.clone();
+        let selected_email_maintainer = selected_email_maintainer.clone();
+        let registry_email_code = registry_email_code.clone();
+        let registry_email_sent_to = registry_email_sent_to.clone();
+        let selected_email_maintainer = selected_email_maintainer.clone();
+        let registry_email_code = registry_email_code.clone();
+        let registry_email_sent_to = registry_email_sent_to.clone();
 
         Callback::from(move |method_value: AuthMethod| {
             let Some(api_base) = require_api_base(&api_base, &error) else {
@@ -925,6 +1023,9 @@ pub fn use_autopeer_controller(
             let ssh_signature = ssh_signature.clone();
             let pgp_public_key = pgp_public_key.clone();
             let pgp_signed_message = pgp_signed_message.clone();
+            let selected_email_maintainer = selected_email_maintainer.clone();
+            let registry_email_code = registry_email_code.clone();
+            let registry_email_sent_to = registry_email_sent_to.clone();
 
             spawn_local(async move {
                 match service::start_auth(&api_base, &asn_value).await {
@@ -945,10 +1046,14 @@ pub fn use_autopeer_controller(
                                 challenge_text.set(Some(response.challenge_text));
                                 methods.set(available_methods);
                                 selected_pgp_key.set(default_pgp_key(&method));
+                                selected_email_maintainer
+                                    .set(default_registry_email_target(&method));
                                 selected_method.set(Some(method));
                                 ssh_signature.set(String::new());
                                 pgp_public_key.set(String::new());
                                 pgp_signed_message.set(String::new());
+                                registry_email_code.set(String::new());
+                                registry_email_sent_to.set(Vec::new());
                                 step.set(AutoPeerStep::VerifyMethod);
                             }
                             None => error.set(Some(
@@ -973,6 +1078,71 @@ pub fn use_autopeer_controller(
         })
     };
 
+    let on_send_registry_email = {
+        let api_base = api_base.clone();
+        let challenge_id = challenge_id.clone();
+        let selected_method = selected_method.clone();
+        let selected_email_maintainer = selected_email_maintainer.clone();
+        let registry_email_sent_to = registry_email_sent_to.clone();
+        let error = error.clone();
+        let loading = loading.clone();
+        let loading_message = loading_message.clone();
+
+        Callback::from(move |_| {
+            let Some(api_base) = require_api_base(&api_base, &error) else {
+                return;
+            };
+            let Some(challenge_id) = (*challenge_id).clone() else {
+                error.set(Some("Missing challenge_id".to_string()));
+                return;
+            };
+            let Some(method) = (*selected_method).clone() else {
+                error.set(Some("Choose an authentication method first.".to_string()));
+                return;
+            };
+            if method.kind != AuthMethodKind::RegistryEmail {
+                error.set(Some("Registry email auth is not active right now.".to_string()));
+                return;
+            }
+
+            let selected_target =
+                selected_registry_email_target(&method, selected_email_maintainer.as_str());
+            let Some(target) = selected_target else {
+                error.set(Some(
+                    "Choose a maintainer with registry email contacts first.".to_string(),
+                ));
+                return;
+            };
+
+            start_loading(
+                &loading,
+                &loading_message,
+                "Sending a magic link and one-time code to your registry email contacts...",
+            );
+            error.set(None);
+
+            let effective_mnt = target.maintainer.clone();
+            let registry_email_sent_to = registry_email_sent_to.clone();
+            let error = error.clone();
+            let loading = loading.clone();
+            let loading_message = loading_message.clone();
+
+            spawn_local(async move {
+                match service::send_registry_email(&api_base, &challenge_id, Some(&effective_mnt))
+                    .await
+                {
+                    Ok(response) => {
+                        registry_email_sent_to.set(response.emails);
+                        error.set(None);
+                    }
+                    Err(message) => error.set(Some(message)),
+                }
+
+                clear_loading(&loading, &loading_message);
+            });
+        })
+    };
+
     let on_verify = {
         let api_base = api_base.clone();
         let challenge_id = challenge_id.clone();
@@ -983,6 +1153,7 @@ pub fn use_autopeer_controller(
         let ssh_signature = ssh_signature.clone();
         let pgp_public_key = pgp_public_key.clone();
         let pgp_signed_message = pgp_signed_message.clone();
+        let registry_email_code = registry_email_code.clone();
         let session_handles = session_handles.clone();
         let auth_handles = auth_handles.clone();
 
@@ -1004,6 +1175,12 @@ pub fn use_autopeer_controller(
                     return;
                 }
             }
+            if method.kind == AuthMethodKind::RegistryEmail
+                && registry_email_code.trim().is_empty()
+            {
+                error.set(Some("Enter the one-time auth code from your email.".to_string()));
+                return;
+            }
 
             let loading_text = match method.kind {
                 AuthMethodKind::RegistrySsh => {
@@ -1011,6 +1188,9 @@ pub fn use_autopeer_controller(
                 }
                 AuthMethodKind::RegistryPgp => {
                     "Checking your PGP signature against the DN42 registry..."
+                }
+                AuthMethodKind::RegistryEmail => {
+                    "Checking your registry email auth code..."
                 }
                 AuthMethodKind::Oidc => "Redirecting you to your OIDC provider...",
                 AuthMethodKind::HostImpersonation => "Preparing your host ASN session...",
@@ -1024,6 +1204,7 @@ pub fn use_autopeer_controller(
             let ssh_signature_value = (*ssh_signature).clone();
             let pgp_public_key_value = (*pgp_public_key).clone();
             let pgp_signed_message_value = (*pgp_signed_message).clone();
+            let registry_email_code_value = (*registry_email_code).clone();
             let session_handles = session_handles.clone();
             let auth_handles = auth_handles.clone();
 
@@ -1061,6 +1242,14 @@ pub fn use_autopeer_controller(
                             &challenge_id,
                             &pgp_public_key_value,
                             &pgp_signed_message_value,
+                        )
+                        .await
+                    }
+                    AuthMethodKind::RegistryEmail => {
+                        service::verify_registry_email(
+                            &api_base,
+                            &challenge_id,
+                            &registry_email_code_value,
                         )
                         .await
                     }
@@ -1123,6 +1312,9 @@ pub fn use_autopeer_controller(
         let ssh_signature = ssh_signature.clone();
         let pgp_public_key = pgp_public_key.clone();
         let pgp_signed_message = pgp_signed_message.clone();
+        let selected_email_maintainer = selected_email_maintainer.clone();
+        let registry_email_code = registry_email_code.clone();
+        let registry_email_sent_to = registry_email_sent_to.clone();
 
         Callback::from(move |_| {
             save_persisted_sessions(&PersistedSessions::default());
@@ -1149,6 +1341,9 @@ pub fn use_autopeer_controller(
             selected_pgp_key.set(String::new());
             pgp_public_key.set(String::new());
             pgp_signed_message.set(String::new());
+            selected_email_maintainer.set(String::new());
+            registry_email_code.set(String::new());
+            registry_email_sent_to.set(Vec::new());
         })
     };
 
@@ -1511,6 +1706,9 @@ pub fn use_autopeer_controller(
         selected_pgp_key,
         pgp_public_key,
         pgp_signed_message,
+        selected_email_maintainer,
+        registry_email_code,
+        registry_email_sent_to,
         on_asn_change,
         on_submit_asn,
         on_asn_keydown,
@@ -1519,6 +1717,9 @@ pub fn use_autopeer_controller(
         on_select_method_back,
         on_verify_back,
         on_verify,
+        on_selected_email_maintainer_change,
+        on_registry_email_code_change,
+        on_send_registry_email,
         on_refresh,
         on_logout,
         on_impersonate_asn_change,

@@ -719,6 +719,7 @@ mod tests {
                     provider: None,
                     ssh_fingerprints: Vec::new(),
                     pgp_fingerprints: Vec::new(),
+                    email_targets: Vec::new(),
                 },
                 can_impersonate: true,
                 expires_at: "2026-04-18T10:00:00Z".into(),

@@ -1,6 +1,8 @@
 import {
   assertChallengeFresh,
   createChallenge,
+  createRegistryEmailAuthRequest,
+  createRegistryEmailSession,
   verifyRegistryPgpChallenge,
   verifyRegistrySshChallenge,
 } from "./auth";
@@ -8,20 +10,25 @@ import {
   claimNodeOperationLock,
   consumeFreshChallenge,
   deleteChallenge,
+  deleteRegistryEmailAuthRequest,
   getAuthSession,
   getChallenge,
   getOidcAuthRequest,
+  getRegistryEmailAuthRequest,
+  getRegistryEmailAuthRequestByToken,
   getOperation,
   listOperationsForAsn,
   deleteOidcAuthRequest,
   putAuthSession,
   putChallenge,
   putOidcAuthRequest,
+  putRegistryEmailAuthRequest,
   putOperation,
   releaseNodeOperationLock,
 } from "./db";
 import { branchName, GitHubClient } from "./github";
 import type { GitHubWorkflowRun } from "./github";
+import { sendRegistryEmailAuthMessage } from "./mailer";
 import {
   buildNodeViews,
   listSessionsForAsn,
@@ -50,6 +57,12 @@ import type {
   CreateSessionRequest,
   HostImpersonationRequest,
   MaintainerRecord,
+  RegistryEmailCompleteRequest,
+  RegistryEmailAuthRequestRecord,
+  RegistryEmailSendRequest,
+  RegistryEmailSendResponse,
+  RegistryEmailTarget,
+  RegistryEmailVerifyRequest,
   OidcCompleteRequest,
   OidcProviderConfig,
   OidcStartRequest,
@@ -83,6 +96,7 @@ import {
   requireOptionalString,
   requireRecord,
   stripOperatorHints,
+  timingSafeEqual,
 } from "./utils";
 import { parseDocument } from "yaml";
 
@@ -99,6 +113,7 @@ const DEFAULT_APPLY_RETRY_INTERVAL_SECONDS = 30;
 const DEFAULT_DN42_TARGET_PREFIX = "dn42_";
 const CONFIG_PATH = "/config.json";
 const OIDC_CALLBACK_PREFIX = "/oidc/callback/";
+const REGISTRY_EMAIL_CALLBACK_PATH = "/auth/email/callback";
 
 type ValidationWorkflowRun = {
   status: string;
@@ -335,6 +350,112 @@ function siteRedirectResponse(env: Env, request: Request, fragment: string): Res
   const target = externalSiteBaseUrl(env, request);
   target.hash = fragment;
   return Response.redirect(target.toString(), 302);
+}
+
+function registryEmailTargetsForChallenge(challenge: ChallengeRecord): RegistryEmailTarget[] {
+  const methodTargets = challenge.methods.find((method) => method.kind === "registry_email")
+    ?.email_targets ?? [];
+  if (methodTargets.length > 0) {
+    return methodTargets.filter((target) => target.emails.length > 0);
+  }
+
+  return challenge.maintainers
+    .map((maintainer) => ({
+      maintainer: maintainer.name,
+      emails: maintainer.contact_emails ?? [],
+    }))
+    .filter((target) => target.emails.length > 0);
+}
+
+function resolveRegistryEmailTarget(
+  challenge: ChallengeRecord,
+  requestedMaintainer?: string | null,
+): RegistryEmailTarget {
+  const targets = registryEmailTargetsForChallenge(challenge);
+  if (targets.length === 0) {
+    throw new HttpError(
+      `AS${challenge.asn} does not expose any admin-c or tech-c email addresses we can use in the registry`,
+      400,
+    );
+  }
+
+  if (requestedMaintainer) {
+    const requested = requestedMaintainer.trim().toUpperCase();
+    const matched = targets.find((target) => target.maintainer.toUpperCase() === requested);
+    if (!matched) {
+      throw new HttpError(
+        `${requested} does not have registry email contacts we can use for this ASN`,
+        400,
+      );
+    }
+    return matched;
+  }
+
+  if (targets.length === 1) {
+    return targets[0];
+  }
+
+  throw new HttpError(
+    "effective_mnt is required when your registry email auth covers multiple maintainers",
+    400,
+  );
+}
+
+function registryEmailCallbackUrl(
+  env: Env,
+  request: Request,
+  challengeId: string,
+  token: string,
+): string {
+  const base = externalSiteBaseUrl(env, request);
+  const callback = new URL(
+    REGISTRY_EMAIL_CALLBACK_PATH,
+    base.pathname.endsWith("/") ? base.toString() : `${base.toString()}/`,
+  );
+  callback.searchParams.set("challenge_id", challengeId);
+  callback.searchParams.set("token", token);
+  return callback.toString();
+}
+
+async function loadRegistryEmailSessionOrThrow(
+  env: Env,
+  emailAuthRequest: {
+    challenge_id: string;
+    session_token?: string | null;
+    expires_at: string;
+  },
+): Promise<SessionRecord> {
+  if (!emailAuthRequest.session_token && Date.parse(emailAuthRequest.expires_at) <= Date.now()) {
+    await deleteRegistryEmailAuthRequest(env, emailAuthRequest.challenge_id);
+    throw new HttpError("Registry email login has expired", 400);
+  }
+  if (!emailAuthRequest.session_token) {
+    throw new HttpError("Registry email login has not completed yet", 409);
+  }
+
+  const session = await getAuthSession(env, emailAuthRequest.session_token);
+  if (!session) {
+    throw new HttpError("Registry email login session is no longer available", 404);
+  }
+  if (Date.parse(session.expires_at) <= Date.now()) {
+    throw new HttpError("Registry email login session has expired", 401);
+  }
+  return session;
+}
+
+async function completeRegistryEmailAuth(
+  env: Env,
+  challenge: ChallengeRecord,
+  emailAuthRequest: RegistryEmailAuthRequestRecord,
+): Promise<SessionRecord> {
+  const session = createRegistryEmailSession(challenge, emailAuthRequest.effective_mnt);
+  await putAuthSession(env, session);
+  await putRegistryEmailAuthRequest(env, {
+    ...emailAuthRequest,
+    session_token: session.token,
+  });
+  await deleteChallenge(env, challenge.id);
+  return session;
 }
 
 function configuredHostAsns(env: Env): Set<string> {
@@ -1158,7 +1279,7 @@ async function router(request: Request, env: Env): Promise<Response> {
 
     if (challenge.methods.length === 0) {
       const message = configuredOidcProviders(env).length > 0
-        ? `AS${asn} does not expose supported registry SSH or PGP auth methods. Use one of the configured OIDC login options instead.`
+        ? `AS${asn} does not expose supported registry SSH, PGP, or email auth methods. Use one of the configured OIDC login options instead.`
         : `AS${asn} does not expose any supported auth methods you can use in the registry`;
       throw new HttpError(message, 400);
     }
@@ -1241,6 +1362,99 @@ async function router(request: Request, env: Env): Promise<Response> {
     const challenge = await consumeChallengeOrThrow(env, challengeId);
     const session = await verifyRegistryPgpChallenge(challenge, verifyRequest);
     await putAuthSession(env, session);
+    return jsonWithCors(request, authSessionResponseForEnv(env, session));
+  }
+
+  if (request.method === "POST" && url.pathname === "/v1/auth/verify/registry-email/send") {
+    const body = requireRequestRecord(
+      await readJson<RegistryEmailSendRequest>(request),
+      "request body",
+    );
+    const challengeId = requireRequestString(body.challenge_id, "challenge_id");
+    const challenge = await getChallenge(env, challengeId);
+    if (!challenge) {
+      throw new HttpError("unknown challenge_id", 404);
+    }
+    assertChallengeFresh(challenge);
+
+    const target = resolveRegistryEmailTarget(
+      challenge,
+      requireOptionalRequestString(body.effective_mnt, "effective_mnt"),
+    );
+    const emailAuthRequest = createRegistryEmailAuthRequest(
+      challenge,
+      target.maintainer,
+      target.emails,
+    );
+    await sendRegistryEmailAuthMessage(
+      env,
+      challenge.asn,
+      target.maintainer,
+      emailAuthRequest,
+      registryEmailCallbackUrl(env, request, challenge.id, emailAuthRequest.token),
+    );
+    await putRegistryEmailAuthRequest(env, emailAuthRequest);
+
+    const response: RegistryEmailSendResponse = {
+      effective_mnt: target.maintainer,
+      emails: target.emails,
+      expires_at: emailAuthRequest.expires_at,
+    };
+    return jsonWithCors(request, response);
+  }
+
+  if (request.method === "POST" && url.pathname === "/v1/auth/verify/registry-email") {
+    const body = requireRequestRecord(
+      await readJson<RegistryEmailVerifyRequest>(request),
+      "request body",
+    );
+    const challengeId = requireRequestString(body.challenge_id, "challenge_id");
+    const code = requireRequestString(body.code, "code");
+    const emailAuthRequest = await getRegistryEmailAuthRequest(env, challengeId);
+    if (!emailAuthRequest) {
+      throw new HttpError("Registry email login state was not found or has expired", 404);
+    }
+
+    if (emailAuthRequest.session_token) {
+      const session = await loadRegistryEmailSessionOrThrow(env, emailAuthRequest);
+      return jsonWithCors(request, authSessionResponseForEnv(env, session));
+    }
+
+    if (Date.parse(emailAuthRequest.expires_at) <= Date.now()) {
+      await deleteRegistryEmailAuthRequest(env, challengeId);
+      throw new HttpError("Registry email login has expired", 400);
+    }
+
+    if (!timingSafeEqual(code, emailAuthRequest.code)) {
+      throw new HttpError("Registry email auth code is invalid", 400);
+    }
+
+    const challenge = await getChallenge(env, challengeId);
+    if (!challenge) {
+      await deleteRegistryEmailAuthRequest(env, challengeId);
+      throw new HttpError(
+        "Your authentication challenge has expired. Start again.",
+        400,
+      );
+    }
+    assertChallengeFresh(challenge);
+
+    const session = await completeRegistryEmailAuth(env, challenge, emailAuthRequest);
+    return jsonWithCors(request, authSessionResponseForEnv(env, session));
+  }
+
+  if (request.method === "POST" && url.pathname === "/v1/auth/verify/registry-email/complete") {
+    const body = requireRequestRecord(
+      await readJson<RegistryEmailCompleteRequest>(request),
+      "request body",
+    );
+    const token = requireRequestString(body.token, "token");
+    const emailAuthRequest = await getRegistryEmailAuthRequestByToken(env, token);
+    if (!emailAuthRequest) {
+      throw new HttpError("Registry email login state was not found or has expired", 404);
+    }
+
+    const session = await loadRegistryEmailSessionOrThrow(env, emailAuthRequest);
     return jsonWithCors(request, authSessionResponseForEnv(env, session));
   }
 
@@ -1427,6 +1641,75 @@ async function router(request: Request, env: Env): Promise<Response> {
         env,
         request,
         `oidc_error=${encodeURIComponent(message)}`,
+      );
+    }
+  }
+
+  if (request.method === "GET" && url.pathname === REGISTRY_EMAIL_CALLBACK_PATH) {
+    const challengeId = url.searchParams.get("challenge_id");
+    const token = url.searchParams.get("token");
+    if (!challengeId || !token) {
+      return siteRedirectResponse(
+        env,
+        request,
+        "email_error=Missing%20registry%20email%20callback%20parameters",
+      );
+    }
+
+    const emailAuthRequest = await getRegistryEmailAuthRequestByToken(env, token);
+    if (!emailAuthRequest || emailAuthRequest.challenge_id !== challengeId) {
+      return siteRedirectResponse(
+        env,
+        request,
+        "email_error=Registry%20email%20login%20state%20was%20not%20found%20or%20has%20expired",
+      );
+    }
+
+    if (emailAuthRequest.session_token) {
+      return siteRedirectResponse(
+        env,
+        request,
+        `email_token=${encodeURIComponent(emailAuthRequest.token)}`,
+      );
+    }
+
+    if (Date.parse(emailAuthRequest.expires_at) <= Date.now()) {
+      await deleteRegistryEmailAuthRequest(env, emailAuthRequest.challenge_id);
+      return siteRedirectResponse(
+        env,
+        request,
+        "email_error=Registry%20email%20login%20has%20expired",
+      );
+    }
+
+    const challenge = await getChallenge(env, challengeId);
+    if (!challenge) {
+      await deleteRegistryEmailAuthRequest(env, emailAuthRequest.challenge_id);
+      return siteRedirectResponse(
+        env,
+        request,
+        "email_error=Your%20authentication%20challenge%20has%20expired.%20Start%20again.",
+      );
+    }
+
+    try {
+      assertChallengeFresh(challenge);
+      await completeRegistryEmailAuth(env, challenge, emailAuthRequest);
+      return siteRedirectResponse(
+        env,
+        request,
+        `email_token=${encodeURIComponent(emailAuthRequest.token)}`,
+      );
+    } catch (callbackError) {
+      await deleteRegistryEmailAuthRequest(env, emailAuthRequest.challenge_id);
+      const message = errorMessage(
+        callbackError,
+        "Registry email login failed; please try again.",
+      );
+      return siteRedirectResponse(
+        env,
+        request,
+        `email_error=${encodeURIComponent(message)}`,
       );
     }
   }

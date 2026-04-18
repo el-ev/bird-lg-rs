@@ -1,8 +1,9 @@
 use common::auto_peer::{
     AuthMethod, AuthSessionResponse, AuthStartRequest, AuthStartResponse, CreateSessionRequest,
     HostImpersonationRequest, OidcCompleteRequest, OidcStartRequest, OidcStartResponse,
-    OperationStatus, RegistryPgpVerifyRequest, RegistrySshVerifyRequest, SessionListResponse,
-    UpdateSessionRequest,
+    OperationStatus, RegistryEmailCompleteRequest, RegistryEmailSendRequest,
+    RegistryEmailSendResponse, RegistryEmailVerifyRequest, RegistryPgpVerifyRequest,
+    RegistrySshVerifyRequest, SessionListResponse, UpdateSessionRequest,
 };
 use reqwasm::http::{Request, Response};
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
@@ -183,6 +184,70 @@ pub async fn verify_registry_pgp(
             challenge_id: challenge_id.to_string(),
             public_key: public_key.to_string(),
             signed_message: signed_message.to_string(),
+        },
+    )
+    .await
+}
+
+pub async fn send_registry_email(
+    api_base: &str,
+    challenge_id: &str,
+    effective_mnt: Option<&str>,
+) -> Result<RegistryEmailSendResponse, String> {
+    let url = format!(
+        "{}/v1/auth/verify/registry-email/send",
+        api_base.trim_end_matches('/')
+    );
+    send_json(
+        "POST",
+        &url,
+        None,
+        &RegistryEmailSendRequest {
+            challenge_id: challenge_id.to_string(),
+            effective_mnt: effective_mnt
+                .map(str::trim)
+                .filter(|value| !value.is_empty())
+                .map(str::to_string),
+        },
+    )
+    .await
+}
+
+pub async fn verify_registry_email(
+    api_base: &str,
+    challenge_id: &str,
+    code: &str,
+) -> Result<AuthSessionResponse, String> {
+    let url = format!(
+        "{}/v1/auth/verify/registry-email",
+        api_base.trim_end_matches('/')
+    );
+    send_json(
+        "POST",
+        &url,
+        None,
+        &RegistryEmailVerifyRequest {
+            challenge_id: challenge_id.to_string(),
+            code: code.to_string(),
+        },
+    )
+    .await
+}
+
+pub async fn complete_registry_email(
+    api_base: &str,
+    token: &str,
+) -> Result<AuthSessionResponse, String> {
+    let url = format!(
+        "{}/v1/auth/verify/registry-email/complete",
+        api_base.trim_end_matches('/')
+    );
+    send_json(
+        "POST",
+        &url,
+        None,
+        &RegistryEmailCompleteRequest {
+            token: token.to_string(),
         },
     )
     .await

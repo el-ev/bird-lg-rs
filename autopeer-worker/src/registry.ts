@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 
-import type { AuthMethod, MaintainerRecord } from "./types";
+import type { AuthMethod, MaintainerRecord, RegistryEmailTarget } from "./types";
 import { fromBase64, joinPath, readSecret } from "./utils";
 
 interface GiteaContentResponse {
@@ -50,6 +50,7 @@ function parseMaintainer(name: string, text: string): MaintainerRecord {
     pgp_fingerprints: authLines
       .filter((line) => line.toLowerCase().startsWith("pgp-fingerprint"))
       .map((line) => line.split(/\s+/).slice(1).join("").toUpperCase()),
+    contact_emails: [],
   };
 }
 
@@ -82,6 +83,29 @@ async function fetchRegistryContent(env: Env, path: string): Promise<string> {
   return fromBase64(body.content);
 }
 
+async function fetchOptionalRegistryContent(env: Env, path: string): Promise<string | null> {
+  try {
+    return await fetchRegistryContent(env, path);
+  } catch (error) {
+    if (error instanceof Error && error.message === `Registry path not found: ${path}`) {
+      return null;
+    }
+    throw error;
+  }
+}
+
+async function loadContactEmailsForHandle(env: Env, handle: string): Promise<string[]> {
+  const personText = await fetchOptionalRegistryContent(env, `data/person/${handle}`);
+  const roleText = personText === null
+    ? await fetchOptionalRegistryContent(env, `data/role/${handle}`)
+    : null;
+  const text = personText ?? roleText;
+  if (text === null) {
+    return [];
+  }
+  return [...new Set(parseFieldValues(text, "e-mail"))];
+}
+
 export async function loadMaintainersForAsn(env: Env, asn: string): Promise<MaintainerRecord[]> {
   const autNumText = await fetchRegistryContent(env, `data/aut-num/AS${asn}`);
   const maintainerNames = [...new Set(parseFieldValues(autNumText, "mnt-by"))];
@@ -93,7 +117,18 @@ export async function loadMaintainersForAsn(env: Env, asn: string): Promise<Main
   const maintainers = await Promise.all(
     maintainerNames.map(async (name) => {
       const text = await fetchRegistryContent(env, `data/mntner/${name}`);
-      return parseMaintainer(name, text);
+      const maintainer = parseMaintainer(name, text);
+      const contactHandles = [
+        ...new Set([
+          ...parseFieldValues(text, "admin-c"),
+          ...parseFieldValues(text, "tech-c"),
+        ]),
+      ];
+      const contactEmails = await Promise.all(
+        contactHandles.map(async (handle) => loadContactEmailsForHandle(env, handle)),
+      );
+      maintainer.contact_emails = [...new Set(contactEmails.flat())];
+      return maintainer;
     }),
   );
 
@@ -111,6 +146,12 @@ export function methodsFromMaintainers(
   const pgpFingerprints = [
     ...new Set(maintainers.flatMap((mnt) => mnt.pgp_fingerprints)),
   ];
+  const emailTargets: RegistryEmailTarget[] = maintainers
+    .map((maintainer) => ({
+      maintainer: maintainer.name,
+      emails: [...new Set(maintainer.contact_emails)],
+    }))
+    .filter((target) => target.emails.length > 0);
 
   if (maintainers.some((mnt) => mnt.ssh_public_keys.length > 0)) {
     methods.push({
@@ -119,6 +160,7 @@ export function methodsFromMaintainers(
       description: "Sign our challenge with an SSH key from your DN42 maintainer object.",
       ssh_fingerprints: sshFingerprints,
       pgp_fingerprints: [],
+      email_targets: [],
     });
   }
 
@@ -129,6 +171,20 @@ export function methodsFromMaintainers(
       description: `Use one of your registry PGP fingerprints: ${pgpFingerprints.join(", ")}`,
       ssh_fingerprints: [],
       pgp_fingerprints: pgpFingerprints,
+      email_targets: [],
+    });
+  }
+
+  if (emailTargets.length > 0) {
+    methods.push({
+      kind: "registry_email",
+      label: "Registry Email Magic Link",
+      description: emailTargets.length === 1
+        ? `Send a magic link and one-time code to the admin-c and tech-c emails published for ${emailTargets[0].maintainer}.`
+        : "Choose one of your maintainers and send a magic link plus one-time code to the admin-c and tech-c emails published in the registry.",
+      ssh_fingerprints: [],
+      pgp_fingerprints: [],
+      email_targets: emailTargets,
     });
   }
 

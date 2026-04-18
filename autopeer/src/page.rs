@@ -15,7 +15,10 @@ use yew::prelude::*;
 
 use crate::{
     config::{AUTOPEER_BASE_PATH, matches_autopeer_path},
-    controller::{default_pgp_key, sync_create_draft, use_autopeer_controller},
+    controller::{
+        default_pgp_key, selected_registry_email_target, sync_create_draft,
+        use_autopeer_controller,
+    },
     store::{AutoPeerStep, PeerConfigStage, SessionDraft, SessionDraftField},
 };
 
@@ -432,6 +435,9 @@ pub fn auto_peer_page() -> Html {
     let selected_pgp_key = controller.selected_pgp_key.clone();
     let pgp_public_key = controller.pgp_public_key.clone();
     let pgp_signed_message = controller.pgp_signed_message.clone();
+    let selected_email_maintainer = controller.selected_email_maintainer.clone();
+    let registry_email_code = controller.registry_email_code.clone();
+    let registry_email_sent_to = controller.registry_email_sent_to.clone();
     let on_asn_change = controller.on_asn_change.clone();
     let on_submit_asn = controller.on_submit_asn.clone();
     let on_asn_keydown = controller.on_asn_keydown.clone();
@@ -440,6 +446,10 @@ pub fn auto_peer_page() -> Html {
     let on_select_method_back = controller.on_select_method_back.clone();
     let on_verify_back = controller.on_verify_back.clone();
     let on_verify = controller.on_verify.clone();
+    let on_selected_email_maintainer_change =
+        controller.on_selected_email_maintainer_change.clone();
+    let on_registry_email_code_change = controller.on_registry_email_code_change.clone();
+    let on_send_registry_email = controller.on_send_registry_email.clone();
     let on_refresh = controller.on_refresh.clone();
     let on_logout = controller.on_logout.clone();
     let on_impersonate_asn_change = controller.on_impersonate_asn_change.clone();
@@ -718,6 +728,99 @@ pub fn auto_peer_page() -> Html {
                             </>
                         }
                     }
+                    AuthMethodKind::RegistryEmail => {
+                        let selected_target = selected_registry_email_target(
+                            &method,
+                            selected_email_maintainer.as_str(),
+                        );
+                        let selected_target_value = selected_target
+                            .map(|target| target.maintainer.clone())
+                            .unwrap_or_else(|| (*selected_email_maintainer).clone());
+                        let on_target_change = {
+                            let on_selected_email_maintainer_change =
+                                on_selected_email_maintainer_change.clone();
+                            Callback::from(move |event: Event| {
+                                let select: HtmlSelectElement = event.target_unchecked_into();
+                                on_selected_email_maintainer_change.emit(select.value());
+                            })
+                        };
+                        let on_code_change = on_registry_email_code_change.clone();
+                        let send_button_text = if registry_email_sent_to.is_empty() {
+                            "Send Magic Link"
+                        } else {
+                            "Resend Magic Link"
+                        };
+
+                        html! {
+                            <>
+                                <ShellLine>
+                                    <span class="text-secondary">
+                                        {"Send a magic link and one-time code to the registry email contacts for one maintainer object, then either click the link or paste the code below."}
+                                    </span>
+                                </ShellLine>
+                                if method.email_targets.is_empty() {
+                                    <ShellLine>
+                                        <span class="text-secondary">
+                                            {"We could not find any admin-c or tech-c email contacts for your ASN."}
+                                        </span>
+                                    </ShellLine>
+                                } else if method.email_targets.len() == 1 {
+                                    <ShellLine>
+                                        <ShellPrompt>{"mntner"}</ShellPrompt>
+                                        {format!(" Authenticate as {}", method.email_targets[0].maintainer)}
+                                    </ShellLine>
+                                } else {
+                                    <ShellLine>
+                                        <ShellPrompt>{"mntner"}</ShellPrompt>
+                                        {" "}
+                                        <ShellSelect
+                                            value={selected_target_value.clone()}
+                                            on_change={on_target_change}
+                                        >
+                                            {for method.email_targets.iter().map(|target| html! {
+                                                <option value={target.maintainer.clone()}>{target.maintainer.clone()}</option>
+                                            })}
+                                        </ShellSelect>
+                                    </ShellLine>
+                                }
+                                if let Some(target) = selected_target {
+                                    <ShellLine>
+                                        <ShellPrompt>{"emails"}</ShellPrompt>
+                                        {format!(" Send to {}", target.emails.join(", "))}
+                                    </ShellLine>
+                                }
+                                if !registry_email_sent_to.is_empty() {
+                                    <ShellLine>
+                                        <span class="text-secondary">
+                                            {format!(
+                                                "We sent a magic link and auth code to {}.",
+                                                registry_email_sent_to.join(", ")
+                                            )}
+                                        </span>
+                                    </ShellLine>
+                                }
+                                <ShellLine>
+                                    <ShellButton
+                                        text={send_button_text}
+                                        onclick={on_send_registry_email.clone()}
+                                        disabled={*loading || selected_target.is_none()}
+                                    />
+                                </ShellLine>
+                                <ShellLine>
+                                    <ShellPrompt>{"code"}</ShellPrompt>
+                                    {" Paste the one-time auth code from your email"}
+                                </ShellLine>
+                                <ShellLine>
+                                    <ShellInput
+                                        value={(*registry_email_code).clone()}
+                                        on_change={on_code_change}
+                                        placeholder="12345678"
+                                        disabled={*loading}
+                                    />
+                                </ShellLine>
+                            </>
+                        }
+                    }
                     AuthMethodKind::Oidc => {
                         html! {
                             <>
@@ -743,6 +846,8 @@ pub fn auto_peer_page() -> Html {
                 };
                 let verify_button_text = if method.kind == AuthMethodKind::Oidc {
                     format!("Continue to {}", method.label)
+                } else if method.kind == AuthMethodKind::RegistryEmail {
+                    "Verify Code".to_string()
                 } else {
                     "Verify".to_string()
                 };
