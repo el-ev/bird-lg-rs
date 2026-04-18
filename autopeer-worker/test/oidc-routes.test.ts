@@ -94,6 +94,27 @@ function jsonRequest(path: string, body: unknown): Request {
   });
 }
 
+function proxiedJsonRequest(path: string, body: unknown): Request {
+  return new Request(`https://worker.example${path}`, {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      "x-forwarded-host": "autopeer.iris.dn42",
+      "x-forwarded-proto": "https",
+    },
+    body: JSON.stringify(body),
+  });
+}
+
+function proxiedGetRequest(path: string): Request {
+  return new Request(`https://worker.example${path}`, {
+    headers: {
+      "x-forwarded-host": "autopeer.iris.dn42",
+      "x-forwarded-proto": "https",
+    },
+  });
+}
+
 function runWorker(request: Request, env = makeEnv()): Promise<Response> {
   return worker.fetch(request as never, env);
 }
@@ -160,6 +181,30 @@ describe("OIDC worker routes", () => {
     expect(dbMocks.putOidcAuthRequest).toHaveBeenCalledWith(expect.anything(), record);
   });
 
+  it("uses forwarded host headers for proxied OIDC callback urls", async () => {
+    const record = authRequest({
+      redirect_uri: "https://autopeer.iris.dn42/oidc/callback/kioubit",
+    });
+    oidcMocks.fetchOidcDiscovery.mockResolvedValue(discovery);
+    oidcMocks.createOidcAuthorizationRequest.mockResolvedValue({
+      authorizationUrl: "https://issuer.example/oauth2/auth?state=state-1",
+      record,
+    });
+
+    const response = await runWorker(
+      proxiedJsonRequest("/v1/auth/oidc/kioubit/start", {}),
+      makeEnv(),
+    );
+
+    expect(response.status).toBe(200);
+    expect(oidcMocks.createOidcAuthorizationRequest).toHaveBeenCalledWith(
+      provider,
+      discovery,
+      "",
+      "https://autopeer.iris.dn42/oidc/callback/kioubit",
+    );
+  });
+
   it("treats a repeated callback after successful login as idempotent", async () => {
     dbMocks.getOidcAuthRequest.mockResolvedValue(
       authRequest({ session_token: "session-1" }),
@@ -175,6 +220,22 @@ describe("OIDC worker routes", () => {
       "https://autopeer.example/#oidc_state=state-1",
     );
     expect(oidcMocks.exchangeAuthorizationCode).not.toHaveBeenCalled();
+  });
+
+  it("redirects repeated proxied callbacks back to the forwarded site", async () => {
+    dbMocks.getOidcAuthRequest.mockResolvedValue(
+      authRequest({ session_token: "session-1" }),
+    );
+
+    const response = await runWorker(
+      proxiedGetRequest("/oidc/callback/kioubit?state=state-1&code=abc"),
+      makeEnv(),
+    );
+
+    expect(response.status).toBe(302);
+    expect(response.headers.get("location")).toBe(
+      "https://autopeer.iris.dn42/#oidc_state=state-1",
+    );
   });
 
   it("rejects unsupported ASN claims during challenge-less callback redemption", async () => {

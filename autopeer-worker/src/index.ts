@@ -265,6 +265,31 @@ function configuredUrl(value: string | undefined): string | undefined {
   return trimmed ? trimmed : undefined;
 }
 
+function forwardedHeaderValue(request: Request, name: string): string | undefined {
+  const value = request.headers
+    .get(name)
+    ?.split(",")
+    .map((entry) => entry.trim())
+    .find(Boolean);
+  return value || undefined;
+}
+
+function externalSiteBaseUrl(env: Env, request: Request): URL {
+  const base = new URL(configuredUrl(env.AUTOPEER_SITE_URL) ?? request.url);
+  const forwardedHost = forwardedHeaderValue(request, "x-forwarded-host");
+  if (!forwardedHost) {
+    return base;
+  }
+
+  const forwardedProto = forwardedHeaderValue(request, "x-forwarded-proto");
+  const external = new URL(base.toString());
+  external.host = forwardedHost;
+  if (forwardedProto === "http" || forwardedProto === "https") {
+    external.protocol = `${forwardedProto}:`;
+  }
+  return external;
+}
+
 function runtimeConfigResponse(request: Request, env: Env) {
   const origin = new URL(request.url).origin;
   return {
@@ -294,16 +319,15 @@ async function consumeChallengeOrThrow(env: Env, challengeId: string): Promise<C
 }
 
 function oidcCallbackUrl(env: Env, request: Request, providerName: string): string {
-  const base = configuredUrl(env.AUTOPEER_SITE_URL) ?? new URL(request.url).origin;
+  const base = externalSiteBaseUrl(env, request);
   return new URL(
     `${OIDC_CALLBACK_PREFIX}${encodeURIComponent(providerName)}`,
-    base.endsWith("/") ? base : `${base}/`,
+    base.pathname.endsWith("/") ? base.toString() : `${base.toString()}/`,
   ).toString();
 }
 
 function siteRedirectResponse(env: Env, request: Request, fragment: string): Response {
-  const base = configuredUrl(env.AUTOPEER_SITE_URL) ?? new URL(request.url).origin;
-  const target = new URL(base);
+  const target = externalSiteBaseUrl(env, request);
   target.hash = fragment;
   return Response.redirect(target.toString(), 302);
 }
