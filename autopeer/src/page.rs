@@ -118,6 +118,13 @@ fn default_pgp_key(method: &AuthMethod) -> String {
     method.pgp_fingerprints.first().cloned().unwrap_or_default()
 }
 
+fn filter_supported_methods(methods: Vec<AuthMethod>, oidc_enabled: bool) -> Vec<AuthMethod> {
+    methods
+        .into_iter()
+        .filter(|method| oidc_enabled || method.kind != AuthMethodKind::Oidc)
+        .collect()
+}
+
 fn sync_create_draft(
     asn: &str,
     nodes: &[NodeView],
@@ -1026,6 +1033,7 @@ pub fn auto_peer_page() -> Html {
         let challenge_id = challenge_id.clone();
         let challenge_text = challenge_text.clone();
         let methods = methods.clone();
+        let oidc_methods = oidc_methods.clone();
         let selected_method = selected_method.clone();
         let selected_pgp_key = selected_pgp_key.clone();
         let auth_session = auth_session.clone();
@@ -1063,6 +1071,7 @@ pub fn auto_peer_page() -> Html {
             let challenge_id = challenge_id.clone();
             let challenge_text = challenge_text.clone();
             let methods = methods.clone();
+            let oidc_methods = oidc_methods.clone();
             let selected_method = selected_method.clone();
             let selected_pgp_key = selected_pgp_key.clone();
             let auth_session = auth_session.clone();
@@ -1080,9 +1089,11 @@ pub fn auto_peer_page() -> Html {
             spawn_local(async move {
                 match service::start_auth(&api_base, &asn_value).await {
                     Ok(response) => {
+                        let available_methods =
+                            filter_supported_methods(response.methods, !oidc_methods.is_empty());
                         challenge_id.set(Some(response.challenge_id));
                         challenge_text.set(Some(response.challenge_text));
-                        methods.set(response.methods);
+                        methods.set(available_methods);
                         selected_method.set(None);
                         selected_pgp_key.set(String::new());
                         auth_session.set(None);
@@ -1253,6 +1264,7 @@ pub fn auto_peer_page() -> Html {
                             let challenge_id = challenge_id.clone();
                             let challenge_text = challenge_text.clone();
                             let methods = methods.clone();
+                            let oidc_methods = oidc_methods.clone();
                             let selected_method = selected_method.clone();
                             let selected_pgp_key = selected_pgp_key.clone();
                             let step = step.clone();
@@ -1290,6 +1302,7 @@ pub fn auto_peer_page() -> Html {
                                 let loading = loading_for_click.clone();
                                 let loading_message = loading_message_for_click.clone();
                                 let method_value = method_value.clone();
+                                let oidc_methods = oidc_methods.clone();
                                 let ssh_signature = ssh_signature.clone();
                                 let pgp_public_key = pgp_public_key.clone();
                                 let pgp_signed_message = pgp_signed_message.clone();
@@ -1297,7 +1310,11 @@ pub fn auto_peer_page() -> Html {
                                 spawn_local(async move {
                                     match service::start_auth(&api_base, &asn_value).await {
                                         Ok(response) => {
-                                            let matched_method = response.methods.iter().find(|candidate| {
+                                            let available_methods = filter_supported_methods(
+                                                response.methods,
+                                                !oidc_methods.is_empty(),
+                                            );
+                                            let matched_method = available_methods.iter().find(|candidate| {
                                                 candidate.kind == method_value.kind
                                                     && candidate.provider == method_value.provider
                                             }).cloned();
@@ -1306,7 +1323,7 @@ pub fn auto_peer_page() -> Html {
                                                 Some(method) => {
                                                     challenge_id.set(Some(response.challenge_id));
                                                     challenge_text.set(Some(response.challenge_text));
-                                                    methods.set(response.methods);
+                                                    methods.set(available_methods);
                                                     selected_pgp_key
                                                         .set(default_pgp_key(&method));
                                                     selected_method.set(Some(method));
@@ -3010,9 +3027,11 @@ mod tests {
     use super::{
         Peer6AddressKind, autopeer_home_href_from_parts, autopeer_node_endpoint_port,
         configured_href, detect_peer6_address_kind, displayed_peer_config_stage,
-        looking_glass_href_from_parts, retire_button_text, validate_ssh_signature_input,
+        filter_supported_methods, looking_glass_href_from_parts, retire_button_text,
+        validate_ssh_signature_input,
     };
     use crate::store::PeerConfigStage;
+    use common::auto_peer::{AuthMethod, AuthMethodKind};
 
     #[test]
     fn derives_autopeer_home_for_shared_path_deployments() {
@@ -3052,6 +3071,30 @@ mod tests {
             configured_href(Some("https://network.owo.li"), "https://lg.owo.li/"),
             "https://network.owo.li"
         );
+    }
+
+    #[test]
+    fn hides_oidc_methods_when_runtime_config_disables_them() {
+        let methods = vec![
+            AuthMethod {
+                kind: AuthMethodKind::RegistrySsh,
+                label: "Registry SSH".into(),
+                description: "SSH".into(),
+                ..AuthMethod::default()
+            },
+            AuthMethod {
+                kind: AuthMethodKind::Oidc,
+                label: "Kioubit".into(),
+                description: "OIDC".into(),
+                provider: Some("kioubit".into()),
+                ..AuthMethod::default()
+            },
+        ];
+
+        let filtered = filter_supported_methods(methods, false);
+
+        assert_eq!(filtered.len(), 1);
+        assert_eq!(filtered[0].kind, AuthMethodKind::RegistrySsh);
     }
 
     #[test]
