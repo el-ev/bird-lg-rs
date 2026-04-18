@@ -46,7 +46,7 @@ function emailText(
   return [
     `Use this sign-in link or one-time code to sign in to DN42 Autopeer for AS${asn} as ${effectiveMnt}.`,
     "",
-    `Magic link: ${magicLinkUrl}`,
+    `Sign-in link: ${magicLinkUrl}`,
     "",
     `One-time auth code: ${request.code}`,
     `Expires at: ${request.expires_at}`,

@@ -99,7 +99,7 @@ function challengeRecord(): ChallengeRecord {
     methods: [
       {
         kind: "registry_email",
-        label: "Registry Email Magic Link",
+        label: "Registry Email",
         description: "Email auth",
         email_targets: [
           {
@@ -159,7 +159,7 @@ function sessionRecord(overrides: Partial<SessionRecord> = {}): SessionRecord {
     effective_mnt: "EXAMPLE-MNT",
     auth_method: {
       kind: "registry_email",
-      label: "Registry Email Magic Link",
+      label: "Registry Email",
       description: "You authenticated with EXAMPLE-MNT using registry email auth.",
     },
     created_at: "2026-04-19T01:23:45.000Z",
@@ -201,7 +201,7 @@ describe("registry email worker routes", () => {
     );
   });
 
-  it("redirects a completed magic link callback through the forwarded host", async () => {
+  it("redirects a completed sign-in link callback through the forwarded host", async () => {
     dbMocks.getRegistryEmailAuthRequestByToken.mockResolvedValue(
       emailAuthRequest({ session_token: "session-1" }),
     );
@@ -216,7 +216,7 @@ describe("registry email worker routes", () => {
     );
   });
 
-  it("completes a registry email login from the magic-link token", async () => {
+  it("completes a registry email login from the sign-in link token", async () => {
     dbMocks.getRegistryEmailAuthRequestByToken.mockResolvedValue(
       emailAuthRequest({ session_token: "session-1" }),
     );
