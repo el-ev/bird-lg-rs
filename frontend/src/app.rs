@@ -1,3 +1,4 @@
+use autopeer::AutoPeerPage;
 use yew::prelude::*;
 use yew_router::prelude::*;
 
@@ -47,6 +48,9 @@ fn switch(routes: Route) -> Html {
         },
         Route::Dn42 => html! {
             <Dn42Page/>
+        },
+        Route::AutoPeer => html! {
+            <AutoPeerPage/>
         },
         Route::Ncsi => html! {
             <NcsiPage/>

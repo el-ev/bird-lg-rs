@@ -23,5 +23,7 @@ binding = "ASSETS"
 
 [vars]
 # BACKEND_URL = "https://127.0.0.1:3000"
-# AUTOPEER_URL = "https://127.0.0.1:3001/autopeer"
+# AUTOPEER_URL = "https://127.0.0.1:3001"
+# AUTOPEER_SITE_URL = "https://127.0.0.1:8788/autopeer"
+# LOOKING_GLASS_URL = "https://127.0.0.1:8788/"
 # USERNAME = "iris"

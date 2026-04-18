@@ -67,6 +67,7 @@ pub fn protocols() -> Html {
                             <ShellLine
                                 prompt={format!("{}@{}$ ", state.username, node.name)}
                                 command={"birdc show protocols".to_string()}
+                                style={"font-size: 0.9em;".to_string()}
                             />
                             <DataTable
                                 headers={

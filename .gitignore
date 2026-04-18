@@ -10,3 +10,7 @@ lg-release*
 output/
 .playwright-cli/
 AGENTS.md
+autopeer/dist/
+autopeer-worker/public/
+.secret/
+package-lock.json

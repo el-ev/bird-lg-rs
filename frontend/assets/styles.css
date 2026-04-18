@@ -34,7 +34,8 @@
     --spacing-xl: 24px;
 
     /* Typography */
-    --font-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", sans-chinese, monospace;
+    --font-mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+    --font-ui: var(--font-mono);
     --font-size-sm: 0.9rem;
     --font-size-xl: 2rem;
 
@@ -53,7 +54,7 @@
 
 body {
     margin: 0;
-    font-family: var(--font-mono);
+    font-family: var(--font-ui);
     color: var(--text);
     background: var(--bg);
     min-height: 100vh;
@@ -115,6 +116,11 @@ hr {
     align-items: baseline;
     gap: 10px;
     flex-wrap: wrap;
+}
+
+.autopeer-title-nav {
+    color: inherit;
+    text-decoration: underline dotted;
 }
 
 .title-footnote {
@@ -359,7 +365,9 @@ hr {
     font-family: var(--font-mono);
     word-break: break-all;
     color: var(--text);
-    cursor: pointer;
+    cursor: copy;
+    user-select: all;
+    -webkit-user-select: all;
 }
 
 .peering-empty {
@@ -509,8 +517,8 @@ details[open] .summary-header {
 
 .shell-form {
     display: block;
-    font-size: inherit;
-    line-height: inherit;
+    font-size: 13px;
+    line-height: normal;
 }
 
 .shell-form > .shell-input-frame--multiline {
@@ -558,6 +566,11 @@ details[open] .summary-header {
     align-items: baseline;
     cursor: text;
     line-height: inherit;
+}
+
+.shell-input-frame--invalid:not(:focus-within) {
+    outline: 1px solid color-mix(in srgb, var(--error) 72%, var(--border));
+    background: color-mix(in srgb, var(--error) 10%, var(--bg-shell-input));
 }
 
 .shell-input-frame--inline {
@@ -645,6 +658,14 @@ details[open] .summary-header {
     box-shadow: none;
 }
 
+.shell-input-frame--invalid:not(:focus-within) .shell-input--multiline {
+    border-left-color: color-mix(in srgb, var(--error) 72%, transparent);
+}
+
+.shell-input-frame--invalid:not(:focus-within) .shell-input::placeholder {
+    color: color-mix(in srgb, var(--error) 48%, var(--text-placeholder));
+}
+
 .shell-button {
     background: transparent;
     border: 1px solid var(--border);
@@ -687,26 +708,111 @@ details[open] .summary-header {
 }
 
 .shell-toggle {
-    font-size: 1em;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.14rem 0.52rem 0.14rem 0.18rem;
+    border: 1px solid color-mix(in srgb, var(--border) 90%, var(--shell-prompt) 10%);
+    border-radius: var(--radius-pill);
+    background: color-mix(in srgb, var(--bg-shell-input) 88%, transparent);
+    font: inherit;
     cursor: pointer;
-    color: var(--muted);
-    opacity: 0.4;
+    color: var(--text-secondary);
+    opacity: 1;
+    white-space: nowrap;
     user-select: none;
     -webkit-user-select: none;
-    transition: all 0.2s;
-    text-decoration: line-through;
+    appearance: none;
+    -webkit-appearance: none;
+    transition: background-color 0.18s, border-color 0.18s, color 0.18s, box-shadow 0.18s;
+
+    &:hover {
+        color: var(--text);
+        border-color: color-mix(in srgb, var(--shell-prompt) 34%, var(--border));
+        background: color-mix(in srgb, var(--bg-shell-input) 70%, var(--shell-prompt) 10%);
+    }
+
+    &:focus-visible {
+        outline: none;
+        box-shadow: 0 0 0 2px color-mix(in srgb, var(--shell-prompt) 28%, transparent);
+    }
 
     &.active {
         color: var(--text);
-        opacity: 1;
-        font-weight: normal;
-        text-decoration: none;
-        user-select: text;
-        -webkit-user-select: text;
+        border-color: color-mix(in srgb, var(--shell-prompt) 42%, var(--border));
+        background: color-mix(in srgb, var(--shell-prompt) 8%, var(--bg-shell));
+    }
+}
+
+.shell-toggle__switch {
+    position: relative;
+    flex: 0 0 auto;
+    width: 1.9rem;
+    height: 1rem;
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--muted) 22%, transparent);
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--muted) 35%, transparent);
+    transition: background-color 0.18s, box-shadow 0.18s;
+}
+
+.shell-toggle__thumb {
+    position: absolute;
+    top: 50%;
+    left: 0.16rem;
+    width: 0.68rem;
+    height: 0.68rem;
+    border-radius: 50%;
+    background: color-mix(in srgb, var(--card) 88%, var(--bg-shell));
+    box-shadow: 0 0 0 1px color-mix(in srgb, var(--muted) 28%, transparent);
+    transform: translateY(-50%);
+    transition: left 0.18s, background-color 0.18s, box-shadow 0.18s;
+}
+
+.shell-toggle__copy {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 0.42rem;
+}
+
+.shell-toggle__label {
+    color: inherit;
+}
+
+.shell-toggle__state {
+    font-size: 0.72em;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--muted);
+    transition: color 0.18s;
+}
+
+.shell-toggle.active .shell-toggle__switch {
+    background: color-mix(in srgb, var(--shell-prompt) 72%, var(--bg-shell));
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--shell-prompt) 45%, transparent);
+}
+
+.shell-toggle.active .shell-toggle__thumb {
+    left: calc(100% - 0.84rem);
+    background: var(--text-white);
+    box-shadow: 0 0 0 1px color-mix(in srgb, var(--shell-prompt) 18%, transparent);
+}
+
+.shell-toggle.active .shell-toggle__state {
+    color: color-mix(in srgb, var(--shell-prompt) 70%, var(--text));
+}
+
+.shell-toggle:focus-visible .shell-toggle__switch {
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--shell-prompt) 42%, transparent);
+}
+
+@media (max-width: 640px) {
+    .shell-toggle {
+        gap: 0.4rem;
+        padding-right: 0.44rem;
     }
 
-    &:hover {
-        opacity: 0.8;
+    .shell-toggle__copy {
+        gap: 0.32rem;
     }
 }
 
@@ -841,13 +947,27 @@ details[open] .summary-header {
 .autopeer-container {
     display: flex;
     flex-direction: column;
-    gap: var(--spacing-lg);
+    gap: var(--spacing-xl);
+    font-family: var(--font-ui);
 }
 
 .autopeer-step {
     display: flex;
     flex-direction: column;
     gap: var(--spacing-md);
+}
+
+.autopeer-entry-alt {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-sm);
+    margin-top: var(--spacing-xs);
+}
+
+.autopeer-entry-alt-copy {
+    color: var(--text-secondary);
+    font-size: 0.95rem;
+    margin-left: var(--spacing-lg);
 }
 
 .autopeer-challenge-list {
@@ -863,60 +983,528 @@ details[open] .summary-header {
     margin-left: var(--spacing-sm);
 }
 
-.autopeer-challenge-text {
+.autopeer-command-group {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-xs);
+}
+
+.autopeer-command-label {
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+.autopeer-command-block {
     background: var(--bg-shell);
     padding: var(--spacing-md);
     border-radius: var(--radius-sm);
     border: 1px solid var(--border);
-    margin: var(--spacing-sm) 0;
 }
 
-.autopeer-challenge-text pre {
+.autopeer-command-textarea {
+    width: 100%;
     margin: 0;
+    padding: 0;
+    border: 0;
+    background: transparent;
     font-family: var(--font-mono);
     font-size: 0.85em;
     white-space: pre-wrap;
-    word-break: break-all;
+    word-break: break-word;
+    line-height: 1.45;
+    resize: none;
+    overflow: hidden;
+    cursor: text;
+    color: var(--text);
 }
 
-.autopeer-sessions {
+.autopeer-command-textarea:focus {
+    outline: none;
+}
+
+.autopeer-dashboard {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-xl);
+}
+
+.autopeer-overview {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: var(--spacing-lg);
+}
+
+.autopeer-overview p:last-child {
+    margin-bottom: 0;
+}
+
+.autopeer-overview-meta {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: var(--spacing-sm);
+    flex-wrap: wrap;
+}
+
+.autopeer-workspace {
+    display: grid;
+    grid-template-columns: minmax(0, 1.4fr) minmax(300px, 0.9fr);
+    gap: var(--spacing-xl);
+    align-items: start;
+}
+
+.autopeer-main,
+.autopeer-sidebar,
+.autopeer-session-list {
     display: flex;
     flex-direction: column;
     gap: var(--spacing-lg);
 }
 
-.autopeer-sessions-list {
+.autopeer-panel {
     display: flex;
     flex-direction: column;
     gap: var(--spacing-lg);
 }
 
-.autopeer-session-actions {
+.autopeer-panel--compact {
+    gap: var(--spacing-md);
+}
+
+.autopeer-panel-header {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.autopeer-panel-header--sidebar {
+    gap: 2px;
+}
+
+.autopeer-panel-kicker {
+    margin: 0;
+    color: var(--text-secondary);
+    font-size: 0.75rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+.autopeer-panel-title {
+    margin: 0;
+    font-size: 1.25rem;
+    line-height: 1.2;
+}
+
+.autopeer-flow-steps {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: var(--spacing-sm);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.autopeer-flow-step {
     display: flex;
     gap: var(--spacing-sm);
-    margin-top: var(--spacing-md);
+    align-items: flex-start;
+    padding: var(--spacing-md);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    background: color-mix(in srgb, var(--card) 92%, var(--bg-secondary));
+}
+
+.autopeer-flow-step.is-active {
+    border-color: color-mix(in srgb, var(--accent) 28%, var(--border));
+    background: color-mix(in srgb, var(--accent) 10%, var(--card));
+}
+
+.autopeer-flow-step.is-complete {
+    border-color: color-mix(in srgb, var(--accent) 22%, var(--border));
+}
+
+.autopeer-flow-step-index {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 2rem;
+    height: 1.55rem;
+    padding: 0 0.55rem;
+    border-radius: 999px;
+    border: 1px solid color-mix(in srgb, var(--border) 88%, var(--accent));
+    background: color-mix(in srgb, var(--card) 85%, var(--bg-secondary));
+    color: var(--text-secondary);
+    font-size: 0.74rem;
+    font-weight: 700;
+    line-height: 1;
+}
+
+.autopeer-flow-step.is-active .autopeer-flow-step-index,
+.autopeer-flow-step.is-complete .autopeer-flow-step-index {
+    border-color: color-mix(in srgb, var(--accent) 22%, var(--border));
+    background: color-mix(in srgb, var(--accent) 10%, var(--card));
+    color: var(--text);
+}
+
+.autopeer-flow-step-copy {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+}
+
+.autopeer-flow-step-copy strong {
+    font-weight: 700;
+}
+
+.autopeer-flow-step-copy span {
+    color: var(--text-secondary);
+    font-size: 0.82rem;
+    line-height: 1.35;
+}
+
+.autopeer-node-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: var(--spacing-md);
+}
+
+.autopeer-node-option {
+    width: 100%;
+    text-align: left;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: var(--spacing-md);
+    border-radius: var(--radius-md);
+    border: 1px solid var(--border);
+    background: color-mix(in srgb, var(--card) 96%, var(--bg-secondary));
+}
+
+.autopeer-node-option:hover:not(:disabled),
+.autopeer-node-option.is-selected {
+    border-color: color-mix(in srgb, var(--accent) 24%, var(--border));
+    background: color-mix(in srgb, var(--accent) 10%, var(--card));
+}
+
+.autopeer-node-option.is-unavailable,
+.autopeer-node-option:disabled {
+    opacity: 0.72;
+    cursor: not-allowed;
+}
+
+.autopeer-node-option-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: var(--spacing-sm);
+}
+
+.autopeer-node-option-status {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
     justify-content: flex-end;
 }
 
-.autopeer-session-actions .shell-button {
-    float: none;
+.autopeer-node-name {
+    font-size: 1rem;
 }
 
-.autopeer-session-edit {
-    margin-top: var(--spacing-md);
+.autopeer-node-meta,
+.autopeer-node-note {
+    color: var(--text-secondary);
+    font-size: 0.82rem;
+    line-height: 1.4;
 }
 
-.autopeer-new-session {
-    margin-top: var(--spacing-xl);
-    padding-top: var(--spacing-xl);
-    border-top: 1px solid var(--border-light);
+.autopeer-node-state-note {
+    margin-top: auto;
+    padding-top: 8px;
+    border-top: 1px solid color-mix(in srgb, var(--border) 82%, transparent);
+    color: var(--text);
+    font-size: 0.8rem;
+    line-height: 1.45;
 }
 
-.autopeer-form {
+.autopeer-node-summary {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: var(--spacing-md);
+    padding: var(--spacing-md);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    background: color-mix(in srgb, var(--bg-secondary) 70%, var(--card));
+}
+
+.autopeer-node-summary p {
+    margin: 6px 0 0;
+}
+
+.autopeer-form-section {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-sm);
+}
+
+.autopeer-form-section--advanced,
+.autopeer-form-section--compact {
+    gap: 10px;
+}
+
+.autopeer-section-label {
+    color: var(--text-secondary);
+    font-size: 0.75rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+.autopeer-inline-actions {
+    display: flex;
+    gap: var(--spacing-sm);
+    flex-wrap: wrap;
+    align-items: center;
+}
+
+.autopeer-advanced {
+    padding: var(--spacing-md);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    background: color-mix(in srgb, var(--bg-secondary) 55%, var(--card));
+}
+
+.autopeer-advanced summary {
+    cursor: pointer;
+    font-weight: 600;
+}
+
+.autopeer-advanced[open] summary {
+    margin-bottom: var(--spacing-md);
+}
+
+.autopeer-review-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: var(--spacing-md);
+}
+
+.autopeer-review-item {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: var(--spacing-md);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    background: color-mix(in srgb, var(--card) 96%, var(--bg-secondary));
+}
+
+.autopeer-review-label {
+    color: var(--text-secondary);
+    font-size: 0.74rem;
+    letter-spacing: 0.07em;
+    text-transform: uppercase;
+}
+
+.autopeer-review-value {
+    line-height: 1.35;
+    word-break: break-word;
+}
+
+.autopeer-review-note {
+    padding: var(--spacing-md);
+    border-left: 3px solid var(--accent);
+    background: color-mix(in srgb, var(--bg-secondary) 72%, var(--card));
+}
+
+.autopeer-review-note p {
+    margin: 0;
+    line-height: 1.5;
+}
+
+.autopeer-review-section {
     margin-top: var(--spacing-md);
     padding: var(--spacing-md);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    background: color-mix(in srgb, var(--card) 96%, var(--bg-secondary));
+}
+
+.autopeer-review-section-title {
+    margin: 0 0 var(--spacing-md);
+    color: var(--text-secondary);
+    font-size: 0.74rem;
+    letter-spacing: 0.07em;
+    text-transform: uppercase;
+}
+
+.autopeer-review-peering-grid {
+    margin: 0;
+}
+
+.autopeer-empty-state {
+    padding: var(--spacing-lg);
+    border: 1px dashed var(--border);
+    border-radius: var(--radius-md);
+    background: color-mix(in srgb, var(--bg-secondary) 60%, var(--card));
+}
+
+.autopeer-empty-state p {
+    margin: 0 0 8px;
+}
+
+.autopeer-empty-state p:last-child {
+    margin-bottom: 0;
+}
+
+.autopeer-status-card {
+    border-color: color-mix(in srgb, var(--accent) 35%, var(--border));
+}
+
+.autopeer-status-pill {
+    display: inline-flex;
+    align-items: center;
+    width: fit-content;
+    padding: 2px 8px;
+    border-radius: var(--radius-pill);
+    background: color-mix(in srgb, var(--accent) 16%, transparent);
+    color: var(--shell-prompt);
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+.autopeer-node-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 8px;
+    border-radius: var(--radius-pill);
     background: var(--bg-secondary);
+    color: var(--text-secondary);
+    font-size: 0.76rem;
+    line-height: 1;
+}
+
+.autopeer-links {
+    display: flex;
+    gap: var(--spacing-md);
+    flex-wrap: wrap;
+}
+
+.autopeer-links a {
+    color: var(--shell-prompt);
+    text-decoration: none;
+}
+
+.autopeer-links a:hover {
+    text-decoration: underline;
+}
+
+.autopeer-progress {
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: var(--spacing-xs);
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+
+.autopeer-progress-step {
+    padding: 10px 8px;
     border-radius: var(--radius-sm);
+    text-align: center;
+    font-size: 0.76rem;
+    background: var(--bg-secondary);
+    color: var(--text-secondary);
+}
+
+.autopeer-progress-step.is-complete,
+.autopeer-progress-step.is-current {
+    background: color-mix(in srgb, var(--accent) 12%, var(--card));
+    color: var(--text);
+}
+
+.autopeer-progress-step.is-current {
+    border: 1px solid color-mix(in srgb, var(--accent) 24%, var(--border));
+}
+
+.autopeer-progress-step.is-failed {
+    background: color-mix(in srgb, var(--error) 16%, var(--card));
+    color: var(--error);
+}
+
+.autopeer-session-card {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-md);
+}
+
+.autopeer-session-card-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: var(--spacing-md);
+}
+
+.autopeer-session-card-head p {
+    margin: 4px 0 0;
+}
+
+.autopeer-session-card-title {
+    font-size: 1rem;
+}
+
+.autopeer-session-grid {
+    gap: 8px 12px;
+}
+
+.autopeer-toggle-row {
+    display: inline-flex;
+    gap: var(--spacing-md);
+    align-items: center;
+}
+
+.autopeer-sessions,
+.autopeer-sessions-list,
+.autopeer-session-actions,
+.autopeer-session-edit,
+.autopeer-new-session,
+.autopeer-form {
+    display: contents;
+}
+
+@media (max-width: 960px) {
+    .autopeer-workspace {
+        grid-template-columns: 1fr;
+    }
+
+    .autopeer-overview {
+        flex-direction: column;
+    }
+
+    .autopeer-overview-meta {
+        justify-content: flex-start;
+    }
+}
+
+@media (max-width: 720px) {
+    .autopeer-flow-steps,
+    .autopeer-progress {
+        grid-template-columns: 1fr;
+    }
+
+    .autopeer-node-summary,
+    .autopeer-session-card-head {
+        flex-direction: column;
+    }
+
+    .autopeer-review-grid {
+        grid-template-columns: 1fr;
+    }
 }
 
 .text-secondary {

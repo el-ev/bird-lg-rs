@@ -1,0 +1,55 @@
+name = "bird-lg-autopeer"
+main = "src/index.ts"
+compatibility_date = "2026-04-18"
+compatibility_flags = ["nodejs_compat"]
+workers_dev = false
+
+[[routes]]
+pattern = "autopeer.owo.li"
+custom_domain = true
+
+[observability]
+enabled = true
+head_sampling_rate = 1
+
+[assets]
+directory = "./public"
+not_found_handling = "single-page-application"
+run_worker_first = ["/v1/*", "/health", "/config.json", "/oidc/*"]
+
+[vars]
+GITHUB_OWNER = "OwO-Intranet-Services"
+GITHUB_REPO = "dn42-network"
+GITHUB_BASE_BRANCH = "main"
+DN42_REGISTRY_OWNER = "dn42"
+DN42_REGISTRY_REPO = "registry"
+DN42_REGISTRY_BRANCH = "master"
+DN42_REGISTRY_BASE_URL = "https://git.dn42.dev"
+OIDC_PROVIDERS = """[
+  {
+    "name": "kioubit",
+    "label": "Kioubit",
+    "issuer": "https://dn42.g-load.eu",
+    "client_id": "5b6a7a8b-9783-4f9d-9484-091f235ef8dd",
+    "client_secret_env": "KIOUBIT_OIDC_CLIENT_SECRET",
+    "token_endpoint_auth_method": "client_secret_post",
+    "audience": "5b6a7a8b-9783-4f9d-9484-091f235ef8dd",
+    "scopes": ["openid", "profile", "email", "dn42"],
+    "asn_claim": "dn42.asn",
+    "mntner_claim": "dn42.mnt",
+    "description": "Authenticate with Kioubit."
+  }
+]"""
+HOST_ASNS = "4242421023"
+AUTOPEER_URL = "https://autopeer.owo.li"
+AUTOPEER_SITE_URL = "https://autopeer.owo.li"
+LOOKING_GLASS_URL = "https://network.owo.li"
+AUTOPEER_APPLY_RETRY_LIMIT = "2"
+AUTOPEER_APPLY_RETRY_INTERVAL_SECONDS = "30"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "bird-lg-autopeer"
+database_id = "cc93aafe-066c-4fef-80b5-d62e5db42522"
+preview_database_id = "240d88b3-0f05-43e1-81e6-6bced6f74eef"
+migrations_dir = "migrations"

@@ -10,6 +10,12 @@ const CONFIG_PATH: &str = "/config.json";
 struct ConfigResponse {
     backend_url: String,
     #[serde(skip_serializing_if = "Option::is_none")]
+    autopeer_url: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    autopeer_site_url: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    looking_glass_url: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     username: Option<String>,
 }
 
@@ -34,12 +40,18 @@ async fn main(req: Request, env: Env, _ctx: Context) -> Result<Response> {
 
     if url.path() == CONFIG_PATH {
         let backend_url = env.var("BACKEND_URL");
+        let autopeer_url = env.var("AUTOPEER_URL").ok().map(|v| v.to_string());
+        let autopeer_site_url = env.var("AUTOPEER_SITE_URL").ok().map(|v| v.to_string());
+        let looking_glass_url = env.var("LOOKING_GLASS_URL").ok().map(|v| v.to_string());
         let username = env.var("USERNAME").ok().map(|v| v.to_string());
 
         match backend_url {
             Ok(backend_url) => {
                 let config = ConfigResponse {
                     backend_url: backend_url.to_string(),
+                    autopeer_url,
+                    autopeer_site_url,
+                    looking_glass_url,
                     username,
                 };
                 return json_response(&config, 200);

@@ -23,6 +23,7 @@ pub fn use_app_data(state: LgStateHandle) {
                 state.dispatch(AppEvent::SetConfig {
                     username: config.username.clone(),
                     backend_url: config.backend_url.clone(),
+                    autopeer_site_url: config.autopeer_site_url.clone(),
                 });
             }
 
@@ -36,6 +37,7 @@ pub fn use_app_data(state: LgStateHandle) {
                         state.dispatch(AppEvent::SetConfig {
                             username: config.username.clone(),
                             backend_url: config.backend_url.clone(),
+                            autopeer_site_url: config.autopeer_site_url.clone(),
                         });
                     }
                     Err(err) => {

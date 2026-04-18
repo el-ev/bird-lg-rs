@@ -62,6 +62,7 @@ pub fn wireguard_section() -> Html {
                                             <ShellLine
                                                 prompt={format!("{}@{}$ ", state.username, &node_wg.name)}
                                                 command={"wg show".to_string()}
+                                                style={"font-size: 0.9em;".to_string()}
                                             />
                                             <DataTable
                                                 headers={
