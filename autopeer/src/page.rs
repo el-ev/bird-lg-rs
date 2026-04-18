@@ -1,31 +1,23 @@
-use std::{collections::BTreeSet, rc::Rc};
+use std::collections::BTreeSet;
 
 use common::{
     auto_peer::{
-        ALL_PEERING_STRATEGIES, AuthMethod, AuthMethodKind, AuthSessionResponse,
-        CreateSessionRequest, NodeView, OperationStatus, PeeringStrategy, SessionListResponse,
-        SessionState, SessionView, UpdateSessionRequest,
+        ALL_PEERING_STRATEGIES, AuthMethodKind, NodeView, OperationStatus, PeeringStrategy,
+        SessionState, SessionView,
     },
     models::PeeringInfo,
 };
-use gloo_timers::future::TimeoutFuture;
 use ui_components::shell::{
     ShellButton, ShellInput, ShellLine, ShellPrompt, ShellSelect, ShellToggle,
 };
-use wasm_bindgen_futures::spawn_local;
-use web_sys::{HtmlSelectElement, HtmlTextAreaElement, UrlSearchParams};
+use web_sys::{HtmlSelectElement, HtmlTextAreaElement};
 use yew::prelude::*;
 
 use crate::{
     config::{AUTOPEER_BASE_PATH, matches_autopeer_path},
-    service,
-    store::{
-        AutoPeerStep, PeerConfigStage, PersistedSessions, SessionDraft, SessionDraftField,
-        load_persisted_sessions, save_persisted_sessions,
-    },
+    controller::{default_pgp_key, sync_create_draft, use_autopeer_controller},
+    store::{AutoPeerStep, PeerConfigStage, SessionDraft, SessionDraftField},
 };
-
-const MISSING_AUTOPEER_URL_ERROR: &str = "autopeer_url is not configured";
 
 fn render_readonly_block(label: &str, content: String) -> Html {
     let rows = content.lines().count().max(1);
@@ -77,28 +69,6 @@ fn ssh_sign_command(challenge_text: &str) -> String {
     format!("ssh-keygen -Y sign -f <PRIVATE_KEY_PATH> -n file <<'EOF'\n{challenge_text}\nEOF")
 }
 
-fn validate_ssh_signature_input(signature: &str) -> Result<(), &'static str> {
-    let trimmed = signature.trim();
-    if trimmed.is_empty() {
-        return Err(
-            "Paste the full detached SSH signature block from the command above, including the BEGIN/END lines.",
-        );
-    }
-    if !trimmed.contains("-----BEGIN SSH SIGNATURE-----")
-        || !trimmed.contains("-----END SSH SIGNATURE-----")
-    {
-        if trimmed.contains("dn42-autopeer challenge") {
-            return Err(
-                "Paste the detached SSH signature block from the command above, not the unsigned challenge text.",
-            );
-        }
-        return Err(
-            "Paste the full detached SSH signature block from the command above, including the BEGIN/END lines.",
-        );
-    }
-    Ok(())
-}
-
 fn pgp_export_command(key_id: &str) -> String {
     if key_id.trim().is_empty() {
         "gpg --armor --export <KEYID_OR_FINGERPRINT>".to_string()
@@ -113,98 +83,6 @@ fn pgp_sign_command(challenge_text: &str, key_id: &str) -> String {
     } else {
         format!("gpg --armor --local-user {key_id} --clearsign <<'EOF'\n{challenge_text}\nEOF")
     }
-}
-
-fn default_pgp_key(method: &AuthMethod) -> String {
-    method.pgp_fingerprints.first().cloned().unwrap_or_default()
-}
-
-fn filter_supported_methods(methods: Vec<AuthMethod>, oidc_enabled: bool) -> Vec<AuthMethod> {
-    methods
-        .into_iter()
-        .filter(|method| oidc_enabled || method.kind != AuthMethodKind::Oidc)
-        .collect()
-}
-
-fn sync_create_draft(
-    asn: &str,
-    nodes: &[NodeView],
-    sessions: &[SessionView],
-    current: &SessionDraft,
-) -> SessionDraft {
-    let mut draft = if current.endpoint.is_empty()
-        && current.wg_public_key.is_empty()
-        && current.peer6.is_empty()
-        && current.node.is_empty()
-    {
-        SessionDraft::default_for_asn(asn)
-    } else {
-        current.clone()
-    };
-
-    let current_is_selectable = !draft.node.is_empty()
-        && nodes.iter().any(|node| node.name == draft.node)
-        && sessions.iter().all(|session| session.node != draft.node);
-
-    if !current_is_selectable {
-        draft.node.clear();
-    }
-
-    draft
-}
-
-fn apply_session_list(
-    response: SessionListResponse,
-    asn: &UseStateHandle<String>,
-    nodes: &UseStateHandle<Vec<NodeView>>,
-    sessions: &UseStateHandle<Vec<SessionView>>,
-    draft: &UseStateHandle<SessionDraft>,
-    editing_node: &UseStateHandle<Option<String>>,
-) {
-    asn.set(response.asn.clone());
-    nodes.set(response.nodes.clone());
-    sessions.set(response.sessions.clone());
-
-    if editing_node.is_none() {
-        let next = sync_create_draft(&response.asn, &response.nodes, &response.sessions, &draft);
-        draft.set(next);
-    }
-}
-
-fn is_stale_session_error(message: &str) -> bool {
-    matches!(
-        message,
-        "unknown auth session" | "auth session has expired" | "missing bearer session token"
-    )
-}
-
-fn require_api_base(
-    api_base: &UseStateHandle<Option<String>>,
-    error: &UseStateHandle<Option<String>>,
-) -> Option<String> {
-    let value = api_base
-        .as_ref()
-        .as_ref()
-        .map(|value| value.trim())
-        .filter(|value| !value.is_empty())
-        .map(str::to_string);
-
-    if value.is_none() {
-        error.set(Some(MISSING_AUTOPEER_URL_ERROR.to_string()));
-    }
-
-    value
-}
-
-fn set_authenticated_session(
-    auth_session: &UseStateHandle<Option<AuthSessionResponse>>,
-    host_session: &UseStateHandle<Option<AuthSessionResponse>>,
-    session: AuthSessionResponse,
-) {
-    if session.can_impersonate {
-        host_session.set(Some(session.clone()));
-    }
-    auth_session.set(Some(session));
 }
 
 fn render_error(error: &Option<String>) -> Html {
@@ -230,20 +108,6 @@ fn render_loading(loading: bool, loading_message: Option<&str>) -> Html {
     } else {
         Html::default()
     }
-}
-
-fn start_loading(
-    loading: &UseStateHandle<bool>,
-    loading_message: &UseStateHandle<Option<String>>,
-    message: &str,
-) {
-    loading.set(true);
-    loading_message.set(Some(message.to_string()));
-}
-
-fn clear_loading(loading: &UseStateHandle<bool>, loading_message: &UseStateHandle<Option<String>>) {
-    loading.set(false);
-    loading_message.set(None);
 }
 
 fn autopeer_home_href_from_parts(protocol: &str, host: &str, pathname: &str) -> String {
@@ -287,39 +151,6 @@ fn looking_glass_href() -> String {
             Some(looking_glass_href_from_parts(&protocol, &host, &pathname))
         })
         .unwrap_or_else(|| "/".to_string())
-}
-
-fn configured_href(configured: Option<&str>, fallback: &str) -> String {
-    configured
-        .map(str::trim)
-        .filter(|value| !value.is_empty())
-        .unwrap_or(fallback)
-        .to_string()
-}
-
-fn oidc_hash_param(name: &str) -> Option<String> {
-    web_sys::window().and_then(|window| {
-        let hash = window.location().hash().ok()?;
-        let query = hash.strip_prefix('#').unwrap_or(&hash);
-        let params = UrlSearchParams::new_with_str(query).ok()?;
-        params.get(name)
-    })
-}
-
-fn clear_oidc_hash() {
-    if let Some(window) = web_sys::window() {
-        let _ = window.location().set_hash("");
-    }
-}
-
-fn redirect_to(url: &str) -> Result<(), String> {
-    let Some(window) = web_sys::window() else {
-        return Err("Browser window is unavailable".to_string());
-    };
-    window
-        .location()
-        .set_href(url)
-        .map_err(|_| "Failed to open the OIDC login redirect".to_string())
 }
 
 fn session_for_node<'a>(node_name: &str, sessions: &'a [SessionView]) -> Option<&'a SessionView> {
@@ -570,565 +401,53 @@ fn render_operation_progress(operation: &OperationStatus) -> Html {
 
 #[function_component(AutoPeerPage)]
 pub fn auto_peer_page() -> Html {
-    let persisted_sessions = load_persisted_sessions().unwrap_or_default();
     let default_autopeer_home_href = autopeer_home_href();
     let default_looking_glass_href = looking_glass_href();
-    let api_base = use_state(|| None::<String>);
-    let autopeer_site_href = {
-        let initial = default_autopeer_home_href.clone();
-        use_state(move || initial)
-    };
-    let looking_glass_site_href = {
-        let initial = default_looking_glass_href.clone();
-        use_state(move || initial)
-    };
-    let oidc_methods = use_state(Vec::<AuthMethod>::new);
-    let step = use_state(|| AutoPeerStep::LoadingConfig);
-    let asn = use_state(String::new);
-    let challenge_id = use_state(|| None::<String>);
-    let challenge_text = use_state(|| None::<String>);
-    let methods = use_state(Vec::<AuthMethod>::new);
-    let selected_method = use_state(|| None::<AuthMethod>);
-    let auth_session = {
-        let initial = persisted_sessions.auth_session.clone();
-        use_state(move || initial)
-    };
-    let host_session = {
-        let initial = persisted_sessions.host_session.clone();
-        use_state(move || initial)
-    };
-    let nodes = use_state(Vec::<NodeView>::new);
-    let sessions = use_state(Vec::<SessionView>::new);
-    let draft = use_state(SessionDraft::default);
-    let touched_fields = use_state(BTreeSet::<String>::new);
-    let editing_node = use_state(|| None::<String>);
-    let config_stage = use_state(|| PeerConfigStage::SelectNode);
-    let retire_confirmation_armed = use_state(|| false);
-    let operation = use_state(|| None::<OperationStatus>);
-    let error = use_state(|| None::<String>);
-    let loading = use_state(|| false);
-    let loading_message = use_state(|| None::<String>);
-
-    let impersonate_asn = use_state(String::new);
-    let impersonate_mnt = use_state(String::new);
-    let ssh_signature = use_state(String::new);
-    let selected_pgp_key = use_state(String::new);
-    let pgp_public_key = use_state(String::new);
-    let pgp_signed_message = use_state(String::new);
-
-    {
-        let api_base = api_base.clone();
-        let asn = asn.clone();
-        let auth_session = auth_session.clone();
-        let host_session = host_session.clone();
-        let nodes = nodes.clone();
-        let sessions = sessions.clone();
-        let draft = draft.clone();
-        let editing_node = editing_node.clone();
-        let config_stage = config_stage.clone();
-        let error = error.clone();
-        let step = step.clone();
-        let autopeer_site_href = autopeer_site_href.clone();
-        let looking_glass_site_href = looking_glass_site_href.clone();
-        let oidc_methods = oidc_methods.clone();
-        let default_autopeer_home_href = default_autopeer_home_href.clone();
-        let default_looking_glass_href = default_looking_glass_href.clone();
-        let loading = loading.clone();
-        let loading_message = loading_message.clone();
-
-        use_effect_with((), move |_| {
-            spawn_local(async move {
-                match service::load_runtime_config().await {
-                    Ok(config) => {
-                        let api_url = config.autopeer_url.unwrap_or_default();
-                        autopeer_site_href.set(configured_href(
-                            config.autopeer_site_url.as_deref(),
-                            &default_autopeer_home_href,
-                        ));
-                        looking_glass_site_href.set(configured_href(
-                            config.looking_glass_url.as_deref(),
-                            &default_looking_glass_href,
-                        ));
-                        oidc_methods.set(config.oidc_methods);
-                        api_base.set(Some(api_url.clone()));
-                        if let Some(message) = oidc_hash_param("oidc_error") {
-                            clear_oidc_hash();
-                            error.set(Some(message));
-                            step.set(AutoPeerStep::EnterAsn);
-                            return;
-                        }
-                        if let Some(state) = oidc_hash_param("oidc_state") {
-                            start_loading(
-                                &loading,
-                                &loading_message,
-                                "Finishing your OIDC login and loading your sessions...",
-                            );
-                            match service::complete_oidc(&api_url, &state).await {
-                                Ok(session) => {
-                                    clear_oidc_hash();
-                                    let session_asn = session.asn.clone();
-                                    match service::list_sessions(&api_url, &session.session_token)
-                                        .await
-                                    {
-                                        Ok(response) => {
-                                            if session.can_impersonate {
-                                                host_session.set(Some(session.clone()));
-                                            }
-                                            auth_session.set(Some(session));
-                                            apply_session_list(
-                                                response,
-                                                &asn,
-                                                &nodes,
-                                                &sessions,
-                                                &draft,
-                                                &editing_node,
-                                            );
-                                            let next_draft = sync_create_draft(
-                                                &session_asn,
-                                                &nodes,
-                                                &sessions,
-                                                &draft,
-                                            );
-                                            draft.set(next_draft);
-                                            editing_node.set(None);
-                                            config_stage.set(PeerConfigStage::SelectNode);
-                                            error.set(None);
-                                            step.set(AutoPeerStep::ManageSessions);
-                                            clear_loading(&loading, &loading_message);
-                                            return;
-                                        }
-                                        Err(message) => {
-                                            if session.can_impersonate {
-                                                host_session.set(Some(session.clone()));
-                                            }
-                                            auth_session.set(Some(session));
-                                            asn.set(session_asn.clone());
-                                            nodes.set(Vec::new());
-                                            sessions.set(Vec::new());
-                                            editing_node.set(None);
-                                            config_stage.set(PeerConfigStage::SelectNode);
-                                            draft.set(SessionDraft::default_for_asn(&session_asn));
-                                            error.set(Some(message));
-                                            step.set(AutoPeerStep::ManageSessions);
-                                            clear_loading(&loading, &loading_message);
-                                            return;
-                                        }
-                                    }
-                                }
-                                Err(message) => {
-                                    clear_oidc_hash();
-                                    clear_loading(&loading, &loading_message);
-                                    error.set(Some(message));
-                                    step.set(AutoPeerStep::EnterAsn);
-                                    return;
-                                }
-                            }
-                        }
-                        let persisted = PersistedSessions {
-                            auth_session: (*auth_session).clone(),
-                            host_session: (*host_session).clone(),
-                        };
-                        let mut valid_host_session = None::<AuthSessionResponse>;
-                        let mut valid_host_response = None::<SessionListResponse>;
-
-                        if let Some(host) = persisted.host_session.clone() {
-                            match service::list_sessions(&api_url, &host.session_token).await {
-                                Ok(response) => {
-                                    valid_host_response = Some(response);
-                                    valid_host_session = Some(host);
-                                }
-                                Err(message) if is_stale_session_error(&message) => {}
-                                Err(message) => {
-                                    error.set(Some(message));
-                                    step.set(AutoPeerStep::EnterAsn);
-                                    return;
-                                }
-                            }
-                        }
-
-                        if let Some(active) = persisted.auth_session.clone() {
-                            match service::list_sessions(&api_url, &active.session_token).await {
-                                Ok(response) => {
-                                    auth_session.set(Some(active.clone()));
-                                    host_session.set(valid_host_session.clone());
-                                    apply_session_list(
-                                        response,
-                                        &asn,
-                                        &nodes,
-                                        &sessions,
-                                        &draft,
-                                        &editing_node,
-                                    );
-                                    save_persisted_sessions(&PersistedSessions {
-                                        auth_session: Some(active),
-                                        host_session: valid_host_session,
-                                    });
-                                    editing_node.set(None);
-                                    config_stage.set(PeerConfigStage::SelectNode);
-                                    error.set(None);
-                                    step.set(AutoPeerStep::ManageSessions);
-                                    return;
-                                }
-                                Err(message) if is_stale_session_error(&message) => {}
-                                Err(message) => {
-                                    error.set(Some(message));
-                                    step.set(AutoPeerStep::EnterAsn);
-                                    return;
-                                }
-                            }
-                        }
-
-                        if let (Some(host), Some(response)) =
-                            (valid_host_session.clone(), valid_host_response)
-                        {
-                            auth_session.set(Some(host.clone()));
-                            host_session.set(Some(host.clone()));
-                            apply_session_list(
-                                response,
-                                &asn,
-                                &nodes,
-                                &sessions,
-                                &draft,
-                                &editing_node,
-                            );
-                            save_persisted_sessions(&PersistedSessions {
-                                auth_session: Some(host.clone()),
-                                host_session: Some(host),
-                            });
-                            editing_node.set(None);
-                            config_stage.set(PeerConfigStage::SelectNode);
-                            error.set(None);
-                            step.set(AutoPeerStep::ManageSessions);
-                        } else {
-                            save_persisted_sessions(&PersistedSessions::default());
-                            editing_node.set(None);
-                            config_stage.set(PeerConfigStage::SelectNode);
-                            error.set(None);
-                            step.set(AutoPeerStep::EnterAsn);
-                        }
-                    }
-                    Err(message) => {
-                        error.set(Some(message));
-                        step.set(AutoPeerStep::EnterAsn);
-                    }
-                }
-            });
-            || ()
-        });
-    }
-
-    {
-        let auth_session = auth_session.clone();
-        let host_session = host_session.clone();
-
-        use_effect_with(
-            ((*auth_session).clone(), (*host_session).clone()),
-            move |(auth, host)| {
-                save_persisted_sessions(&PersistedSessions {
-                    auth_session: auth.clone(),
-                    host_session: host.clone(),
-                });
-                || ()
-            },
-        );
-    }
-
-    {
-        let touched_fields = touched_fields.clone();
-        use_effect_with((*step).clone(), move |step| {
-            if *step != AutoPeerStep::ManageSessions {
-                touched_fields.set(BTreeSet::new());
-            }
-            || ()
-        });
-    }
-
-    {
-        let touched_fields = touched_fields.clone();
-        let draft_node = draft.node.clone();
-        use_effect_with(((*editing_node).clone(), draft_node), move |_| {
-            touched_fields.set(BTreeSet::new());
-            || ()
-        });
-    }
-
-    {
-        let retire_confirmation_armed = retire_confirmation_armed.clone();
-        let draft_node = draft.node.clone();
-        use_effect_with(
-            (
-                (*step).clone(),
-                (*editing_node).clone(),
-                draft_node,
-                *config_stage,
-            ),
-            move |_| {
-                retire_confirmation_armed.set(false);
-                || ()
-            },
-        );
-    }
-
-    let refresh_sessions: Rc<dyn Fn()> = {
-        let api_base = api_base.clone();
-        let auth_session = auth_session.clone();
-        let asn = asn.clone();
-        let nodes = nodes.clone();
-        let sessions = sessions.clone();
-        let draft = draft.clone();
-        let editing_node = editing_node.clone();
-        let config_stage = config_stage.clone();
-        let error = error.clone();
-        let loading = loading.clone();
-        let loading_message = loading_message.clone();
-
-        Rc::new(move || {
-            let Some(api_base) = (*api_base).clone() else {
-                return;
-            };
-            let Some(auth_session) = (*auth_session).clone() else {
-                return;
-            };
-
-            start_loading(
-                &loading,
-                &loading_message,
-                "Fetching your current sessions from our repo...",
-            );
-            let asn = asn.clone();
-            let nodes = nodes.clone();
-            let sessions = sessions.clone();
-            let draft = draft.clone();
-            let editing_node = editing_node.clone();
-            let config_stage = config_stage.clone();
-            let error = error.clone();
-            let loading = loading.clone();
-            let loading_message = loading_message.clone();
-
-            spawn_local(async move {
-                match service::list_sessions(&api_base, &auth_session.session_token).await {
-                    Ok(response) => {
-                        apply_session_list(
-                            response,
-                            &asn,
-                            &nodes,
-                            &sessions,
-                            &draft,
-                            &editing_node,
-                        );
-                        if editing_node.is_none() {
-                            config_stage.set(PeerConfigStage::SelectNode);
-                        }
-                        error.set(None);
-                    }
-                    Err(message) => error.set(Some(message)),
-                }
-                clear_loading(&loading, &loading_message);
-            });
-        })
-    };
-
-    let poll_operation: Rc<dyn Fn(OperationStatus)> = {
-        let api_base = api_base.clone();
-        let auth_session = auth_session.clone();
-        let operation_state = operation.clone();
-        let error = error.clone();
-        let loading = loading.clone();
-        let loading_message = loading_message.clone();
-        let asn = asn.clone();
-        let nodes = nodes.clone();
-        let sessions = sessions.clone();
-        let draft = draft.clone();
-        let editing_node = editing_node.clone();
-        let config_stage = config_stage.clone();
-        Rc::new(move |initial_operation: OperationStatus| {
-            let Some(api_base) = (*api_base).clone() else {
-                return;
-            };
-            let Some(auth_session) = (*auth_session).clone() else {
-                return;
-            };
-
-            let operation_state = operation_state.clone();
-            let error = error.clone();
-            let loading = loading.clone();
-            let loading_message = loading_message.clone();
-            let asn = asn.clone();
-            let nodes = nodes.clone();
-            let sessions = sessions.clone();
-            let draft = draft.clone();
-            let editing_node = editing_node.clone();
-            let config_stage = config_stage.clone();
-
-            spawn_local(async move {
-                let mut current = initial_operation;
-                operation_state.set(Some(current.clone()));
-
-                loop {
-                    if current.state.is_terminal() {
-                        start_loading(
-                            &loading,
-                            &loading_message,
-                            "Refreshing your session state from our repo...",
-                        );
-                        match service::list_sessions(&api_base, &auth_session.session_token).await {
-                            Ok(response) => {
-                                editing_node.set(None);
-                                apply_session_list(
-                                    response,
-                                    &asn,
-                                    &nodes,
-                                    &sessions,
-                                    &draft,
-                                    &editing_node,
-                                );
-                                config_stage.set(PeerConfigStage::SelectNode);
-                                error.set(None);
-                            }
-                            Err(message) => error.set(Some(message)),
-                        }
-                        clear_loading(&loading, &loading_message);
-                        break;
-                    }
-
-                    TimeoutFuture::new(3_000).await;
-                    match service::get_operation(
-                        &api_base,
-                        &auth_session.session_token,
-                        &current.id,
-                    )
-                    .await
-                    {
-                        Ok(updated) => {
-                            current = updated.clone();
-                            operation_state.set(Some(updated));
-                        }
-                        Err(message) => {
-                            error.set(Some(message));
-                            break;
-                        }
-                    }
-                }
-            });
-        })
-    };
-
-    let on_asn_change = {
-        let asn = asn.clone();
-        Callback::from(move |value: String| asn.set(value))
-    };
-
-    let on_impersonate_asn_change = {
-        let impersonate_asn = impersonate_asn.clone();
-        Callback::from(move |value: String| impersonate_asn.set(value))
-    };
-
-    let on_impersonate_mnt_change = {
-        let impersonate_mnt = impersonate_mnt.clone();
-        Callback::from(move |value: String| impersonate_mnt.set(value))
-    };
-
-    let submit_asn = {
-        let api_base = api_base.clone();
-        let asn = asn.clone();
-        let challenge_id = challenge_id.clone();
-        let challenge_text = challenge_text.clone();
-        let methods = methods.clone();
-        let oidc_methods = oidc_methods.clone();
-        let selected_method = selected_method.clone();
-        let selected_pgp_key = selected_pgp_key.clone();
-        let auth_session = auth_session.clone();
-        let operation = operation.clone();
-        let error = error.clone();
-        let loading = loading.clone();
-        let loading_message = loading_message.clone();
-        let step = step.clone();
-        let host_session = host_session.clone();
-        let nodes = nodes.clone();
-        let sessions = sessions.clone();
-        let draft = draft.clone();
-        let editing_node = editing_node.clone();
-        let config_stage = config_stage.clone();
-
-        Callback::from(move |_| {
-            let Some(api_base) = require_api_base(&api_base, &error) else {
-                return;
-            };
-
-            let asn_value = asn.trim().to_string();
-            if asn_value.is_empty() {
-                error.set(Some("ASN is required".to_string()));
-                return;
-            }
-
-            start_loading(
-                &loading,
-                &loading_message,
-                "Fetching your DN42 registry authentication methods...",
-            );
-            error.set(None);
-            operation.set(None);
-
-            let challenge_id = challenge_id.clone();
-            let challenge_text = challenge_text.clone();
-            let methods = methods.clone();
-            let oidc_methods = oidc_methods.clone();
-            let selected_method = selected_method.clone();
-            let selected_pgp_key = selected_pgp_key.clone();
-            let auth_session = auth_session.clone();
-            let error = error.clone();
-            let loading = loading.clone();
-            let loading_message = loading_message.clone();
-            let step = step.clone();
-            let host_session = host_session.clone();
-            let nodes = nodes.clone();
-            let sessions = sessions.clone();
-            let draft = draft.clone();
-            let editing_node = editing_node.clone();
-            let config_stage = config_stage.clone();
-
-            spawn_local(async move {
-                match service::start_auth(&api_base, &asn_value).await {
-                    Ok(response) => {
-                        let available_methods =
-                            filter_supported_methods(response.methods, !oidc_methods.is_empty());
-                        challenge_id.set(Some(response.challenge_id));
-                        challenge_text.set(Some(response.challenge_text));
-                        methods.set(available_methods);
-                        selected_method.set(None);
-                        selected_pgp_key.set(String::new());
-                        auth_session.set(None);
-                        host_session.set(None);
-                        nodes.set(Vec::new());
-                        sessions.set(Vec::new());
-                        editing_node.set(None);
-                        config_stage.set(PeerConfigStage::SelectNode);
-                        draft.set(SessionDraft::default_for_asn(&asn_value));
-                        step.set(AutoPeerStep::SelectMethod);
-                    }
-                    Err(message) => error.set(Some(message)),
-                }
-                clear_loading(&loading, &loading_message);
-            });
-        })
-    };
-
-    let on_submit_asn = {
-        let submit_asn = submit_asn.clone();
-        Callback::from(move |_| submit_asn.emit(()))
-    };
-
-    let on_asn_keydown = {
-        let submit_asn = submit_asn.clone();
-        let loading = loading.clone();
-        let asn = asn.clone();
-        Callback::from(move |event: KeyboardEvent| {
-            if event.key() == "Enter" && !*loading && !asn.trim().is_empty() {
-                event.prevent_default();
-                submit_asn.emit(());
-            }
-        })
-    };
+    let controller =
+        use_autopeer_controller(default_autopeer_home_href, default_looking_glass_href);
+    let autopeer_site_href = controller.autopeer_site_href.clone();
+    let looking_glass_site_href = controller.looking_glass_site_href.clone();
+    let oidc_methods = controller.oidc_methods.clone();
+    let step = controller.step.clone();
+    let asn = controller.asn.clone();
+    let challenge_text = controller.challenge_text.clone();
+    let methods = controller.methods.clone();
+    let selected_method = controller.selected_method.clone();
+    let auth_session = controller.auth_session.clone();
+    let host_session = controller.host_session.clone();
+    let nodes = controller.nodes.clone();
+    let sessions = controller.sessions.clone();
+    let draft = controller.draft.clone();
+    let touched_fields = controller.touched_fields.clone();
+    let editing_node = controller.editing_node.clone();
+    let config_stage = controller.config_stage.clone();
+    let retire_confirmation_armed = controller.retire_confirmation_armed.clone();
+    let operation = controller.operation.clone();
+    let error = controller.error.clone();
+    let loading = controller.loading.clone();
+    let loading_message = controller.loading_message.clone();
+    let impersonate_asn = controller.impersonate_asn.clone();
+    let impersonate_mnt = controller.impersonate_mnt.clone();
+    let ssh_signature = controller.ssh_signature.clone();
+    let selected_pgp_key = controller.selected_pgp_key.clone();
+    let pgp_public_key = controller.pgp_public_key.clone();
+    let pgp_signed_message = controller.pgp_signed_message.clone();
+    let on_asn_change = controller.on_asn_change.clone();
+    let on_submit_asn = controller.on_submit_asn.clone();
+    let on_asn_keydown = controller.on_asn_keydown.clone();
+    let on_enter_oidc = controller.on_enter_oidc.clone();
+    let on_select_method = controller.on_select_method.clone();
+    let on_select_method_back = controller.on_select_method_back.clone();
+    let on_verify_back = controller.on_verify_back.clone();
+    let on_verify = controller.on_verify.clone();
+    let on_refresh = controller.on_refresh.clone();
+    let on_logout = controller.on_logout.clone();
+    let on_impersonate_asn_change = controller.on_impersonate_asn_change.clone();
+    let on_impersonate_mnt_change = controller.on_impersonate_mnt_change.clone();
+    let on_impersonate = controller.on_impersonate.clone();
+    let on_return_to_host = controller.on_return_to_host.clone();
+    let on_submit_session = controller.on_submit_session.clone();
+    let on_retire_selected_session = controller.on_retire_selected_session.clone();
 
     let content = match &*step {
         AutoPeerStep::LoadingConfig => html! {
@@ -1174,47 +493,12 @@ pub fn auto_peer_page() -> Html {
                         </div>
                         <div class="autopeer-challenge-list">
                             {for oidc_methods.iter().map(|method| {
-                                let api_base = api_base.clone();
-                                let loading = loading.clone();
+                                let on_enter_oidc = on_enter_oidc.clone();
                                 let loading_for_button = loading.clone();
-                                let loading_message = loading_message.clone();
-                                let error = error.clone();
                                 let method = method.clone();
+                                let method_copy = method.clone();
                                 let onclick = Callback::from(move |_| {
-                                    let Some(api_base) = require_api_base(&api_base, &error) else {
-                                        return;
-                                    };
-                                    let Some(provider) = method.provider.clone() else {
-                                        error.set(Some("OIDC provider is missing".to_string()));
-                                        return;
-                                    };
-
-                                    start_loading(
-                                        &loading,
-                                        &loading_message,
-                                        "Redirecting you to your OIDC provider...",
-                                    );
-                                    error.set(None);
-
-                                    let loading = loading.clone();
-                                    let loading_message = loading_message.clone();
-                                    let error = error.clone();
-                                    spawn_local(async move {
-                                        match service::start_oidc(&api_base, &provider, None).await {
-                                            Ok(response) => {
-                                                if let Err(message) =
-                                                    redirect_to(&response.authorization_url)
-                                                {
-                                                    clear_loading(&loading, &loading_message);
-                                                    error.set(Some(message));
-                                                }
-                                            }
-                                            Err(message) => {
-                                                clear_loading(&loading, &loading_message);
-                                                error.set(Some(message));
-                                            }
-                                        }
-                                    });
+                                    on_enter_oidc.emit(method_copy.clone());
                                 });
 
                                 html! {
@@ -1236,21 +520,6 @@ pub fn auto_peer_page() -> Html {
             </div>
         },
         AutoPeerStep::SelectMethod => {
-            let on_back = {
-                let step = step.clone();
-                let selected_method = selected_method.clone();
-                let challenge_id = challenge_id.clone();
-                let challenge_text = challenge_text.clone();
-                let selected_pgp_key = selected_pgp_key.clone();
-                Callback::from(move |_| {
-                    selected_method.set(None);
-                    challenge_id.set(None);
-                    challenge_text.set(None);
-                    selected_pgp_key.set(String::new());
-                    step.set(AutoPeerStep::EnterAsn);
-                })
-            };
-
             html! {
                 <div class="autopeer-step">
                     <ShellLine>
@@ -1259,90 +528,10 @@ pub fn auto_peer_page() -> Html {
                     </ShellLine>
                     <div class="autopeer-challenge-list">
                         {for methods.iter().map(|method| {
+                            let on_select_method = on_select_method.clone();
                             let method_value = method.clone();
-                            let api_base = api_base.clone();
-                            let asn = asn.clone();
-                            let challenge_id = challenge_id.clone();
-                            let challenge_text = challenge_text.clone();
-                            let methods = methods.clone();
-                            let oidc_methods = oidc_methods.clone();
-                            let selected_method = selected_method.clone();
-                            let selected_pgp_key = selected_pgp_key.clone();
-                            let step = step.clone();
-                            let error = error.clone();
-                            let loading_for_click = loading.clone();
-                            let loading_message_for_click = loading_message.clone();
-                            let ssh_signature = ssh_signature.clone();
-                            let pgp_public_key = pgp_public_key.clone();
-                            let pgp_signed_message = pgp_signed_message.clone();
                             let onclick = Callback::from(move |_| {
-                                let Some(api_base) = require_api_base(&api_base, &error) else {
-                                    return;
-                                };
-
-                                let asn_value = asn.trim().to_string();
-                                if asn_value.is_empty() {
-                                    error.set(Some("ASN is required".to_string()));
-                                    return;
-                                }
-
-                                start_loading(
-                                    &loading_for_click,
-                                    &loading_message_for_click,
-                                    "Fetching a fresh DN42 registry challenge for you...",
-                                );
-                                error.set(None);
-
-                                let challenge_id = challenge_id.clone();
-                                let challenge_text = challenge_text.clone();
-                                let methods = methods.clone();
-                                let selected_method = selected_method.clone();
-                                let selected_pgp_key = selected_pgp_key.clone();
-                                let step = step.clone();
-                                let error = error.clone();
-                                let loading = loading_for_click.clone();
-                                let loading_message = loading_message_for_click.clone();
-                                let method_value = method_value.clone();
-                                let oidc_methods = oidc_methods.clone();
-                                let ssh_signature = ssh_signature.clone();
-                                let pgp_public_key = pgp_public_key.clone();
-                                let pgp_signed_message = pgp_signed_message.clone();
-
-                                spawn_local(async move {
-                                    match service::start_auth(&api_base, &asn_value).await {
-                                        Ok(response) => {
-                                            let available_methods = filter_supported_methods(
-                                                response.methods,
-                                                !oidc_methods.is_empty(),
-                                            );
-                                            let matched_method = available_methods.iter().find(|candidate| {
-                                                candidate.kind == method_value.kind
-                                                    && candidate.provider == method_value.provider
-                                            }).cloned();
-
-                                            match matched_method {
-                                                Some(method) => {
-                                                    challenge_id.set(Some(response.challenge_id));
-                                                    challenge_text.set(Some(response.challenge_text));
-                                                    methods.set(available_methods);
-                                                    selected_pgp_key
-                                                        .set(default_pgp_key(&method));
-                                                    selected_method.set(Some(method));
-                                                    ssh_signature.set(String::new());
-                                                    pgp_public_key.set(String::new());
-                                                    pgp_signed_message.set(String::new());
-                                                    step.set(AutoPeerStep::VerifyMethod);
-                                                }
-                                                None => error.set(Some(
-                                                    "That authentication method is no longer available for your ASN."
-                                                        .to_string(),
-                                                )),
-                                            }
-                                        }
-                                        Err(message) => error.set(Some(message)),
-                                    }
-                                    clear_loading(&loading, &loading_message);
-                                });
+                                on_select_method.emit(method_value.clone());
                             });
 
                             html! {
@@ -1362,7 +551,11 @@ pub fn auto_peer_page() -> Html {
                     {render_loading(*loading, loading_message.as_deref())}
                     {render_error(&error)}
                     <ShellLine>
-                        <ShellButton text="Back" onclick={on_back} disabled={*loading} />
+                        <ShellButton
+                            text="Back"
+                            onclick={on_select_method_back.clone()}
+                            disabled={*loading}
+                        />
                     </ShellLine>
                 </div>
             }
@@ -1370,197 +563,6 @@ pub fn auto_peer_page() -> Html {
         AutoPeerStep::VerifyMethod => {
             let selected_method_value = (*selected_method).clone();
             if let Some(method) = selected_method_value {
-                let on_back = {
-                    let step = step.clone();
-                    let error = error.clone();
-                    Callback::from(move |_| {
-                        error.set(None);
-                        step.set(AutoPeerStep::SelectMethod);
-                    })
-                };
-
-                let on_verify = {
-                    let api_base = api_base.clone();
-                    let challenge_id = challenge_id.clone();
-                    let auth_session = auth_session.clone();
-                    let host_session = host_session.clone();
-                    let nodes = nodes.clone();
-                    let sessions = sessions.clone();
-                    let draft = draft.clone();
-                    let editing_node = editing_node.clone();
-                    let config_stage = config_stage.clone();
-                    let error = error.clone();
-                    let loading = loading.clone();
-                    let loading_message = loading_message.clone();
-                    let step = step.clone();
-                    let ssh_signature = ssh_signature.clone();
-                    let pgp_public_key = pgp_public_key.clone();
-                    let pgp_signed_message = pgp_signed_message.clone();
-                    let asn = asn.clone();
-                    let method = method.clone();
-
-                    Callback::from(move |_| {
-                        let Some(api_base) = require_api_base(&api_base, &error) else {
-                            return;
-                        };
-                        let Some(challenge_id) = (*challenge_id).clone() else {
-                            error.set(Some("Missing challenge_id".to_string()));
-                            return;
-                        };
-                        if method.kind == AuthMethodKind::RegistrySsh {
-                            if let Err(message) =
-                                validate_ssh_signature_input(ssh_signature.as_str())
-                            {
-                                error.set(Some(message.to_string()));
-                                return;
-                            }
-                        }
-
-                        let loading_text = match method.kind {
-                            AuthMethodKind::RegistrySsh => {
-                                "Checking your SSH signature against the DN42 registry..."
-                            }
-                            AuthMethodKind::RegistryPgp => {
-                                "Checking your PGP signature against the DN42 registry..."
-                            }
-                            AuthMethodKind::Oidc => "Redirecting you to your OIDC provider...",
-                            AuthMethodKind::HostImpersonation => {
-                                "Preparing your host ASN session..."
-                            }
-                        };
-                        start_loading(&loading, &loading_message, loading_text);
-                        error.set(None);
-
-                        let auth_session = auth_session.clone();
-                        let host_session = host_session.clone();
-                        let asn = asn.clone();
-                        let nodes = nodes.clone();
-                        let sessions = sessions.clone();
-                        let draft = draft.clone();
-                        let editing_node = editing_node.clone();
-                        let config_stage = config_stage.clone();
-                        let error = error.clone();
-                        let loading = loading.clone();
-                        let loading_message = loading_message.clone();
-                        let step = step.clone();
-                        let ssh_signature_value = (*ssh_signature).clone();
-                        let pgp_public_key_value = (*pgp_public_key).clone();
-                        let pgp_signed_message_value = (*pgp_signed_message).clone();
-                        let method = method.clone();
-
-                        spawn_local(async move {
-                            if method.kind == AuthMethodKind::Oidc {
-                                let Some(provider) = method.provider.clone() else {
-                                    clear_loading(&loading, &loading_message);
-                                    error.set(Some("OIDC provider is missing".to_string()));
-                                    return;
-                                };
-
-                                match service::start_oidc(&api_base, &provider, Some(&challenge_id))
-                                    .await
-                                {
-                                    Ok(response) => {
-                                        if let Err(message) =
-                                            redirect_to(&response.authorization_url)
-                                        {
-                                            clear_loading(&loading, &loading_message);
-                                            error.set(Some(message));
-                                        }
-                                    }
-                                    Err(message) => {
-                                        clear_loading(&loading, &loading_message);
-                                        error.set(Some(message));
-                                    }
-                                }
-                                return;
-                            }
-
-                            let result = match method.kind {
-                                AuthMethodKind::RegistrySsh => {
-                                    service::verify_registry_ssh(
-                                        &api_base,
-                                        &challenge_id,
-                                        &ssh_signature_value,
-                                    )
-                                    .await
-                                }
-                                AuthMethodKind::RegistryPgp => {
-                                    service::verify_registry_pgp(
-                                        &api_base,
-                                        &challenge_id,
-                                        &pgp_public_key_value,
-                                        &pgp_signed_message_value,
-                                    )
-                                    .await
-                                }
-                                AuthMethodKind::Oidc => unreachable!(),
-                                AuthMethodKind::HostImpersonation => {
-                                    clear_loading(&loading, &loading_message);
-                                    error.set(Some(
-                                        "Impersonation starts after you authenticate one of our configured host ASNs."
-                                            .to_string(),
-                                    ));
-                                    return;
-                                }
-                            };
-
-                            match result {
-                                Ok(session) => {
-                                    let session_asn = session.asn.clone();
-                                    match service::list_sessions(&api_base, &session.session_token)
-                                        .await
-                                    {
-                                        Ok(response) => {
-                                            set_authenticated_session(
-                                                &auth_session,
-                                                &host_session,
-                                                session,
-                                            );
-                                            apply_session_list(
-                                                response,
-                                                &asn,
-                                                &nodes,
-                                                &sessions,
-                                                &draft,
-                                                &editing_node,
-                                            );
-                                            let next_draft = sync_create_draft(
-                                                &session_asn,
-                                                &nodes,
-                                                &sessions,
-                                                &draft,
-                                            );
-                                            draft.set(next_draft);
-                                            editing_node.set(None);
-                                            config_stage.set(PeerConfigStage::SelectNode);
-                                            error.set(None);
-                                            step.set(AutoPeerStep::ManageSessions);
-                                        }
-                                        Err(message) => {
-                                            set_authenticated_session(
-                                                &auth_session,
-                                                &host_session,
-                                                session,
-                                            );
-                                            asn.set(session_asn.clone());
-                                            nodes.set(Vec::new());
-                                            sessions.set(Vec::new());
-                                            editing_node.set(None);
-                                            config_stage.set(PeerConfigStage::SelectNode);
-                                            draft.set(SessionDraft::default_for_asn(&session_asn));
-                                            error.set(Some(message));
-                                            step.set(AutoPeerStep::ManageSessions);
-                                        }
-                                    }
-                                }
-                                Err(message) => error.set(Some(message)),
-                            }
-
-                            clear_loading(&loading, &loading_message);
-                        });
-                    })
-                };
-
                 let verification_fields = match method.kind {
                     AuthMethodKind::RegistrySsh => {
                         let on_change = {
@@ -1755,7 +757,11 @@ pub fn auto_peer_page() -> Html {
                         {render_loading(*loading, loading_message.as_deref())}
                         {render_error(&error)}
                         <ShellLine>
-                            <ShellButton text="Back" onclick={on_back} disabled={*loading} />
+                            <ShellButton
+                                text="Back"
+                                onclick={on_verify_back.clone()}
+                                disabled={*loading}
+                            />
                             {" "}
                             <ShellButton text={verify_button_text} onclick={on_verify} disabled={*loading} />
                         </ShellLine>
@@ -1788,8 +794,6 @@ pub fn auto_peer_page() -> Html {
             });
             let selected_node = selected_node_name
                 .and_then(|name| nodes.iter().find(|node| node.name == name).cloned());
-            let selected_session =
-                selected_node_name.and_then(|name| session_for_node(name, &sessions).cloned());
             let retire_confirmation_armed_value = *retire_confirmation_armed;
             let active_asn = auth_summary
                 .as_ref()
@@ -1812,65 +816,6 @@ pub fn auto_peer_page() -> Html {
                     })
                 }
                 _ => "Only needed when your peer IPv6 address is link-local".to_string(),
-            };
-
-            let on_refresh = {
-                let refresh_sessions = refresh_sessions.clone();
-                Callback::from(move |_| refresh_sessions())
-            };
-
-            let on_logout = {
-                let asn = asn.clone();
-                let challenge_id = challenge_id.clone();
-                let challenge_text = challenge_text.clone();
-                let methods = methods.clone();
-                let selected_method = selected_method.clone();
-                let selected_pgp_key = selected_pgp_key.clone();
-                let auth_session = auth_session.clone();
-                let host_session = host_session.clone();
-                let nodes = nodes.clone();
-                let sessions = sessions.clone();
-                let draft = draft.clone();
-                let editing_node = editing_node.clone();
-                let config_stage = config_stage.clone();
-                let operation = operation.clone();
-                let error = error.clone();
-                let loading = loading.clone();
-                let loading_message = loading_message.clone();
-                let step = step.clone();
-                let impersonate_asn = impersonate_asn.clone();
-                let impersonate_mnt = impersonate_mnt.clone();
-                let ssh_signature = ssh_signature.clone();
-                let selected_pgp_key = selected_pgp_key.clone();
-                let pgp_public_key = pgp_public_key.clone();
-                let pgp_signed_message = pgp_signed_message.clone();
-
-                Callback::from(move |_| {
-                    save_persisted_sessions(&PersistedSessions::default());
-                    asn.set(String::new());
-                    challenge_id.set(None);
-                    challenge_text.set(None);
-                    methods.set(Vec::new());
-                    selected_method.set(None);
-                    selected_pgp_key.set(String::new());
-                    auth_session.set(None);
-                    host_session.set(None);
-                    nodes.set(Vec::new());
-                    sessions.set(Vec::new());
-                    draft.set(SessionDraft::default());
-                    editing_node.set(None);
-                    config_stage.set(PeerConfigStage::SelectNode);
-                    operation.set(None);
-                    error.set(None);
-                    clear_loading(&loading, &loading_message);
-                    step.set(AutoPeerStep::EnterAsn);
-                    impersonate_asn.set(String::new());
-                    impersonate_mnt.set(String::new());
-                    ssh_signature.set(String::new());
-                    selected_pgp_key.set(String::new());
-                    pgp_public_key.set(String::new());
-                    pgp_signed_message.set(String::new());
-                })
             };
 
             let on_cancel_edit = {
@@ -2026,372 +971,6 @@ pub fn auto_peer_page() -> Html {
                         }
                         Err(message) => error.set(Some(message)),
                     }
-                })
-            };
-
-            let on_impersonate = {
-                let api_base = api_base.clone();
-                let auth_session = auth_session.clone();
-                let host_session = host_session.clone();
-                let asn = asn.clone();
-                let impersonate_asn = impersonate_asn.clone();
-                let impersonate_mnt = impersonate_mnt.clone();
-                let nodes = nodes.clone();
-                let sessions = sessions.clone();
-                let draft = draft.clone();
-                let editing_node = editing_node.clone();
-                let config_stage = config_stage.clone();
-                let error = error.clone();
-                let loading = loading.clone();
-                let loading_message = loading_message.clone();
-                let operation = operation.clone();
-                let step = step.clone();
-
-                Callback::from(move |_| {
-                    let Some(api_base) = require_api_base(&api_base, &error) else {
-                        return;
-                    };
-                    let Some(base_session) = (*host_session).clone().or_else(|| {
-                        (*auth_session)
-                            .clone()
-                            .filter(|session| session.can_impersonate)
-                    }) else {
-                        error.set(Some(
-                            "Authenticate one of our configured host ASNs before you impersonate another ASN."
-                                .to_string(),
-                        ));
-                        return;
-                    };
-
-                    let target_asn = impersonate_asn.trim().to_string();
-                    if target_asn.is_empty() {
-                        error.set(Some("Enter the ASN you want to impersonate".to_string()));
-                        return;
-                    }
-
-                    start_loading(
-                        &loading,
-                        &loading_message,
-                        "Authenticating that ASN against the DN42 registry for you...",
-                    );
-                    error.set(None);
-                    operation.set(None);
-
-                    let impersonate_mnt_value = (*impersonate_mnt).clone();
-                    let auth_session = auth_session.clone();
-                    let asn = asn.clone();
-                    let nodes = nodes.clone();
-                    let sessions = sessions.clone();
-                    let draft = draft.clone();
-                    let editing_node = editing_node.clone();
-                    let config_stage = config_stage.clone();
-                    let error = error.clone();
-                    let loading = loading.clone();
-                    let loading_message = loading_message.clone();
-                    let step = step.clone();
-
-                    spawn_local(async move {
-                        match service::impersonate_asn(
-                            &api_base,
-                            &base_session.session_token,
-                            &target_asn,
-                            Some(impersonate_mnt_value.trim()),
-                        )
-                        .await
-                        {
-                            Ok(session) => {
-                                let session_asn = session.asn.clone();
-                                match service::list_sessions(&api_base, &session.session_token)
-                                    .await
-                                {
-                                    Ok(response) => {
-                                        auth_session.set(Some(session));
-                                        apply_session_list(
-                                            response,
-                                            &asn,
-                                            &nodes,
-                                            &sessions,
-                                            &draft,
-                                            &editing_node,
-                                        );
-                                        let next_draft = sync_create_draft(
-                                            &session_asn,
-                                            &nodes,
-                                            &sessions,
-                                            &draft,
-                                        );
-                                        draft.set(next_draft);
-                                        editing_node.set(None);
-                                        config_stage.set(PeerConfigStage::SelectNode);
-                                        error.set(None);
-                                        step.set(AutoPeerStep::ManageSessions);
-                                    }
-                                    Err(message) => {
-                                        auth_session.set(Some(session));
-                                        asn.set(session_asn.clone());
-                                        nodes.set(Vec::new());
-                                        sessions.set(Vec::new());
-                                        editing_node.set(None);
-                                        config_stage.set(PeerConfigStage::SelectNode);
-                                        draft.set(SessionDraft::default_for_asn(&session_asn));
-                                        error.set(Some(message));
-                                        step.set(AutoPeerStep::ManageSessions);
-                                    }
-                                }
-                            }
-                            Err(message) => error.set(Some(message)),
-                        }
-
-                        clear_loading(&loading, &loading_message);
-                    });
-                })
-            };
-
-            let on_return_to_host = {
-                let api_base = api_base.clone();
-                let host_session = host_session.clone();
-                let auth_session = auth_session.clone();
-                let asn = asn.clone();
-                let nodes = nodes.clone();
-                let sessions = sessions.clone();
-                let draft = draft.clone();
-                let editing_node = editing_node.clone();
-                let config_stage = config_stage.clone();
-                let impersonate_asn = impersonate_asn.clone();
-                let impersonate_mnt = impersonate_mnt.clone();
-                let error = error.clone();
-                let loading = loading.clone();
-                let loading_message = loading_message.clone();
-
-                Callback::from(move |_| {
-                    let Some(api_base) = require_api_base(&api_base, &error) else {
-                        return;
-                    };
-                    let Some(host_session_value) = (*host_session).clone() else {
-                        error.set(Some(
-                            "No host ASN session is available right now".to_string(),
-                        ));
-                        return;
-                    };
-
-                    start_loading(
-                        &loading,
-                        &loading_message,
-                        "Restoring your host ASN session from our repo...",
-                    );
-                    error.set(None);
-
-                    let auth_session = auth_session.clone();
-                    let asn = asn.clone();
-                    let nodes = nodes.clone();
-                    let sessions = sessions.clone();
-                    let draft = draft.clone();
-                    let editing_node = editing_node.clone();
-                    let config_stage = config_stage.clone();
-                    let impersonate_asn = impersonate_asn.clone();
-                    let impersonate_mnt = impersonate_mnt.clone();
-                    let error = error.clone();
-                    let loading = loading.clone();
-                    let loading_message = loading_message.clone();
-
-                    spawn_local(async move {
-                        match service::list_sessions(&api_base, &host_session_value.session_token)
-                            .await
-                        {
-                            Ok(response) => {
-                                auth_session.set(Some(host_session_value.clone()));
-                                apply_session_list(
-                                    response,
-                                    &asn,
-                                    &nodes,
-                                    &sessions,
-                                    &draft,
-                                    &editing_node,
-                                );
-                                let next_draft = sync_create_draft(
-                                    &host_session_value.asn,
-                                    &nodes,
-                                    &sessions,
-                                    &draft,
-                                );
-                                draft.set(next_draft);
-                                editing_node.set(None);
-                                config_stage.set(PeerConfigStage::SelectNode);
-                                impersonate_asn.set(String::new());
-                                impersonate_mnt.set(String::new());
-                                error.set(None);
-                            }
-                            Err(message) => {
-                                asn.set(host_session_value.asn.clone());
-                                error.set(Some(message));
-                            }
-                        }
-
-                        clear_loading(&loading, &loading_message);
-                    });
-                })
-            };
-
-            let on_submit_session = {
-                let api_base = api_base.clone();
-                let auth_session = auth_session.clone();
-                let draft = draft.clone();
-                let editing_node = editing_node.clone();
-                let operation = operation.clone();
-                let error = error.clone();
-                let loading = loading.clone();
-                let loading_message = loading_message.clone();
-                let poll_operation = poll_operation.clone();
-
-                Callback::from(move |_| {
-                    let Some(api_base) = require_api_base(&api_base, &error) else {
-                        return;
-                    };
-                    let Some(auth_session) = (*auth_session).clone() else {
-                        error.set(Some("Authenticate before you continue".to_string()));
-                        return;
-                    };
-
-                    let draft_value = (*draft).clone();
-                    if editing_node.is_none() && draft_value.node.trim().is_empty() {
-                        error.set(Some(
-                            "Choose one of our nodes before you open a PR".to_string(),
-                        ));
-                        return;
-                    }
-                    let spec = match draft_value.to_spec() {
-                        Ok(spec) => spec,
-                        Err(message) => {
-                            error.set(Some(message));
-                            return;
-                        }
-                    };
-
-                    start_loading(
-                        &loading,
-                        &loading_message,
-                        if editing_node.is_some() {
-                            "Updating your peering config in our repo and opening a pull request..."
-                        } else {
-                            "Creating your peering config in our repo and opening a pull request..."
-                        },
-                    );
-                    error.set(None);
-
-                    let operation = operation.clone();
-                    let error = error.clone();
-                    let loading = loading.clone();
-                    let loading_message = loading_message.clone();
-                    let poll_operation = poll_operation.clone();
-                    let editing = (*editing_node).clone();
-                    let session_asn = auth_session.asn.clone();
-
-                    spawn_local(async move {
-                        let result = if let Some(node) = editing {
-                            service::update_session(
-                                &api_base,
-                                &auth_session.session_token,
-                                &node,
-                                &session_asn,
-                                &UpdateSessionRequest { session: spec },
-                            )
-                            .await
-                        } else {
-                            service::create_session(
-                                &api_base,
-                                &auth_session.session_token,
-                                &CreateSessionRequest {
-                                    node: draft_value.node.clone(),
-                                    session: spec,
-                                },
-                            )
-                            .await
-                        };
-
-                        match result {
-                            Ok(status) => {
-                                operation.set(Some(status.clone()));
-                                poll_operation(status);
-                            }
-                            Err(message) => error.set(Some(message)),
-                        }
-
-                        clear_loading(&loading, &loading_message);
-                    });
-                })
-            };
-
-            let on_retire_selected_session = {
-                let api_base = api_base.clone();
-                let auth_session = auth_session.clone();
-                let operation = operation.clone();
-                let error = error.clone();
-                let loading = loading.clone();
-                let loading_message = loading_message.clone();
-                let poll_operation = poll_operation.clone();
-                let editing_node = editing_node.clone();
-                let config_stage = config_stage.clone();
-                let retire_confirmation_armed = retire_confirmation_armed.clone();
-                let node = selected_session
-                    .as_ref()
-                    .map(|session| session.node.clone());
-
-                Callback::from(move |_| {
-                    let Some(api_base) = require_api_base(&api_base, &error) else {
-                        return;
-                    };
-                    let Some(auth_session) = (*auth_session).clone() else {
-                        error.set(Some("Authenticate before you continue".to_string()));
-                        return;
-                    };
-                    let Some(node) = node.clone() else {
-                        error.set(Some(
-                            "Choose one of your managed sessions before you retire it".to_string(),
-                        ));
-                        return;
-                    };
-                    if !*retire_confirmation_armed {
-                        retire_confirmation_armed.set(true);
-                        error.set(None);
-                        return;
-                    }
-
-                    retire_confirmation_armed.set(false);
-                    editing_node.set(None);
-                    config_stage.set(PeerConfigStage::SelectNode);
-
-                    start_loading(
-                        &loading,
-                        &loading_message,
-                        "Retiring your session in our repo and opening a pull request...",
-                    );
-                    error.set(None);
-
-                    let operation = operation.clone();
-                    let error = error.clone();
-                    let loading = loading.clone();
-                    let loading_message = loading_message.clone();
-                    let poll_operation = poll_operation.clone();
-                    let session_asn = auth_session.asn.clone();
-
-                    spawn_local(async move {
-                        match service::delete_session(
-                            &api_base,
-                            &auth_session.session_token,
-                            &node,
-                            &session_asn,
-                        )
-                        .await
-                        {
-                            Ok(status) => {
-                                operation.set(Some(status.clone()));
-                                poll_operation(status);
-                            }
-                            Err(message) => error.set(Some(message)),
-                        }
-
-                        clear_loading(&loading, &loading_message);
-                    });
                 })
             };
 
@@ -3065,11 +1644,13 @@ mod tests {
 
     use super::{
         Peer6AddressKind, autopeer_home_href_from_parts, autopeer_node_endpoint_port,
-        configured_href, detect_peer6_address_kind, displayed_peer_config_stage,
-        filter_supported_methods, looking_glass_href_from_parts, retire_button_text,
-        validate_ssh_signature_input,
+        detect_peer6_address_kind, displayed_peer_config_stage, looking_glass_href_from_parts,
+        retire_button_text,
     };
-    use crate::store::PeerConfigStage;
+    use crate::{
+        controller::{configured_href, filter_supported_methods, validate_ssh_signature_input},
+        store::PeerConfigStage,
+    };
 
     #[test]
     fn derives_autopeer_home_for_shared_path_deployments() {

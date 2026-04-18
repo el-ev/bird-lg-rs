@@ -1,5 +1,6 @@
 mod app;
 mod config;
+mod controller;
 mod page;
 mod service;
 mod store;
