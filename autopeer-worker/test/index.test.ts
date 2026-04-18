@@ -1,10 +1,12 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  buildApplyWorkflowDispatchInputs,
   classifyMaintainerLookupError,
   decideApplyFailureRetry,
   decideNodeLockGate,
   decidePreMergeCheckGate,
+  resolveDn42TargetPrefix,
 } from "../src/index";
 
 describe("peer-session-check merge gate", () => {
@@ -137,6 +139,46 @@ describe("apply retry gate", () => {
       action: "fail",
       message: "peer-session-apply finished for your change with failure after 2 retries.",
     });
+  });
+});
+
+describe("apply workflow dispatch inputs", () => {
+  it("targets the merged node and peer name with the default prefix", () => {
+    expect(
+      buildApplyWorkflowDispatchInputs({
+        asn: "4242420454",
+        node: "ams-01",
+      }),
+    ).toEqual({
+      deploy_host: "ams-01",
+      peer_targets: '["dn42_0454"]',
+    });
+  });
+
+  it("respects a custom dn42 target prefix from common vars", () => {
+    expect(
+      buildApplyWorkflowDispatchInputs(
+        {
+          asn: "4242420454",
+          node: "ams-01",
+        },
+        "peer_",
+      ),
+    ).toEqual({
+      deploy_host: "ams-01",
+      peer_targets: '["peer_0454"]',
+    });
+  });
+});
+
+describe("dn42 target prefix resolution", () => {
+  it("reads dn42_prefix from common vars", () => {
+    expect(resolveDn42TargetPrefix("dn42_prefix: peer_\n")).toBe("peer_");
+  });
+
+  it("falls back to the default prefix when common vars are absent or invalid", () => {
+    expect(resolveDn42TargetPrefix(null)).toBe("dn42_");
+    expect(resolveDn42TargetPrefix("[")).toBe("dn42_");
   });
 });
 

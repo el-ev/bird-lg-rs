@@ -84,9 +84,11 @@ import {
   requireRecord,
   stripOperatorHints,
 } from "./utils";
+import { parseDocument } from "yaml";
 
 const INVENTORY_PATH = "inventory.yaml";
 const AUTOPEER_POLICY_PATH = "group_vars/all/autopeer.yaml";
+const COMMON_VARS_PATH = "group_vars/all/common.yaml";
 const PEER_FILE_PATH = (node: string): string => `host_vars/${node}/dn42_peers.yaml`;
 const CHECK_WORKFLOW_ID = "peer-session-check.yml";
 const CHECK_WORKFLOW_GRACE_MS = 2 * 60 * 1000;
@@ -94,6 +96,7 @@ const APPLY_WORKFLOW_ID = "peer-session-apply.yml";
 const APPLY_WORKFLOW_GRACE_MS = 2 * 60 * 1000;
 const DEFAULT_APPLY_RETRY_LIMIT = 2;
 const DEFAULT_APPLY_RETRY_INTERVAL_SECONDS = 30;
+const DEFAULT_DN42_TARGET_PREFIX = "dn42_";
 const CONFIG_PATH = "/config.json";
 const OIDC_CALLBACK_PREFIX = "/oidc/callback/";
 
@@ -501,6 +504,54 @@ function buildApplyRetryStartTimeoutMessage(attempt: number, limit: number): str
   return `Retry ${attempt}/${limit} did not start peer-session-apply in time.`;
 }
 
+export function resolveDn42TargetPrefix(commonVarsText: string | null | undefined): string {
+  if (!commonVarsText) {
+    return DEFAULT_DN42_TARGET_PREFIX;
+  }
+
+  try {
+    const value = parseDocument(commonVarsText).toJS();
+    if (value && typeof value === "object" && !Array.isArray(value)) {
+      const prefix = (value as Record<string, unknown>).dn42_prefix;
+      if (typeof prefix === "string" && prefix.trim().length > 0) {
+        return prefix;
+      }
+    }
+  } catch {
+    return DEFAULT_DN42_TARGET_PREFIX;
+  }
+
+  return DEFAULT_DN42_TARGET_PREFIX;
+}
+
+function dn42TargetName(asn: string, prefix: string): string {
+  return `${prefix}${asn.slice(-4)}`;
+}
+
+export function buildApplyWorkflowDispatchInputs(
+  operation: Pick<OperationRecord, "asn" | "node">,
+  dn42TargetPrefix = DEFAULT_DN42_TARGET_PREFIX,
+): Record<string, string> {
+  return {
+    deploy_host: operation.node,
+    peer_targets: JSON.stringify([dn42TargetName(operation.asn, dn42TargetPrefix)]),
+  };
+}
+
+async function dispatchApplyWorkflow(
+  env: Env,
+  github: GitHubClient,
+  operation: Pick<OperationRecord, "asn" | "node">,
+): Promise<void> {
+  const commonVarsFile = await github.getFile(COMMON_VARS_PATH, env.GITHUB_BASE_BRANCH);
+  const dn42TargetPrefix = resolveDn42TargetPrefix(commonVarsFile.text ?? null);
+
+  await github.dispatchWorkflow(APPLY_WORKFLOW_ID, {
+    ref: env.GITHUB_BASE_BRANCH,
+    inputs: buildApplyWorkflowDispatchInputs(operation, dn42TargetPrefix),
+  });
+}
+
 function selectApplyWorkflowRun(
   runs: GitHubWorkflowRun[],
   operation: Pick<OperationRecord, "last_apply_retry_at">,
@@ -782,9 +833,7 @@ async function refreshOperation(
             const nextAttempt = nextApplyRetryCount + 1;
             const retryQueuedNow = nowIso();
             try {
-              await github.dispatchWorkflow(APPLY_WORKFLOW_ID, {
-                ref: env.GITHUB_BASE_BRANCH,
-              });
+              await dispatchApplyWorkflow(env, github, operation);
               nextApplyRetryCount = nextAttempt;
               lastApplyRetryAt = retryQueuedNow;
               nextState = "merged";
@@ -841,9 +890,7 @@ async function refreshOperation(
         } else {
           const retryQueuedNow = nowIso();
           try {
-            await github.dispatchWorkflow(APPLY_WORKFLOW_ID, {
-              ref: env.GITHUB_BASE_BRANCH,
-            });
+            await dispatchApplyWorkflow(env, github, operation);
             nextApplyRetryCount = retryDecision.attempt;
             lastApplyRetryAt = retryQueuedNow;
             nextState = "merged";
