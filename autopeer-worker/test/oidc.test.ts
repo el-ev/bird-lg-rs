@@ -5,6 +5,8 @@ import {
   createOidcAuthorizationRequest,
   discoveryUrlForProvider,
   jwksUrlForProvider,
+  oidcAsnFromClaimSources,
+  oidcMaintainerFromClaimSources,
 } from "../src/oidc";
 import type { OidcProviderConfig } from "../src/types";
 
@@ -108,5 +110,41 @@ describe("OIDC claim paths", () => {
 
     expect(claimValueAtPath(payload, "dn42.asn")).toBe("4242421234");
     expect(claimValueAtPath(payload, "dn42.mnt")).toEqual(["IRIS-MNT", "EXTRA-MNT"]);
+  });
+
+  it("supports fallback claim paths for iEdon-style payloads", () => {
+    const claimSources = [
+      {
+        profile: {
+          asn: 4242422589,
+          active_mnt: "IEDON-MNT",
+          mnt_by: ["IEDON-MNT"],
+        },
+      },
+    ];
+
+    expect(
+      oidcAsnFromClaimSources(
+        claimSources,
+        provider({ asn_claim: ["dn42.asn", "profile.asn"] }),
+      ),
+    ).toBe("4242422589");
+    expect(
+      oidcMaintainerFromClaimSources(
+        claimSources,
+        provider({
+          mntner_claim: ["profile.active_mnt", "profile.mnt_by", "dn42.mnt"],
+        }),
+        [
+          {
+            name: "IEDON-MNT",
+            auth_lines: [],
+            ssh_public_keys: [],
+            ssh_fingerprints: [],
+            pgp_fingerprints: [],
+          },
+        ],
+      ),
+    ).toBe("IEDON-MNT");
   });
 });

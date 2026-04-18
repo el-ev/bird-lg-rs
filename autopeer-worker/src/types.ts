@@ -202,6 +202,8 @@ export type OidcTokenEndpointAuthMethod =
   | "client_secret_basic"
   | "none";
 
+export type OidcClaimPath = string | string[];
+
 export interface OidcProviderConfig {
   name: string;
   label: string;
@@ -216,8 +218,8 @@ export interface OidcProviderConfig {
   jwks_uri?: string;
   token_endpoint_auth_method?: OidcTokenEndpointAuthMethod;
   scopes?: string[];
-  asn_claim: string;
-  mntner_claim: string;
+  asn_claim: OidcClaimPath;
+  mntner_claim: OidcClaimPath;
   description?: string;
 }
 

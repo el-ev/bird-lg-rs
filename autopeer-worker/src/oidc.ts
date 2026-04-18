@@ -4,6 +4,7 @@ import type {
   AuthMethod,
   MaintainerRecord,
   OidcAuthRequestRecord,
+  OidcClaimPath,
   OidcProviderConfig,
   OidcProviderDiscovery,
   OidcTokenEndpointAuthMethod,
@@ -68,6 +69,15 @@ function claimPathSegments(path: string): string[] {
     .filter(Boolean);
 }
 
+function normalizedClaimPaths(pathOrPaths: OidcClaimPath): string[] {
+  const rawPaths = Array.isArray(pathOrPaths) ? pathOrPaths : [pathOrPaths];
+  return rawPaths.map((path) => path.trim()).filter(Boolean);
+}
+
+function describeClaimPaths(pathOrPaths: OidcClaimPath): string {
+  return normalizedClaimPaths(pathOrPaths).join(" or ");
+}
+
 export function claimValueAtPath(source: unknown, path: string): unknown {
   let current: unknown = source;
   for (const segment of claimPathSegments(path)) {
@@ -79,11 +89,14 @@ export function claimValueAtPath(source: unknown, path: string): unknown {
   return current;
 }
 
-function firstClaimValue(sources: JsonObject[], path: string): unknown {
+function firstClaimValue(sources: JsonObject[], pathOrPaths: OidcClaimPath): unknown {
+  const paths = normalizedClaimPaths(pathOrPaths);
   for (const source of sources) {
-    const value = claimValueAtPath(source, path);
-    if (value !== undefined && value !== null) {
-      return value;
+    for (const path of paths) {
+      const value = claimValueAtPath(source, path);
+      if (value !== undefined && value !== null) {
+        return value;
+      }
     }
   }
   return undefined;
@@ -119,7 +132,7 @@ function resolveAsnClaim(sources: JsonObject[], provider: OidcProviderConfig): s
   const asn = claimValueToString(value)?.replace(/^AS/i, "");
   if (!asn) {
     throw new HttpError(
-      `OIDC identity is missing required ASN claim ${provider.asn_claim}`,
+      `OIDC identity is missing required ASN claim ${describeClaimPaths(provider.asn_claim)}`,
       400,
     );
   }
@@ -135,7 +148,7 @@ function resolveMaintainerClaim(
   const claimCandidates = claimValueToStrings(rawClaim).map((value) => value.toUpperCase());
   if (claimCandidates.length === 0) {
     throw new HttpError(
-      `OIDC identity is missing required maintainer claim ${provider.mntner_claim}`,
+      `OIDC identity is missing required maintainer claim ${describeClaimPaths(provider.mntner_claim)}`,
       400,
     );
   }
