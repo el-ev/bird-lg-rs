@@ -391,6 +391,7 @@ fn validate_peer_ipv4(value: Option<String>, label: &str) -> Result<Option<Strin
         Some(value) => {
             let addr = parse_ipv4(&value, label)?;
             if !is_dn42_tunnel_ipv4(addr) {
+                // TODO: too tight?
                 return Err(format!("{label} must be within 172.20.0.0/14"));
             }
             Ok(Some(value))
