@@ -171,6 +171,7 @@ describe("network peer mutations", () => {
         ipv6: true,
         extended_next_hop: true,
         mp_bgp: true,
+        peering_strategy: "full_table",
       },
     });
 
@@ -224,6 +225,7 @@ describe("network peer mutations", () => {
         ipv6: true,
         extended_next_hop: true,
         mp_bgp: true,
+        peering_strategy: "full_table",
       },
     });
 
@@ -272,6 +274,7 @@ describe("network peer mutations", () => {
         ipv6: true,
         extended_next_hop: true,
         mp_bgp: true,
+        peering_strategy: "full_table",
       },
     });
 
@@ -364,6 +367,7 @@ describe("network peer mutations", () => {
         ipv6: true,
         extended_next_hop: true,
         mp_bgp: true,
+        peering_strategy: "full_table",
       },
     });
 
@@ -476,6 +480,7 @@ describe("network peer mutations", () => {
         ipv6: true,
         extended_next_hop: false,
         mp_bgp: false,
+        peering_strategy: "full_table",
       },
     });
 
@@ -483,6 +488,33 @@ describe("network peer mutations", () => {
     expect(result.content).toContain("peer6: 'fd55:dead:beef::3'");
     expect(result.content).toContain("extended_next_hop: false");
     expect(result.content).toContain("mp_bgp: false");
+  });
+
+  it("writes non-default peering strategies into peer YAML", () => {
+    const result = mutatePeerFile(baseFile, {
+      asn: "4242423001",
+      effectiveMnt: "EXAMPLE-MNT",
+      authMethod,
+      kind: "create",
+      session: {
+        comment: "downstream test",
+        endpoint: "peer.example.net:23001",
+        wg_public_key: "abcd+efgh/ijkl=",
+        port: 23001,
+        peer4: null,
+        peer6: "fe80::3001",
+        own6: null,
+        keepalive: null,
+        mtu: null,
+        ipv4: true,
+        ipv6: true,
+        extended_next_hop: true,
+        mp_bgp: true,
+        peering_strategy: "downstream",
+      },
+    });
+
+    expect(result.content).toContain("peering_strategy: 'downstream'");
   });
 });
 
@@ -571,6 +603,7 @@ describe("session validation", () => {
     ipv6: true,
     extended_next_hop: true,
     mp_bgp: true,
+    peering_strategy: "full_table",
   };
 
   it("accepts IPv6 ULA peers for tunnel addressing", () => {

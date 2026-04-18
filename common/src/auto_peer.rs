@@ -174,6 +174,73 @@ fn default_true() -> bool {
     true
 }
 
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum PeeringStrategy {
+    FullTable,
+    Transit,
+    Peer,
+    Downstream,
+}
+
+impl Default for PeeringStrategy {
+    fn default() -> Self {
+        Self::FullTable
+    }
+}
+
+impl PeeringStrategy {
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::FullTable => "full_table",
+            Self::Transit => "transit",
+            Self::Peer => "peer",
+            Self::Downstream => "downstream",
+        }
+    }
+
+    pub const fn label(self) -> &'static str {
+        match self {
+            Self::FullTable => "Full Table",
+            Self::Transit => "Transit",
+            Self::Peer => "Peer",
+            Self::Downstream => "Downstream",
+        }
+    }
+
+    pub const fn description(self) -> &'static str {
+        match self {
+            Self::FullTable => "Receive all valid routes and export all valid routes.",
+            Self::Transit => "Receive all valid routes and export only our own exact prefixes.",
+            Self::Peer => {
+                "Receive only direct routes and export our own exact prefixes plus downstream routes."
+            }
+            Self::Downstream => "Receive only direct routes and export all valid routes.",
+        }
+    }
+
+    pub fn from_value(value: &str) -> Option<Self> {
+        match value {
+            "full_table" => Some(Self::FullTable),
+            "transit" => Some(Self::Transit),
+            "peer" => Some(Self::Peer),
+            "downstream" => Some(Self::Downstream),
+            _ => None,
+        }
+    }
+}
+
+pub const ALL_PEERING_STRATEGIES: [PeeringStrategy; 4] = [
+    PeeringStrategy::FullTable,
+    PeeringStrategy::Transit,
+    PeeringStrategy::Peer,
+    PeeringStrategy::Downstream,
+];
+
+fn is_default_peering_strategy(strategy: &PeeringStrategy) -> bool {
+    matches!(strategy, PeeringStrategy::FullTable)
+}
+
 #[derive(Clone, Debug, Default, Serialize, Deserialize, PartialEq, Eq)]
 pub struct PeerSessionSpec {
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -200,6 +267,8 @@ pub struct PeerSessionSpec {
     pub extended_next_hop: bool,
     #[serde(default = "default_true")]
     pub mp_bgp: bool,
+    #[serde(default, skip_serializing_if = "is_default_peering_strategy")]
+    pub peering_strategy: PeeringStrategy,
 }
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize, PartialEq, Eq)]

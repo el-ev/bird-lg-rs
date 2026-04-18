@@ -228,6 +228,10 @@ async function loadMaintainersForRequestAsn(
 
 function parseRequestSessionSpec(value: unknown): PeerSessionSpec {
   const record = requireRequestRecord(value, "session");
+  const peeringStrategy = requireOptionalRequestString(
+    record.peering_strategy,
+    "session.peering_strategy",
+  ) ?? "full_table";
   return {
     comment: requireOptionalRequestString(record.comment, "session.comment"),
     endpoint: requireRequestString(record.endpoint, "session.endpoint"),
@@ -245,6 +249,7 @@ function parseRequestSessionSpec(value: unknown): PeerSessionSpec {
       "session.extended_next_hop",
     ),
     mp_bgp: requireRequestBoolean(record.mp_bgp, "session.mp_bgp"),
+    peering_strategy: peeringStrategy as PeerSessionSpec["peering_strategy"],
   };
 }
 

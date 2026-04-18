@@ -89,6 +89,15 @@ export interface SessionMetadata {
   auth_provider?: string;
 }
 
+export const PEERING_STRATEGIES = [
+  "full_table",
+  "transit",
+  "peer",
+  "downstream",
+] as const;
+
+export type PeeringStrategy = (typeof PEERING_STRATEGIES)[number];
+
 export interface PeerSessionSpec {
   comment?: string | null;
   endpoint: string;
@@ -103,6 +112,7 @@ export interface PeerSessionSpec {
   ipv6: boolean;
   extended_next_hop: boolean;
   mp_bgp: boolean;
+  peering_strategy: PeeringStrategy;
 }
 
 export interface SessionView {

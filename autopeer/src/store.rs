@@ -1,6 +1,6 @@
 use std::net::{Ipv4Addr, Ipv6Addr};
 
-use common::auto_peer::{AuthSessionResponse, PeerSessionSpec};
+use common::auto_peer::{AuthSessionResponse, PeerSessionSpec, PeeringStrategy};
 use serde::{Deserialize, Serialize};
 
 const AUTOPEER_SESSION_STORAGE_KEY: &str = "bird-lg-rs.autopeer.sessions";
@@ -79,6 +79,7 @@ pub struct SessionDraft {
     pub ipv6: bool,
     pub extended_next_hop: bool,
     pub mp_bgp: bool,
+    pub peering_strategy: PeeringStrategy,
 }
 
 impl Default for SessionDraft {
@@ -98,6 +99,7 @@ impl Default for SessionDraft {
             ipv6: true,
             extended_next_hop: true,
             mp_bgp: true,
+            peering_strategy: PeeringStrategy::FullTable,
         }
     }
 }
@@ -129,6 +131,7 @@ impl SessionDraft {
             ipv6: spec.ipv6,
             extended_next_hop: spec.extended_next_hop,
             mp_bgp: spec.mp_bgp,
+            peering_strategy: spec.peering_strategy,
         }
     }
 
@@ -273,6 +276,7 @@ impl SessionDraft {
             ipv6: self.ipv6,
             extended_next_hop: self.extended_next_hop,
             mp_bgp: self.mp_bgp,
+            peering_strategy: self.peering_strategy,
         })
     }
 }
@@ -512,7 +516,7 @@ fn optional_u16(value: &str, field: &str) -> Result<Option<u16>, String> {
 
 #[cfg(test)]
 mod tests {
-    use common::auto_peer::{AuthMethod, AuthMethodKind, AuthSessionResponse};
+    use common::auto_peer::{AuthMethod, AuthMethodKind, AuthSessionResponse, PeeringStrategy};
 
     use super::{PersistedSessions, SessionDraft};
 
@@ -545,6 +549,21 @@ mod tests {
         assert_eq!(spec.wg_public_key, VALID_WG_KEY);
         assert_eq!(spec.peer6, Some("fe80::1234".into()));
         assert_eq!(spec.port, Some(21234));
+        assert_eq!(spec.peering_strategy, PeeringStrategy::FullTable);
+    }
+
+    #[test]
+    fn draft_to_spec_preserves_non_default_peering_strategy() {
+        let draft = SessionDraft {
+            endpoint: "peer.example.net:21023".into(),
+            wg_public_key: VALID_WG_KEY.into(),
+            peer6: "fe80::1234".into(),
+            peering_strategy: PeeringStrategy::Downstream,
+            ..SessionDraft::default_for_asn("4242421234")
+        };
+
+        let spec = draft.to_spec().unwrap();
+        assert_eq!(spec.peering_strategy, PeeringStrategy::Downstream);
     }
 
     #[test]

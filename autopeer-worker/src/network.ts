@@ -1,13 +1,15 @@
 import { isMap, isScalar, isSeq, parseDocument } from "yaml";
 
-import type {
-  AuthMethod,
-  InventoryHost,
-  NodeView,
-  OperationKind,
-  OperationRecord,
-  PeerSessionSpec,
-  SessionView,
+import {
+  PEERING_STRATEGIES,
+  type AuthMethod,
+  type InventoryHost,
+  type NodeView,
+  type OperationKind,
+  type OperationRecord,
+  type PeeringStrategy,
+  type PeerSessionSpec,
+  type SessionView,
 } from "./types";
 import { defaultPeerPort, isTruthyRecord, normalizeAsn } from "./utils";
 
@@ -23,7 +25,15 @@ const WG_KEY_ORDER = [
   "keepalive",
   "mtu",
 ] as const;
-const BGP_KEY_ORDER = ["asn", "ipv4", "ipv6", "extended_next_hop", "mp_bgp"] as const;
+const DEFAULT_PEERING_STRATEGY: PeeringStrategy = "full_table";
+const BGP_KEY_ORDER = [
+  "asn",
+  "ipv4",
+  "ipv6",
+  "extended_next_hop",
+  "mp_bgp",
+  "peering_strategy",
+] as const;
 const BASE64_LIKE = /^[A-Za-z0-9+/]+={0,2}$/;
 
 type TaggedScalar = { tag: string; value: string };
@@ -151,6 +161,25 @@ function normalizeKnownValue(mapping: YamlObject, key: string, defaultValue: Yam
   return normalized === undefined ? defaultValue : normalized;
 }
 
+function isPeeringStrategy(value: unknown): value is PeeringStrategy {
+  return typeof value === "string" &&
+    (PEERING_STRATEGIES as readonly string[]).includes(value);
+}
+
+function normalizePeeringStrategy(value: YamlValue | undefined, field: string): PeeringStrategy {
+  if (value === undefined || value === null) {
+    return DEFAULT_PEERING_STRATEGY;
+  }
+  if (typeof value !== "string") {
+    throw new Error(`${field} must be one of ${PEERING_STRATEGIES.join(", ")}`);
+  }
+  const normalized = value.trim();
+  if (!isPeeringStrategy(normalized)) {
+    throw new Error(`${field} must be one of ${PEERING_STRATEGIES.join(", ")}`);
+  }
+  return normalized;
+}
+
 function normalizePeerEntry(peer: PeerEntry): PeerEntry {
   if (!isTruthyRecord(peer)) {
     throw new Error("peer entry must be a mapping");
@@ -165,6 +194,7 @@ function normalizePeerEntry(peer: PeerEntry): PeerEntry {
   if (asn === undefined) {
     throw new Error("peer entry is missing valid bgp.asn");
   }
+  const peerLabel = `peer AS${asn}`;
 
   const removed = Boolean(peer.removed);
   const wg = isTruthyRecord(peer.wg) ? (peer.wg as YamlObject) : {};
@@ -210,6 +240,13 @@ function normalizePeerEntry(peer: PeerEntry): PeerEntry {
     extended_next_hop: normalizeKnownValue(bgp, "extended_next_hop", true),
     mp_bgp: normalizeKnownValue(bgp, "mp_bgp", true),
   };
+  const peeringStrategy = normalizePeeringStrategy(
+    bgp.peering_strategy as YamlValue | undefined,
+    `${peerLabel} bgp.peering_strategy`,
+  );
+  if (peeringStrategy !== DEFAULT_PEERING_STRATEGY) {
+    normalizedBgp.peering_strategy = peeringStrategy;
+  }
   for (const [key, value] of Object.entries(bgp)) {
     if (!BGP_KEY_ORDER.includes(key as (typeof BGP_KEY_ORDER)[number])) {
       const normalizedValue = normalizeGeneric(value as YamlValue);
@@ -372,6 +409,10 @@ function toSpec(peer: PeerEntry): PeerSessionSpec {
     ipv6: bgp.ipv6 !== false,
     extended_next_hop: bgp.extended_next_hop !== false,
     mp_bgp: bgp.mp_bgp !== false,
+    peering_strategy: normalizePeeringStrategy(
+      bgp.peering_strategy as YamlValue | undefined,
+      "bgp.peering_strategy",
+    ),
   };
 }
 
@@ -417,6 +458,8 @@ function specToPeerEntry(
       ipv6: spec.ipv6,
       extended_next_hop: spec.extended_next_hop,
       mp_bgp: spec.mp_bgp,
+      peering_strategy:
+        spec.peering_strategy === DEFAULT_PEERING_STRATEGY ? undefined : spec.peering_strategy,
     },
     removed: false,
     autopeer: {
@@ -607,6 +650,9 @@ export function validateSessionSpec(node: InventoryHost, asn: string, spec: Peer
   }
   if (spec.extended_next_hop && !spec.mp_bgp) {
     throw new Error("extended_next_hop requires MP-BGP");
+  }
+  if (!isPeeringStrategy(spec.peering_strategy)) {
+    throw new Error(`peering_strategy must be one of ${PEERING_STRATEGIES.join(", ")}`);
   }
   if (spec.own6?.trim()) {
     if (!spec.peer6?.trim()) {

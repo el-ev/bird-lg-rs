@@ -2,8 +2,9 @@ use std::{collections::BTreeSet, rc::Rc};
 
 use common::{
     auto_peer::{
-        AuthMethod, AuthMethodKind, AuthSessionResponse, CreateSessionRequest, NodeView,
-        OperationStatus, SessionListResponse, SessionState, SessionView, UpdateSessionRequest,
+        ALL_PEERING_STRATEGIES, AuthMethod, AuthMethodKind, AuthSessionResponse,
+        CreateSessionRequest, NodeView, OperationStatus, PeeringStrategy, SessionListResponse,
+        SessionState, SessionView, UpdateSessionRequest,
     },
     models::PeeringInfo,
 };
@@ -1984,6 +1985,17 @@ pub fn auto_peer_page() -> Html {
                 })
             };
 
+            let on_change_peering_strategy = {
+                let draft = draft.clone();
+                Callback::from(move |event: Event| {
+                    let select: HtmlSelectElement = event.target_unchecked_into();
+                    let mut next = (*draft).clone();
+                    next.peering_strategy = PeeringStrategy::from_value(&select.value())
+                        .unwrap_or(PeeringStrategy::FullTable);
+                    draft.set(next);
+                })
+            };
+
             let on_back_to_details = {
                 let config_stage = config_stage.clone();
                 Callback::from(move |_| config_stage.set(PeerConfigStage::SessionDetails))
@@ -2672,6 +2684,27 @@ pub fn auto_peer_page() -> Html {
                             </ShellLine>
                         </div>
 
+                        <div class="autopeer-form-section">
+                            <span class="autopeer-section-label">{"Routing Policy"}</span>
+                            <p class="text-secondary">
+                                {draft.peering_strategy.description()}
+                            </p>
+                            <ShellLine>
+                                <ShellPrompt>{"Policy"}</ShellPrompt>
+                                {" "}
+                                <ShellSelect
+                                    value={draft.peering_strategy.as_str()}
+                                    on_change={on_change_peering_strategy}
+                                >
+                                    {
+                                        for ALL_PEERING_STRATEGIES.iter().map(|strategy| html! {
+                                            <option value={strategy.as_str()}>{strategy.label()}</option>
+                                        })
+                                    }
+                                </ShellSelect>
+                            </ShellLine>
+                        </div>
+
                         <details class="autopeer-advanced">
                             <summary>{"Advanced options"}</summary>
                             <div class="autopeer-form-section autopeer-form-section--advanced">
@@ -2779,6 +2812,10 @@ pub fn auto_peer_page() -> Html {
                                         if draft.extended_next_hop { " + Extended Next Hop" } else { "" },
                                     )}
                                 </strong>
+                            </div>
+                            <div class="autopeer-review-item">
+                                <span class="autopeer-review-label">{"Routing policy"}</span>
+                                <strong class="autopeer-review-value">{draft.peering_strategy.label()}</strong>
                             </div>
                             if !draft.peer4.trim().is_empty() {
                                 <div class="autopeer-review-item">
@@ -3024,6 +3061,8 @@ pub fn auto_peer_page() -> Html {
 
 #[cfg(test)]
 mod tests {
+    use common::auto_peer::{AuthMethod, AuthMethodKind};
+
     use super::{
         Peer6AddressKind, autopeer_home_href_from_parts, autopeer_node_endpoint_port,
         configured_href, detect_peer6_address_kind, displayed_peer_config_stage,
@@ -3031,7 +3070,6 @@ mod tests {
         validate_ssh_signature_input,
     };
     use crate::store::PeerConfigStage;
-    use common::auto_peer::{AuthMethod, AuthMethodKind};
 
     #[test]
     fn derives_autopeer_home_for_shared_path_deployments() {
