@@ -102,10 +102,10 @@ impl TracerouteState {
     }
 }
 
-fn ensure_traceroute_result<'a>(
-    results: &'a mut Vec<(String, TracerouteResult)>,
+fn ensure_traceroute_result(
+    results: &mut Vec<(String, TracerouteResult)>,
     node: String,
-) -> &'a mut TracerouteResult {
+) -> &mut TracerouteResult {
     if let Some(idx) = results
         .iter()
         .position(|(existing_node, _)| existing_node == &node)

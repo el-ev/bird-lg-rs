@@ -254,10 +254,10 @@ impl SessionDraft {
         let peer4 = validate_peer_ipv4(peer4, "Peer IPv4 address")?;
         let peer6 = validate_peer_ipv6(peer6, "Peer IPv6 address")?;
 
-        if let Some(local_ipv6) = own6.as_deref() {
-            if !local_ipv6.to_ascii_lowercase().starts_with("fe80:") {
-                return Err("Local link-local IPv6 must start with fe80:".to_string());
-            }
+        if let Some(local_ipv6) = own6.as_deref()
+            && !local_ipv6.to_ascii_lowercase().starts_with("fe80:")
+        {
+            return Err("Local link-local IPv6 must start with fe80:".to_string());
         }
         let own6 = validate_link_local_ipv6(own6, "Local link-local IPv6")?;
         let mtu = validate_optional_mtu(&self.mtu)?;
@@ -432,10 +432,10 @@ fn validate_link_local_ipv6(value: Option<String>, label: &str) -> Result<Option
 
 fn validate_optional_mtu(value: &str) -> Result<Option<u16>, String> {
     let mtu = optional_u16(value, "Interface MTU")?;
-    if let Some(mtu) = mtu {
-        if !(1280..=1500).contains(&mtu) {
-            return Err("Interface MTU must be between 1280 and 1500".to_string());
-        }
+    if let Some(mtu) = mtu
+        && !(1280..=1500).contains(&mtu)
+    {
+        return Err("Interface MTU must be between 1280 and 1500".to_string());
     }
     Ok(mtu)
 }

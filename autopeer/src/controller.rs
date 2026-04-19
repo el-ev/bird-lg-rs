@@ -477,7 +477,7 @@ pub struct AutoPeerController {
     pub touched_fields: UseStateHandle<BTreeSet<String>>,
     pub editing_node: UseStateHandle<Option<String>>,
     pub config_stage: UseStateHandle<PeerConfigStage>,
-    pub retire_confirmation_armed: UseStateHandle<bool>,
+    pub retire_confirmation: UseStateHandle<bool>,
     pub operation: UseStateHandle<Option<OperationStatus>>,
     pub error: UseStateHandle<Option<String>>,
     pub loading: UseStateHandle<bool>,
@@ -548,7 +548,7 @@ pub fn use_autopeer_controller(
     let touched_fields = use_state(BTreeSet::<String>::new);
     let editing_node = use_state(|| None::<String>);
     let config_stage = use_state(|| PeerConfigStage::SelectNode);
-    let retire_confirmation_armed = use_state(|| false);
+    let retire_confirmation = use_state(|| false);
     let operation = use_state(|| None::<OperationStatus>);
     let error = use_state(|| None::<String>);
     let loading = use_state(|| false);
@@ -729,7 +729,7 @@ pub fn use_autopeer_controller(
     }
 
     {
-        let retire_confirmation_armed = retire_confirmation_armed.clone();
+        let retire_confirmation = retire_confirmation.clone();
         let draft_node = draft.node.clone();
         use_effect_with(
             (
@@ -739,7 +739,7 @@ pub fn use_autopeer_controller(
                 *config_stage,
             ),
             move |_| {
-                retire_confirmation_armed.set(false);
+                retire_confirmation.set(false);
                 || ()
             },
         );
@@ -1181,11 +1181,11 @@ pub fn use_autopeer_controller(
                 error.set(Some("Choose an authentication method first.".to_string()));
                 return;
             };
-            if method.kind == AuthMethodKind::RegistrySsh {
-                if let Err(message) = validate_ssh_signature_input(ssh_signature.as_str()) {
-                    error.set(Some(message.to_string()));
-                    return;
-                }
+            if method.kind == AuthMethodKind::RegistrySsh
+                && let Err(message) = validate_ssh_signature_input(ssh_signature.as_str())
+            {
+                error.set(Some(message.to_string()));
+                return;
             }
             if method.kind == AuthMethodKind::RegistryEmail && registry_email_code.trim().is_empty()
             {
@@ -1528,7 +1528,6 @@ pub fn use_autopeer_controller(
                         &session_asn,
                         &UpdateSessionRequest {
                             session: spec,
-                            ..UpdateSessionRequest::default()
                         },
                     )
                     .await
@@ -1539,7 +1538,6 @@ pub fn use_autopeer_controller(
                         &CreateSessionRequest {
                             node: draft_value.node.clone(),
                             session: spec,
-                            ..CreateSessionRequest::default()
                         },
                     )
                     .await
@@ -1570,7 +1568,7 @@ pub fn use_autopeer_controller(
         let loading_message = loading_message.clone();
         let poll_operation = poll_operation.clone();
         let config_stage = config_stage.clone();
-        let retire_confirmation_armed = retire_confirmation_armed.clone();
+        let retire_confirmation = retire_confirmation.clone();
 
         Callback::from(move |_| {
             let Some(api_base) = require_api_base(&api_base, &error) else {
@@ -1588,13 +1586,13 @@ pub fn use_autopeer_controller(
                 ));
                 return;
             };
-            if !*retire_confirmation_armed {
-                retire_confirmation_armed.set(true);
+            if !*retire_confirmation {
+                retire_confirmation.set(true);
                 error.set(None);
                 return;
             }
 
-            retire_confirmation_armed.set(false);
+            retire_confirmation.set(false);
             editing_node.set(None);
             config_stage.set(PeerConfigStage::SelectNode);
 
@@ -1650,7 +1648,7 @@ pub fn use_autopeer_controller(
         touched_fields,
         editing_node,
         config_stage,
-        retire_confirmation_armed,
+        retire_confirmation,
         operation,
         error,
         loading,

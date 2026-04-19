@@ -2,8 +2,7 @@ use std::collections::BTreeSet;
 
 use common::{
     auto_peer::{
-        ALL_PEERING_STRATEGIES, AuthMethodKind, NodeView, OperationStatus, PeeringStrategy,
-        SessionState, SessionView,
+        ALL_PEERING_STRATEGIES, AuthMethodKind, NodeView, OperationState, OperationStatus, PeeringStrategy, SessionState, SessionView
     },
     models::PeeringInfo,
 };
@@ -14,7 +13,6 @@ use web_sys::{HtmlSelectElement, HtmlTextAreaElement};
 use yew::prelude::*;
 
 use crate::{
-    config::{AUTOPEER_BASE_PATH, matches_autopeer_path},
     controller::{
         default_pgp_key, selected_registry_email_target, sync_create_draft, use_autopeer_controller,
     },
@@ -48,10 +46,6 @@ fn render_readonly_block(label: &str, content: String) -> Html {
             </div>
         </div>
     }
-}
-
-fn render_command_block(label: &str, command: String) -> Html {
-    render_readonly_block(label, command)
 }
 
 fn field_key(field: SessionDraftField) -> &'static str {
@@ -127,35 +121,17 @@ fn render_loading(loading: bool, loading_message: Option<&str>) -> Html {
     }
 }
 
-fn autopeer_home_href_from_parts(protocol: &str, host: &str, pathname: &str) -> String {
-    let path = if matches_autopeer_path(pathname) {
-        AUTOPEER_BASE_PATH
-    } else {
-        "/"
-    };
-    format!("{protocol}//{host}{path}")
-}
 
-fn looking_glass_href_from_parts(protocol: &str, host: &str, pathname: &str) -> String {
+fn looking_glass_href_from_parts(protocol: &str, host: &str) -> String {
     if let Some(rest) = host.strip_prefix("autopeer.") {
-        format!("{protocol}//lg.{rest}/")
-    } else if matches_autopeer_path(pathname) {
-        format!("{protocol}//{host}/")
+        format!("{protocol}//network.{rest}/")
     } else {
         format!("{protocol}//{host}/")
     }
 }
 
 fn autopeer_home_href() -> String {
-    web_sys::window()
-        .and_then(|window| {
-            let location = window.location();
-            let protocol = location.protocol().ok()?;
-            let host = location.host().ok()?;
-            let pathname = location.pathname().ok()?;
-            Some(autopeer_home_href_from_parts(&protocol, &host, &pathname))
-        })
-        .unwrap_or_else(|| "/".to_string())
+    "/".to_string()
 }
 
 fn looking_glass_href() -> String {
@@ -164,8 +140,7 @@ fn looking_glass_href() -> String {
             let location = window.location();
             let protocol = location.protocol().ok()?;
             let host = location.host().ok()?;
-            let pathname = location.pathname().ok()?;
-            Some(looking_glass_href_from_parts(&protocol, &host, &pathname))
+            Some(looking_glass_href_from_parts(&protocol, &host))
         })
         .unwrap_or_else(|| "/".to_string())
 }
@@ -323,14 +298,14 @@ fn detect_peer6_address_kind(value: &str) -> Option<Peer6AddressKind> {
 
 fn operation_stage_index(operation: &OperationStatus) -> usize {
     match operation.state {
-        common::auto_peer::OperationState::PendingPullRequest => 0,
-        common::auto_peer::OperationState::PendingChecks => 1,
-        common::auto_peer::OperationState::PendingMerge => 2,
-        common::auto_peer::OperationState::Merged | common::auto_peer::OperationState::Applying => {
+        OperationState::PendingPullRequest => 0,
+        OperationState::PendingChecks => 1,
+        OperationState::PendingMerge => 2,
+        OperationState::Merged | OperationState::Applying => {
             3
         }
-        common::auto_peer::OperationState::Completed => 4,
-        common::auto_peer::OperationState::Failed | common::auto_peer::OperationState::Conflict => {
+        OperationState::Completed => 4,
+        OperationState::Failed | OperationState::Conflict => {
             2
         }
     }
@@ -347,8 +322,8 @@ fn displayed_peer_config_stage(
     }
 }
 
-fn retire_button_text(retire_confirmation_armed: bool) -> &'static str {
-    if retire_confirmation_armed {
+fn retire_button_text(retire_confirmation: bool) -> &'static str {
+    if retire_confirmation {
         "Confirm Retirement"
     } else {
         "Retire This Session"
@@ -438,7 +413,7 @@ pub fn auto_peer_page() -> Html {
     let touched_fields = controller.touched_fields.clone();
     let editing_node = controller.editing_node.clone();
     let config_stage = controller.config_stage.clone();
-    let retire_confirmation_armed = controller.retire_confirmation_armed.clone();
+    let retire_confirmation = controller.retire_confirmation.clone();
     let operation = controller.operation.clone();
     let error = controller.error.clone();
     let loading = controller.loading.clone();
@@ -616,7 +591,7 @@ pub fn auto_peer_page() -> Html {
                                     </ShellLine>
                                 }
                                 if let Some(challenge) = &*challenge_text {
-                                    {render_command_block(
+                                    {render_readonly_block(
                                         "Create your SSH signature",
                                         ssh_sign_command(challenge),
                                     )}
@@ -695,7 +670,7 @@ pub fn auto_peer_page() -> Html {
                                             "Exact challenge text",
                                             challenge.clone(),
                                         )}
-                                        {render_command_block(
+                                        {render_readonly_block(
                                             "Clear-sign your challenge",
                                             pgp_sign_command(challenge, &selected_key_value),
                                         )}
@@ -721,7 +696,7 @@ pub fn auto_peer_page() -> Html {
                                         rows={12}
                                     />
                                 </ShellLine>
-                                {render_command_block(
+                                {render_readonly_block(
                                     "Export your public key",
                                     pgp_export_command(&selected_key_value),
                                 )}
@@ -913,7 +888,7 @@ pub fn auto_peer_page() -> Html {
             });
             let selected_node = selected_node_name
                 .and_then(|name| nodes.iter().find(|node| node.name == name).cloned());
-            let retire_confirmation_armed_value = *retire_confirmation_armed;
+            let retire_confirmation_value = *retire_confirmation;
             let active_asn = auth_summary
                 .as_ref()
                 .map(|session| session.asn.clone())
@@ -1440,7 +1415,7 @@ pub fn auto_peer_page() -> Html {
                             if editing_node_value.is_some() {
                                 <ShellButton text="Cancel Edit" onclick={on_cancel_edit.clone()} disabled={*loading} />
                                 <ShellButton
-                                    text={retire_button_text(retire_confirmation_armed_value)}
+                                    text={retire_button_text(retire_confirmation_value)}
                                     onclick={on_retire_selected_session.clone()}
                                     disabled={*loading}
                                 />
@@ -1672,7 +1647,7 @@ pub fn auto_peer_page() -> Html {
                                             <ShellInput
                                                 value={(*impersonate_mnt).clone()}
                                                 on_change={on_impersonate_mnt_change}
-                                                placeholder="Optional mntner override for your target ASN"
+                                                placeholder="Optional mntner override"
                                                 disabled={*loading}
                                             />
                                         </ShellLine>
@@ -1750,46 +1725,14 @@ mod tests {
     use common::auto_peer::{AuthMethod, AuthMethodKind};
 
     use super::{
-        Peer6AddressKind, autopeer_home_href_from_parts, autopeer_node_endpoint_port,
-        detect_peer6_address_kind, displayed_peer_config_stage, looking_glass_href_from_parts,
+        Peer6AddressKind, autopeer_node_endpoint_port,
+        detect_peer6_address_kind, displayed_peer_config_stage,
         retire_button_text,
     };
     use crate::{
         controller::{configured_href, filter_supported_methods, validate_ssh_signature_input},
         store::PeerConfigStage,
     };
-
-    #[test]
-    fn derives_autopeer_home_for_shared_path_deployments() {
-        assert_eq!(
-            autopeer_home_href_from_parts("https:", "lg.owo.li", "/autopeer/setup"),
-            "https://lg.owo.li/autopeer"
-        );
-    }
-
-    #[test]
-    fn derives_autopeer_home_for_dedicated_host_deployments() {
-        assert_eq!(
-            autopeer_home_href_from_parts("https:", "autopeer.owo.li", "/"),
-            "https://autopeer.owo.li/"
-        );
-    }
-
-    #[test]
-    fn derives_looking_glass_url_for_shared_path_deployments() {
-        assert_eq!(
-            looking_glass_href_from_parts("https:", "lg.owo.li", "/autopeer/setup"),
-            "https://lg.owo.li/"
-        );
-    }
-
-    #[test]
-    fn derives_looking_glass_url_for_dedicated_host_deployments() {
-        assert_eq!(
-            looking_glass_href_from_parts("https:", "autopeer.owo.li", "/"),
-            "https://lg.owo.li/"
-        );
-    }
 
     #[test]
     fn prefers_runtime_configured_link_over_fallback() {

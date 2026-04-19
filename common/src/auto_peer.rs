@@ -4,18 +4,14 @@ use crate::models::PeeringInfo;
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
+#[derive(Default)]
 pub enum AuthMethodKind {
+    #[default]
     RegistrySsh,
     RegistryPgp,
     RegistryEmail,
     Oidc,
     HostImpersonation,
-}
-
-impl Default for AuthMethodKind {
-    fn default() -> Self {
-        Self::RegistrySsh
-    }
 }
 
 impl AuthMethodKind {
@@ -174,17 +170,13 @@ impl NodeView {
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
+#[derive(Default)]
 pub enum SessionState {
+    #[default]
     Managed,
     Manual,
     PendingPr,
     Conflict,
-}
-
-impl Default for SessionState {
-    fn default() -> Self {
-        Self::Managed
-    }
 }
 
 impl SessionState {
@@ -213,17 +205,13 @@ fn default_true() -> bool {
 
 #[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
+#[derive(Default)]
 pub enum PeeringStrategy {
+    #[default]
     FullTable,
     Transit,
     Peer,
     Downstream,
-}
-
-impl Default for PeeringStrategy {
-    fn default() -> Self {
-        Self::FullTable
-    }
 }
 
 impl PeeringStrategy {
@@ -349,17 +337,13 @@ pub struct UpdateSessionRequest {
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
+#[derive(Default)]
 pub enum OperationKind {
+    #[default]
     Create,
     Update,
     Delete,
     Migrate,
-}
-
-impl Default for OperationKind {
-    fn default() -> Self {
-        Self::Create
-    }
 }
 
 impl OperationKind {
@@ -375,7 +359,9 @@ impl OperationKind {
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
+#[derive(Default)]
 pub enum OperationState {
+    #[default]
     PendingPullRequest,
     PendingChecks,
     PendingMerge,
@@ -384,12 +370,6 @@ pub enum OperationState {
     Completed,
     Failed,
     Conflict,
-}
-
-impl Default for OperationState {
-    fn default() -> Self {
-        Self::PendingPullRequest
-    }
 }
 
 impl OperationState {
