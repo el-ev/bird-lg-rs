@@ -59,7 +59,6 @@ import type {
   HostImpersonationRequest,
   MaintainerRecord,
   RegistryEmailCompleteRequest,
-  RegistryEmailAuthRequestRecord,
   RegistryEmailSendRequest,
   RegistryEmailSendResponse,
   RegistryEmailTarget,

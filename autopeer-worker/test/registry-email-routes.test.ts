@@ -8,9 +8,11 @@ import type {
 
 const dbMocks = vi.hoisted(() => ({
   getChallenge: vi.fn(),
+  consumeFreshChallenge: vi.fn(),
   putRegistryEmailAuthRequest: vi.fn(),
   getRegistryEmailAuthRequest: vi.fn(),
   getRegistryEmailAuthRequestByToken: vi.fn(),
+  consumeCompletedRegistryEmailAuthRequestByToken: vi.fn(),
   deleteRegistryEmailAuthRequest: vi.fn(),
   putAuthSession: vi.fn(),
   getAuthSession: vi.fn(),
@@ -25,9 +27,12 @@ vi.mock("../src/db", async () => {
   return {
     ...actual,
     getChallenge: dbMocks.getChallenge,
+    consumeFreshChallenge: dbMocks.consumeFreshChallenge,
     putRegistryEmailAuthRequest: dbMocks.putRegistryEmailAuthRequest,
     getRegistryEmailAuthRequest: dbMocks.getRegistryEmailAuthRequest,
     getRegistryEmailAuthRequestByToken: dbMocks.getRegistryEmailAuthRequestByToken,
+    consumeCompletedRegistryEmailAuthRequestByToken:
+      dbMocks.consumeCompletedRegistryEmailAuthRequestByToken,
     deleteRegistryEmailAuthRequest: dbMocks.deleteRegistryEmailAuthRequest,
     putAuthSession: dbMocks.putAuthSession,
     getAuthSession: dbMocks.getAuthSession,
@@ -44,7 +49,7 @@ vi.mock("../src/mailer", async () => {
 
 import worker from "../src/index";
 
-function makeEnv(overrides: Partial<Env> = {}): Env {
+function makeEnv(overrides: Partial<Env> & { RESEND_API_KEY?: string } = {}): Env {
   return {
     DB: {} as D1Database,
     GITHUB_OWNER: "owner",
@@ -59,6 +64,7 @@ function makeEnv(overrides: Partial<Env> = {}): Env {
     AUTOPEER_URL: "https://api.autopeer.example",
     AUTOPEER_SITE_URL: "https://autopeer.example",
     LOOKING_GLASS_URL: "https://lg.example",
+    RESEND_API_KEY: "test-resend-key",
     ...overrides,
   } as unknown as Env;
 }
@@ -172,6 +178,10 @@ describe("registry email worker routes", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mailerMocks.sendRegistryEmailAuthMessage.mockResolvedValue(undefined);
+    dbMocks.consumeFreshChallenge.mockResolvedValue({
+      kind: "available",
+      challenge: challengeRecord(),
+    });
   });
 
   it("sends registry email auth to the selected maintainer contacts", async () => {
@@ -201,6 +211,22 @@ describe("registry email worker routes", () => {
     );
   });
 
+  it("rejects registry email send when the mailer secret is unavailable", async () => {
+    const response = await runWorker(
+      jsonRequest("/v1/auth/verify/registry-email/send", {
+        challenge_id: "challenge-1",
+      }),
+      makeEnv({ RESEND_API_KEY: "" }),
+    );
+
+    expect(response.status).toBe(503);
+    await expect(response.json()).resolves.toEqual({
+      error: "Registry email login is not available in this deployment",
+    });
+    expect(mailerMocks.sendRegistryEmailAuthMessage).not.toHaveBeenCalled();
+    expect(dbMocks.putRegistryEmailAuthRequest).not.toHaveBeenCalled();
+  });
+
   it("redirects a completed sign-in link callback through the forwarded host", async () => {
     dbMocks.getRegistryEmailAuthRequestByToken.mockResolvedValue(
       emailAuthRequest({ session_token: "session-1" }),
@@ -216,8 +242,77 @@ describe("registry email worker routes", () => {
     );
   });
 
+  it("consumes the challenge atomically when verifying a registry email code", async () => {
+    dbMocks.getRegistryEmailAuthRequest.mockResolvedValue(emailAuthRequest());
+
+    const response = await runWorker(
+      jsonRequest("/v1/auth/verify/registry-email", {
+        challenge_id: "challenge-1",
+        code: "12345678",
+      }),
+    );
+
+    expect(response.status).toBe(200);
+    expect(dbMocks.consumeFreshChallenge).toHaveBeenCalledWith(expect.anything(), "challenge-1");
+    expect(dbMocks.putAuthSession).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({
+      effective_mnt: "EXAMPLE-MNT",
+    }));
+    expect(dbMocks.deleteRegistryEmailAuthRequest).toHaveBeenCalledWith(
+      expect.anything(),
+      "challenge-1",
+    );
+  });
+
+  it("rejects registry email code verification after the challenge has already been used", async () => {
+    dbMocks.getRegistryEmailAuthRequest.mockResolvedValue(emailAuthRequest());
+    dbMocks.consumeFreshChallenge.mockResolvedValue({ kind: "consumed" });
+
+    const response = await runWorker(
+      jsonRequest("/v1/auth/verify/registry-email", {
+        challenge_id: "challenge-1",
+        code: "12345678",
+      }),
+    );
+
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toEqual({
+      error: "challenge has already been used",
+    });
+    expect(dbMocks.putAuthSession).not.toHaveBeenCalled();
+  });
+
+  it("consumes a completed magic-link token on first redemption", async () => {
+    dbMocks.consumeCompletedRegistryEmailAuthRequestByToken
+      .mockResolvedValueOnce(emailAuthRequest({ session_token: "session-1" }))
+      .mockResolvedValueOnce(null);
+    dbMocks.getRegistryEmailAuthRequestByToken.mockResolvedValue(null);
+    dbMocks.getAuthSession.mockResolvedValue(sessionRecord());
+
+    const firstResponse = await runWorker(
+      jsonRequest("/v1/auth/verify/registry-email/complete", {
+        token: "email-token-1",
+      }),
+    );
+
+    expect(firstResponse.status).toBe(200);
+    await expect(firstResponse.json()).resolves.toMatchObject({
+      session_token: "session-1",
+    });
+
+    const secondResponse = await runWorker(
+      jsonRequest("/v1/auth/verify/registry-email/complete", {
+        token: "email-token-1",
+      }),
+    );
+
+    expect(secondResponse.status).toBe(404);
+    await expect(secondResponse.json()).resolves.toEqual({
+      error: "Registry email login state was not found or has expired",
+    });
+  });
+
   it("completes a registry email login from the sign-in link token", async () => {
-    dbMocks.getRegistryEmailAuthRequestByToken.mockResolvedValue(
+    dbMocks.consumeCompletedRegistryEmailAuthRequestByToken.mockResolvedValue(
       emailAuthRequest({ session_token: "session-1" }),
     );
     dbMocks.getAuthSession.mockResolvedValue(sessionRecord());

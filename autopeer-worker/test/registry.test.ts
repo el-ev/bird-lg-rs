@@ -80,4 +80,25 @@ describe("registry auth metadata", () => {
       ],
     });
   });
+
+  it("hides registry email auth when the mailer is unavailable", () => {
+    const maintainers: MaintainerRecord[] = [
+      {
+        name: "EXAMPLE-MNT",
+        auth_lines: [],
+        ssh_public_keys: [],
+        ssh_fingerprints: [],
+        pgp_fingerprints: [],
+        contact_emails: ["admin@example.net"],
+      },
+    ];
+
+    expect(
+      methodsFromMaintainers(maintainers, [], { registryEmailEnabled: false }),
+    ).not.toContainEqual(
+      expect.objectContaining({
+        kind: "registry_email",
+      }),
+    );
+  });
 });
