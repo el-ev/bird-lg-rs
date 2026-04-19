@@ -985,6 +985,10 @@ async function handleMutation(
 
   const node = findNodeOrThrow(nodeName, repo.hosts);
 
+  if (node.autopeer === false) {
+    throw new HttpError(`${nodeName} is not accepting autopeer changes right now`, 403);
+  }
+
   if (kind === "create") {
     if (!sessionPayload) {
       throw new HttpError("session payload is required", 400);

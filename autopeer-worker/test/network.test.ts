@@ -96,6 +96,31 @@ all:
     ]);
   });
 
+  it("surfaces nodes with autopeer disabled so the UI can mark them read-only", () => {
+    const inventory = `---
+all:
+  children:
+    nodes:
+      hosts:
+        tyo-01:
+          ansible_host: tyo-01.node.svc.moe
+          region: ASIA_E
+          autopeer: false
+        lax-01:
+          region: NORTH_AMERICA_W
+    dn42:
+      hosts:
+        tyo-01:
+        lax-01:
+`;
+
+    const hosts = loadInventoryHosts(inventory, null);
+    const tyo = hosts.find((h) => h.name === "tyo-01");
+    const lax = hosts.find((h) => h.name === "lax-01");
+    expect(tyo?.autopeer).toBe(false);
+    expect(lax?.autopeer).toBeUndefined();
+  });
+
   it("captures endpoint host from inventory", () => {
     const inventory = `---
 all:

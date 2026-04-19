@@ -109,11 +109,13 @@ pub(super) const TABLE: &[(&str, &str)] = &[
     ("stage1.empty_title", "We did not find any autopeer-enabled nodes for your ASN."),
     ("stage1.empty_body", "Refresh our inventory or check our autopeer policy if that looks wrong."),
     ("stage1.state.available", "Available"),
+    ("stage1.state.disabled", "Disabled"),
     ("stage1.state.note.create", "Create your session on this node."),
     ("stage1.state.note.managed", "Open this node to update or retire your managed session."),
     ("stage1.state.note.manual", "Open this node to review the current repo config. Saving it will adopt the session into autopeer automatically."),
     ("stage1.state.note.pending", "A change for your session is already in progress here."),
     ("stage1.state.note.conflict", "Our repo is in conflict for this node."),
+    ("stage1.state.note.disabled", "This node is not accepting autopeer sessions right now."),
 
     // Stage 2: Session details
     ("stage2.kicker", "Stage 2"),

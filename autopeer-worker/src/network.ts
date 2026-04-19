@@ -731,6 +731,7 @@ export function loadInventoryHosts(
           wg_pubkey: typeof source.wg_pubkey === "string" ? source.wg_pubkey : undefined,
           comment: typeof source.peering_comment === "string" ? source.peering_comment : undefined,
         },
+        autopeer: source.autopeer === false ? false : undefined,
       };
     })
     .sort((left, right) => left.name.localeCompare(right.name));
@@ -745,6 +746,7 @@ export function buildNodeViews(hosts: InventoryHost[]): NodeView[] {
     ip_support: host.ip_support,
     comment: host.comment,
     peering: host.peering,
+    autopeer: host.autopeer,
   }));
 }
 

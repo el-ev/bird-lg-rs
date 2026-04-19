@@ -106,6 +106,7 @@ export interface NodeView {
   ip_support: string;
   comment?: string;
   peering?: PeeringInfo;
+  autopeer?: boolean;
 }
 
 export type SessionState = "managed" | "manual" | "pending_pr" | "conflict";
@@ -315,6 +316,7 @@ export interface InventoryHost {
   ip_support: string;
   comment?: string;
   peering?: PeeringInfo;
+  autopeer?: boolean;
 }
 
 export interface AutopeerEnvConfig {

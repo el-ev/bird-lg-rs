@@ -150,6 +150,8 @@ pub struct NodeView {
     pub comment: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub peering: Option<PeeringInfo>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub autopeer: Option<bool>,
 }
 
 impl NodeView {

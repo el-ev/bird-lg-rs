@@ -1104,20 +1104,29 @@ pub fn auto_peer_page() -> Html {
                                     let error = error.clone();
                                     let node_value = node.clone();
                                     let selected = selected_node_name == Some(node.name.as_str());
-                                    let selectable = matches!(
+                                    let autopeer_disabled = node.autopeer == Some(false);
+                                    let selectable = !autopeer_disabled && matches!(
                                         node_session.as_ref().map(|session| &session.state),
                                         None | Some(SessionState::Managed) | Some(SessionState::Manual)
                                     );
-                                    let state_label = node_session
-                                        .as_ref()
-                                        .map(|session| session.state.label())
-                                        .unwrap_or(i18n.t("stage1.state.available"));
-                                    let state_note = match node_session.as_ref().map(|session| &session.state) {
-                                        None => i18n.t("stage1.state.note.create"),
-                                        Some(SessionState::Managed) => i18n.t("stage1.state.note.managed"),
-                                        Some(SessionState::Manual) => i18n.t("stage1.state.note.manual"),
-                                        Some(SessionState::PendingPr) => i18n.t("stage1.state.note.pending"),
-                                        Some(SessionState::Conflict) => i18n.t("stage1.state.note.conflict"),
+                                    let state_label = if autopeer_disabled {
+                                        i18n.t("stage1.state.disabled")
+                                    } else {
+                                        node_session
+                                            .as_ref()
+                                            .map(|session| session.state.label())
+                                            .unwrap_or(i18n.t("stage1.state.available"))
+                                    };
+                                    let state_note = if autopeer_disabled {
+                                        i18n.t("stage1.state.note.disabled")
+                                    } else {
+                                        match node_session.as_ref().map(|session| &session.state) {
+                                            None => i18n.t("stage1.state.note.create"),
+                                            Some(SessionState::Managed) => i18n.t("stage1.state.note.managed"),
+                                            Some(SessionState::Manual) => i18n.t("stage1.state.note.manual"),
+                                            Some(SessionState::PendingPr) => i18n.t("stage1.state.note.pending"),
+                                            Some(SessionState::Conflict) => i18n.t("stage1.state.note.conflict"),
+                                        }
                                     };
                                     let i18n_for_click = i18n.clone();
                                     let onclick = Callback::from(move |_| {
