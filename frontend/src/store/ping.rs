@@ -86,10 +86,7 @@ impl PingState {
     }
 }
 
-fn ensure_ping_result(
-    results: &mut Vec<(String, PingResult)>,
-    node: String,
-) -> &mut PingResult {
+fn ensure_ping_result(results: &mut Vec<(String, PingResult)>, node: String) -> &mut PingResult {
     if let Some(idx) = results
         .iter()
         .position(|(existing_node, _)| existing_node == &node)

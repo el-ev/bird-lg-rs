@@ -38,7 +38,11 @@ impl Locale {
     }
 
     fn from_bcp47(tag: &str) -> Option<Self> {
-        let primary = tag.split(['-', '_']).next().unwrap_or(tag).to_ascii_lowercase();
+        let primary = tag
+            .split(['-', '_'])
+            .next()
+            .unwrap_or(tag)
+            .to_ascii_lowercase();
         Self::from_code(&primary)
     }
 
@@ -182,4 +186,3 @@ mod tests {
         assert_eq!(i18n.t("nonexistent.key"), "nonexistent.key");
     }
 }
-
