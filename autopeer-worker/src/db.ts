@@ -274,6 +274,21 @@ export async function getRegistryEmailAuthRequestByToken(
   return row ? mapRegistryEmailAuthRequestRow(row) : null;
 }
 
+export async function consumeCompletedRegistryEmailAuthRequestByToken(
+  env: Env,
+  token: string,
+): Promise<RegistryEmailAuthRequestRecord | null> {
+  const row = await env.DB.prepare(
+    `DELETE FROM registry_email_auth_requests
+      WHERE token = ? AND session_token IS NOT NULL
+      RETURNING challenge_id, effective_mnt, email_snapshot, code, token, session_token, created_at, expires_at`,
+  )
+    .bind(token)
+    .first<Record<string, unknown>>();
+
+  return row ? mapRegistryEmailAuthRequestRow(row) : null;
+}
+
 export async function deleteRegistryEmailAuthRequest(
   env: Env,
   challengeId: string,
