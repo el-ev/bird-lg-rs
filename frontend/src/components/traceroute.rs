@@ -21,11 +21,7 @@ pub fn traceroute_section() -> Html {
     let version = use_state(String::new);
     let error = use_state(|| None::<String>);
 
-    let nodes: Vec<NodeProtocol> = if let Some(node) = &route_info.node_info {
-        vec![node.clone()]
-    } else {
-        state.nodes.clone()
-    };
+    let nodes: Vec<NodeProtocol> = route_info.scoped_protocol_nodes(state.nodes.as_slice());
 
     let active_session = state.traceroute.active_session();
 

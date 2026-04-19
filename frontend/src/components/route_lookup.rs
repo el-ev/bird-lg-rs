@@ -22,11 +22,7 @@ pub fn route_lookup() -> Html {
     let error = use_state(|| None::<String>);
     let state = use_context::<LgStateHandle>().expect("no app state found");
     let route_info = use_context::<RouteInfoHandle>().expect("no route info found");
-    let nodes: Vec<NodeProtocol> = if let Some(node) = &route_info.node_info {
-        vec![node.clone()]
-    } else {
-        state.nodes.clone()
-    };
+    let nodes: Vec<NodeProtocol> = route_info.scoped_protocol_nodes(state.nodes.as_slice());
 
     let on_node_change = {
         let selected_node = selected_node.clone();

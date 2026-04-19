@@ -2,7 +2,7 @@ use yew::prelude::*;
 
 use crate::{
     components::{content_modal::ContentModal, header::Header, status_banner::StatusBanner},
-    store::{AppEvent, LgStateHandle},
+    store::{AppEvent, LgStateHandle, route_info::RouteInfoHandle},
 };
 
 #[derive(Properties, PartialEq)]
@@ -14,8 +14,18 @@ pub struct MainViewProps {
 #[function_component(MainView)]
 pub fn main_view(props: &MainViewProps) -> Html {
     let state = use_context::<LgStateHandle>().expect("no app state found");
+    let route_info = use_context::<RouteInfoHandle>().expect("no route info found");
     let waiting_for_data = state.nodes.is_empty() && !state.data_ready;
     let active_output = state.command_output.active_session();
+
+    {
+        let state = state.clone();
+        let route_path = route_info.path.clone();
+        use_effect_with(route_path, move |_| {
+            state.dispatch(AppEvent::CloseActiveCommandOutput);
+            || ()
+        });
+    }
 
     html! {
         <main class="hero">
