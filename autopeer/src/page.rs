@@ -53,7 +53,6 @@ fn field_key(field: SessionDraftField) -> &'static str {
     match field {
         SessionDraftField::Endpoint => "endpoint",
         SessionDraftField::WgPublicKey => "wg_public_key",
-        SessionDraftField::Port => "port",
         SessionDraftField::Peer4 => "peer4",
         SessionDraftField::Peer6 => "peer6",
         SessionDraftField::Own6 => "own6",
@@ -947,20 +946,13 @@ pub fn auto_peer_page() -> Html {
                 let draft = draft.clone();
                 let sessions = sessions.clone();
                 let nodes = nodes.clone();
-                let auth_session = auth_session.clone();
-                let asn = asn.clone();
                 let config_stage = config_stage.clone();
                 let touched_fields = touched_fields.clone();
                 Callback::from(move |_| {
                     editing_node.set(None);
                     config_stage.set(PeerConfigStage::SelectNode);
                     touched_fields.set(BTreeSet::new());
-                    let active_asn = auth_session
-                        .as_ref()
-                        .as_ref()
-                        .map(|session| session.asn.as_str())
-                        .unwrap_or_else(|| asn.as_str());
-                    draft.set(sync_create_draft(active_asn, &nodes, &sessions, &draft));
+                    draft.set(sync_create_draft(&nodes, &sessions, &draft));
                 })
             };
 
@@ -1256,19 +1248,6 @@ pub fn auto_peer_page() -> Html {
                                     disabled={*loading}
                                 />
                             </ShellLine>
-                            <ShellLine>
-                                <ShellPrompt>{i18n.t("stage2.field.wg_port")}</ShellPrompt>
-                                {" "}
-                                <ShellInput
-                                    value={draft.port.clone()}
-                                    on_change={update_text_field(|draft| &mut draft.port)}
-                                    class={input_class(SessionDraftField::Port)}
-                                    frame_class={input_frame_class(SessionDraftField::Port)}
-                                    on_blur={on_field_blur(SessionDraftField::Port)}
-                                    placeholder={draft.resolved_port(&active_asn)}
-                                    disabled={*loading}
-                                />
-                            </ShellLine>
                         </div>
 
                         <div class="autopeer-form-section">
@@ -1485,10 +1464,6 @@ pub fn auto_peer_page() -> Html {
                             <div class="autopeer-review-item">
                                 <span class="autopeer-review-label">{i18n.t("stage3.review.your_wg_key")}</span>
                                 <strong class="autopeer-review-value">{draft.wg_public_key.clone()}</strong>
-                            </div>
-                            <div class="autopeer-review-item">
-                                <span class="autopeer-review-label">{i18n.t("stage3.review.wg_port")}</span>
-                                <strong class="autopeer-review-value">{draft.resolved_port(&active_asn)}</strong>
                             </div>
                             <div class="autopeer-review-item">
                                 <span class="autopeer-review-label">{i18n.t("stage3.review.route_families")}</span>

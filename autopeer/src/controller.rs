@@ -113,7 +113,6 @@ pub(crate) fn configured_href(configured: Option<&str>, fallback: &str) -> Strin
 }
 
 pub(crate) fn sync_create_draft(
-    asn: &str,
     nodes: &[NodeView],
     sessions: &[SessionView],
     current: &SessionDraft,
@@ -123,7 +122,7 @@ pub(crate) fn sync_create_draft(
         && current.peer6.is_empty()
         && current.node.is_empty()
     {
-        SessionDraft::default_for_asn(asn)
+        SessionDraft::default()
     } else {
         current.clone()
     };
@@ -144,10 +143,10 @@ fn reset_session_selection(handles: &SessionHandles) {
     handles.config_stage.set(PeerConfigStage::SelectNode);
 }
 
-fn reset_loaded_sessions(handles: &SessionHandles, asn: &str) {
+fn reset_loaded_sessions(handles: &SessionHandles) {
     handles.nodes.set(Vec::new());
     handles.sessions.set(Vec::new());
-    handles.draft.set(SessionDraft::default_for_asn(asn));
+    handles.draft.set(SessionDraft::default());
     reset_session_selection(handles);
 }
 
@@ -227,7 +226,6 @@ fn apply_session_list(response: SessionListResponse, handles: &SessionHandles) {
 
     if handles.editing_node.is_none() {
         let next = sync_create_draft(
-            &response.asn,
             &response.nodes,
             &response.sessions,
             &handles.draft,
@@ -338,7 +336,6 @@ async fn activate_authenticated_session(
             );
             apply_session_list(response, session_handles);
             let next_draft = sync_create_draft(
-                &session_asn,
                 &session_handles.nodes,
                 &session_handles.sessions,
                 &session_handles.draft,
@@ -355,7 +352,7 @@ async fn activate_authenticated_session(
                 session,
             );
             session_handles.asn.set(session_asn.clone());
-            reset_loaded_sessions(session_handles, &session_asn);
+            reset_loaded_sessions(session_handles);
             error.set(Some(message));
             auth_handles.step.set(AutoPeerStep::ManageSessions);
         }
@@ -927,7 +924,7 @@ pub fn use_autopeer_controller(
                         );
                         auth_handles.auth_session.set(None);
                         auth_handles.host_session.set(None);
-                        reset_loaded_sessions(&session_handles, &asn_value);
+                        reset_loaded_sessions(&session_handles);
                         auth_handles.step.set(AutoPeerStep::SelectMethod);
                     }
                     Err(message) => error.set(Some(message)),
@@ -1438,7 +1435,6 @@ pub fn use_autopeer_controller(
                         auth_session.set(Some(host_session_value.clone()));
                         apply_session_list(response, &session_handles);
                         let next_draft = sync_create_draft(
-                            &host_session_value.asn,
                             &session_handles.nodes,
                             &session_handles.sessions,
                             &session_handles.draft,

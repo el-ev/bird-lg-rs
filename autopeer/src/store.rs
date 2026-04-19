@@ -55,7 +55,6 @@ impl PeerConfigStage {
 pub enum SessionDraftField {
     Endpoint,
     WgPublicKey,
-    Port,
     Peer4,
     Peer6,
     Own6,
@@ -69,7 +68,6 @@ pub struct SessionDraft {
     pub comment: String,
     pub endpoint: String,
     pub wg_public_key: String,
-    pub port: String,
     pub peer4: String,
     pub peer6: String,
     pub own6: String,
@@ -89,7 +87,6 @@ impl Default for SessionDraft {
             comment: String::new(),
             endpoint: String::new(),
             wg_public_key: String::new(),
-            port: String::new(),
             peer4: String::new(),
             peer6: String::new(),
             own6: String::new(),
@@ -105,20 +102,12 @@ impl Default for SessionDraft {
 }
 
 impl SessionDraft {
-    pub fn default_for_asn(asn: &str) -> Self {
-        Self {
-            port: default_port_for_asn(asn),
-            ..Self::default()
-        }
-    }
-
     pub fn from_session(node: &str, spec: &PeerSessionSpec) -> Self {
         Self {
             node: node.to_string(),
             comment: spec.comment.clone().unwrap_or_default(),
             endpoint: spec.endpoint.clone(),
             wg_public_key: spec.wg_public_key.clone(),
-            port: spec.port.map(|value| value.to_string()).unwrap_or_default(),
             peer4: spec.peer4.clone().unwrap_or_default(),
             peer6: spec.peer6.clone().unwrap_or_default(),
             own6: spec.own6.clone().unwrap_or_default(),
@@ -132,15 +121,6 @@ impl SessionDraft {
             extended_next_hop: spec.extended_next_hop,
             mp_bgp: spec.mp_bgp,
             peering_strategy: spec.peering_strategy,
-        }
-    }
-
-    pub fn resolved_port(&self, asn: &str) -> String {
-        let trimmed = self.port.trim();
-        if trimmed.is_empty() {
-            default_port_for_asn(asn)
-        } else {
-            trimmed.to_string()
         }
     }
 
@@ -167,7 +147,6 @@ impl SessionDraft {
             SessionDraftField::WgPublicKey => {
                 validate_wireguard_public_key(&self.wg_public_key).err()
             }
-            SessionDraftField::Port => optional_u16(&self.port, "WireGuard port").err(),
             SessionDraftField::Peer4 => {
                 if !self.mp_bgp && self.ipv4 && peer4.is_none() {
                     Some(
@@ -266,7 +245,7 @@ impl SessionDraft {
             comment: (!self.comment.trim().is_empty()).then(|| self.comment.trim().to_string()),
             endpoint,
             wg_public_key,
-            port: optional_u16(&self.port, "port")?,
+            port: None,
             peer4,
             peer6,
             own6,
@@ -279,16 +258,6 @@ impl SessionDraft {
             peering_strategy: self.peering_strategy,
         })
     }
-}
-
-fn default_port_for_asn(asn: &str) -> String {
-    asn.chars()
-        .rev()
-        .take(5)
-        .collect::<String>()
-        .chars()
-        .rev()
-        .collect()
 }
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize, PartialEq, Eq)]
@@ -523,32 +492,19 @@ mod tests {
     const VALID_WG_KEY: &str = "sLbzTRr2gfLFb24NPzDOpy8j09Y6zI+a7NkeVMdVSR8=";
 
     #[test]
-    fn default_port_uses_last_five_asn_digits() {
-        let draft = SessionDraft::default_for_asn("4242423914");
-        assert_eq!(draft.port, "23914");
-    }
-
-    #[test]
-    fn resolved_port_falls_back_to_last_five_digits() {
-        let mut draft = SessionDraft::default_for_asn("4242423914");
-        draft.port.clear();
-        assert_eq!(draft.resolved_port("4242423914"), "23914");
-    }
-
-    #[test]
     fn draft_to_spec_trims_optional_fields() {
         let draft = SessionDraft {
             endpoint: " peer.example.net:21023 ".into(),
             wg_public_key: format!(" {VALID_WG_KEY} "),
             peer6: " fe80::1234 ".into(),
-            ..SessionDraft::default_for_asn("4242421234")
+            ..SessionDraft::default()
         };
 
         let spec = draft.to_spec().unwrap();
         assert_eq!(spec.endpoint, "peer.example.net:21023");
         assert_eq!(spec.wg_public_key, VALID_WG_KEY);
         assert_eq!(spec.peer6, Some("fe80::1234".into()));
-        assert_eq!(spec.port, Some(21234));
+        assert_eq!(spec.port, None);
         assert_eq!(spec.peering_strategy, PeeringStrategy::FullTable);
     }
 
@@ -559,7 +515,7 @@ mod tests {
             wg_public_key: VALID_WG_KEY.into(),
             peer6: "fe80::1234".into(),
             peering_strategy: PeeringStrategy::Downstream,
-            ..SessionDraft::default_for_asn("4242421234")
+            ..SessionDraft::default()
         };
 
         let spec = draft.to_spec().unwrap();
@@ -573,7 +529,7 @@ mod tests {
             wg_public_key: VALID_WG_KEY.into(),
             peer4: "172.20.193.67".into(),
             peer6: "fd55:dead:beef::3".into(),
-            ..SessionDraft::default_for_asn("4242422172")
+            ..SessionDraft::default()
         };
 
         let spec = draft.to_spec().unwrap();
@@ -587,7 +543,7 @@ mod tests {
             endpoint: "peer.example.net:21023".into(),
             wg_public_key: "not-a-key".into(),
             peer6: "fe80::1234".into(),
-            ..SessionDraft::default_for_asn("4242421234")
+            ..SessionDraft::default()
         };
 
         assert_eq!(
@@ -603,7 +559,7 @@ mod tests {
             wg_public_key: VALID_WG_KEY.into(),
             peer4: "172.20.999.67".into(),
             peer6: "fd55:dead:beef::3".into(),
-            ..SessionDraft::default_for_asn("4242422172")
+            ..SessionDraft::default()
         };
 
         assert_eq!(
@@ -618,7 +574,7 @@ mod tests {
             endpoint: "peer.example.net".into(),
             wg_public_key: VALID_WG_KEY.into(),
             peer6: "fe80::1234".into(),
-            ..SessionDraft::default_for_asn("4242421234")
+            ..SessionDraft::default()
         };
 
         assert_eq!(
@@ -633,7 +589,7 @@ mod tests {
             endpoint: "1:2".into(),
             wg_public_key: VALID_WG_KEY.into(),
             peer6: "fe80::1234".into(),
-            ..SessionDraft::default_for_asn("4242421234")
+            ..SessionDraft::default()
         };
 
         assert_eq!(
@@ -649,7 +605,7 @@ mod tests {
             wg_public_key: VALID_WG_KEY.into(),
             peer4: "0.0.0.0".into(),
             peer6: "fd55:dead:beef::3".into(),
-            ..SessionDraft::default_for_asn("4242422172")
+            ..SessionDraft::default()
         };
 
         assert_eq!(
@@ -664,7 +620,7 @@ mod tests {
             endpoint: "peer.example.net:21023".into(),
             wg_public_key: VALID_WG_KEY.into(),
             peer6: "::".into(),
-            ..SessionDraft::default_for_asn("4242421234")
+            ..SessionDraft::default()
         };
 
         assert_eq!(
@@ -680,7 +636,7 @@ mod tests {
             wg_public_key: VALID_WG_KEY.into(),
             peer6: "fe80::1234".into(),
             mtu: "11451".into(),
-            ..SessionDraft::default_for_asn("4242421234")
+            ..SessionDraft::default()
         };
 
         assert_eq!(
@@ -696,7 +652,7 @@ mod tests {
             wg_public_key: VALID_WG_KEY.into(),
             peer6: "fe80::1234".into(),
             own6: "fd42::1".into(),
-            ..SessionDraft::default_for_asn("4242421234")
+            ..SessionDraft::default()
         };
 
         assert_eq!(
