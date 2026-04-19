@@ -177,6 +177,21 @@ pub(super) const TABLE: &[(&str, &str)] = &[
     // Stage 1: Select node
     ("stage1.kicker", "Stage 1"),
     ("stage1.title", "Choose one of our nodes"),
+    ("flow.select_node.title", "Choose Node"),
+    (
+        "flow.select_node.description",
+        "Choose the nearest node in our network before you fill in tunnel details.",
+    ),
+    ("flow.session_details.title", "Configure Your Session"),
+    (
+        "flow.session_details.description",
+        "Enter your WireGuard and BGP values, then adjust any advanced options you need.",
+    ),
+    ("flow.review.title", "Review Your Change"),
+    (
+        "flow.review.description",
+        "Review your change before we open the pull request.",
+    ),
     (
         "stage1.description",
         "Choose a node in our network. Empty nodes let you create a session; existing sessions open in place for updates. Manual sessions get adopted into autopeer automatically when you save. In-flight nodes stay read-only.",
@@ -320,6 +335,63 @@ pub(super) const TABLE: &[(&str, &str)] = &[
     ("stage3.review.our_link_local_ipv6", "Link-local IPv6"),
     ("stage3.review.our_wg_pubkey", "WireGuard public key"),
     ("stage3.review.our_node_note", "Note"),
+    // Draft / node formatting
+    ("draft.families.ipv4_ipv6", "IPv4 + IPv6"),
+    ("draft.families.ipv4_only", "IPv4 only"),
+    ("draft.families.ipv6_only", "IPv6 only"),
+    ("draft.families.none", "No families selected"),
+    ("location.direction.n", "North"),
+    ("location.direction.s", "South"),
+    ("location.direction.e", "East"),
+    ("location.direction.w", "West"),
+    ("location.direction.ne", "Northeast"),
+    ("location.direction.nw", "Northwest"),
+    ("location.direction.se", "Southeast"),
+    ("location.direction.sw", "Southwest"),
+    ("node.transport.ipv4", "IPv4 transport"),
+    ("node.transport.ipv6", "IPv6 transport"),
+    ("node.transport.dual_stack", "Dual-stack transport"),
+    // Session / operation labels
+    ("session_state.managed", "Managed"),
+    ("session_state.manual", "Manual"),
+    ("session_state.pending_pr", "Pending PR"),
+    ("session_state.conflict", "Conflict"),
+    ("operation.kind.create", "Create"),
+    ("operation.kind.update", "Update"),
+    ("operation.kind.delete", "Delete"),
+    ("operation.kind.migrate", "Migrate"),
+    ("operation.state.pending_pull_request", "Preparing PR"),
+    ("operation.state.pending_checks", "Waiting For CI"),
+    ("operation.state.applying", "Applying On Node"),
+    ("operation.state.pending_merge", "Waiting For Merge"),
+    ("operation.state.completed", "Completed"),
+    ("operation.state.failed", "Failed"),
+    ("operation.state.conflict", "Conflict"),
+    ("operation.failure_stage.checks", "CI checks"),
+    ("operation.failure_stage.preflight", "Node preflight"),
+    ("operation.failure_stage.apply", "Node apply"),
+    ("operation.failure_stage.merge", "Merge"),
+    // Routing policy labels
+    ("peering_strategy.full_table.label", "Full Table"),
+    (
+        "peering_strategy.full_table.description",
+        "Receive all valid routes and export all valid routes.",
+    ),
+    ("peering_strategy.transit.label", "Transit"),
+    (
+        "peering_strategy.transit.description",
+        "Receive all valid routes and export only our own exact prefixes.",
+    ),
+    ("peering_strategy.peer.label", "Peer"),
+    (
+        "peering_strategy.peer.description",
+        "Receive only direct routes and export our own exact prefixes plus downstream routes.",
+    ),
+    ("peering_strategy.downstream.label", "Downstream"),
+    (
+        "peering_strategy.downstream.description",
+        "Receive only direct routes and export all valid routes.",
+    ),
     // Operation progress labels
     ("operation.progress.branch", "Branch"),
     ("operation.progress.checks", "Checks"),
@@ -431,6 +503,132 @@ pub(super) const TABLE: &[(&str, &str)] = &[
     (
         "error.ssh.unsigned_challenge",
         "Paste the detached SSH signature block from the command above, not the unsigned challenge text.",
+    ),
+    // Frontend validation
+    (
+        "validation.tunnel.required",
+        "Add at least one tunnel address: IPv4 or IPv6",
+    ),
+    (
+        "validation.bgp_family.required",
+        "Enable at least one BGP family",
+    ),
+    (
+        "validation.peer4.required",
+        "An IPv4 peer address is required for IPv4 when MP-BGP is disabled",
+    ),
+    (
+        "validation.peer6.required_mp_bgp",
+        "An IPv6 peer address is required when MP-BGP is enabled",
+    ),
+    (
+        "validation.peer6.required_ipv6",
+        "An IPv6 peer address is required for IPv6 routes",
+    ),
+    (
+        "validation.extended_next_hop.requires_mp_bgp",
+        "Extended next hop requires MP-BGP",
+    ),
+    (
+        "validation.own6.requires_peer6",
+        "A local link-local IPv6 needs a peer IPv6 address",
+    ),
+    (
+        "validation.own6.requires_link_local_peer6",
+        "Local link-local IPv6 only applies when the peer IPv6 address is link-local",
+    ),
+    (
+        "validation.own6.must_start_fe80",
+        "Local link-local IPv6 must start with fe80:",
+    ),
+    ("validation.endpoint.required", "endpoint is required"),
+    (
+        "validation.endpoint.no_spaces",
+        "Remote endpoint cannot contain spaces",
+    ),
+    (
+        "validation.endpoint.ipv6_format",
+        "IPv6 endpoints must use the format [addr]:port",
+    ),
+    (
+        "validation.endpoint.ipv6_invalid",
+        "Remote endpoint IPv6 address must be a valid IPv6 address",
+    ),
+    (
+        "validation.endpoint.host_port_format",
+        "Remote endpoint must use host:port or [ipv6]:port",
+    ),
+    (
+        "validation.endpoint.port_required",
+        "Remote endpoint must include a port",
+    ),
+    (
+        "validation.endpoint.host_required",
+        "Remote endpoint host is required",
+    ),
+    (
+        "validation.endpoint.host_invalid",
+        "Remote endpoint host must be an IPv4 address or a fully qualified hostname",
+    ),
+    (
+        "validation.endpoint.port.invalid",
+        "Remote endpoint port must be a valid number",
+    ),
+    (
+        "validation.endpoint.port.range",
+        "Remote endpoint port must be between 1 and 65535",
+    ),
+    (
+        "validation.wg_public_key.required",
+        "wg_public_key is required",
+    ),
+    (
+        "validation.wg_public_key.length",
+        "Peer WireGuard key must be a 44-character base64 public key",
+    ),
+    (
+        "validation.wg_public_key.suffix",
+        "Peer WireGuard key must end with '='",
+    ),
+    (
+        "validation.wg_public_key.charset",
+        "Peer WireGuard key contains invalid base64 characters",
+    ),
+    (
+        "validation.peer4.invalid",
+        "Peer IPv4 address must be a valid IPv4 address",
+    ),
+    (
+        "validation.peer4.range",
+        "Peer IPv4 address must be within 172.20.0.0/14",
+    ),
+    (
+        "validation.peer6.invalid",
+        "Peer IPv6 address must be a valid IPv6 address",
+    ),
+    (
+        "validation.peer6.scope",
+        "Peer IPv6 address must be a ULA or link-local IPv6 address",
+    ),
+    (
+        "validation.own6.invalid",
+        "Local link-local IPv6 must be a valid IPv6 address",
+    ),
+    (
+        "validation.own6.scope",
+        "Local link-local IPv6 must be a link-local IPv6 address",
+    ),
+    (
+        "validation.keepalive.invalid",
+        "Persistent keepalive must be a valid number",
+    ),
+    (
+        "validation.mtu.invalid",
+        "Interface MTU must be a valid number",
+    ),
+    (
+        "validation.mtu.range",
+        "Interface MTU must be between 1280 and 1500",
     ),
     // Loading messages
     (

@@ -4,6 +4,16 @@ use common::auto_peer::{AuthSessionResponse, PeerSessionSpec, PeeringStrategy};
 use serde::{Deserialize, Serialize};
 
 const AUTOPEER_SESSION_STORAGE_KEY: &str = "bird-lg-rs.autopeer.sessions";
+const TUNNEL_ADDRESS_REQUIRED_ERROR: &str = "validation.tunnel.required";
+const BGP_FAMILY_REQUIRED_ERROR: &str = "validation.bgp_family.required";
+const PEER4_REQUIRED_ERROR: &str = "validation.peer4.required";
+const PEER6_MP_BGP_REQUIRED_ERROR: &str = "validation.peer6.required_mp_bgp";
+const PEER6_IPV6_REQUIRED_ERROR: &str = "validation.peer6.required_ipv6";
+const EXTENDED_NEXT_HOP_REQUIRES_MP_BGP_ERROR: &str =
+    "validation.extended_next_hop.requires_mp_bgp";
+const OWN6_REQUIRES_PEER6_ERROR: &str = "validation.own6.requires_peer6";
+const OWN6_REQUIRES_LINK_LOCAL_PEER6_ERROR: &str = "validation.own6.requires_link_local_peer6";
+const OWN6_MUST_BE_LINK_LOCAL_ERROR: &str = "validation.own6.must_start_fe80";
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum AutoPeerStep {
@@ -30,23 +40,19 @@ impl PeerConfigStage {
         }
     }
 
-    pub fn title(self) -> &'static str {
+    pub fn title_key(self) -> &'static str {
         match self {
-            Self::SelectNode => "Choose Node",
-            Self::SessionDetails => "Configure Your Session",
-            Self::Review => "Review Your Change",
+            Self::SelectNode => "flow.select_node.title",
+            Self::SessionDetails => "flow.session_details.title",
+            Self::Review => "flow.review.title",
         }
     }
 
-    pub fn description(self) -> &'static str {
+    pub fn description_key(self) -> &'static str {
         match self {
-            Self::SelectNode => {
-                "Choose the nearest node in our network before you fill in tunnel details."
-            }
-            Self::SessionDetails => {
-                "Enter your WireGuard and BGP values, then adjust any advanced options you need."
-            }
-            Self::Review => "Review your change before we open the pull request.",
+            Self::SelectNode => "flow.select_node.description",
+            Self::SessionDetails => "flow.session_details.description",
+            Self::Review => "flow.review.description",
         }
     }
 }
@@ -124,12 +130,12 @@ impl SessionDraft {
         }
     }
 
-    pub fn families_label(&self) -> &'static str {
+    pub fn families_label_key(&self) -> &'static str {
         match (self.ipv4, self.ipv6) {
-            (true, true) => "IPv4 + IPv6",
-            (true, false) => "IPv4 only",
-            (false, true) => "IPv6 only",
-            (false, false) => "No families selected",
+            (true, true) => "draft.families.ipv4_ipv6",
+            (true, false) => "draft.families.ipv4_only",
+            (false, true) => "draft.families.ipv6_only",
+            (false, false) => "draft.families.none",
         }
     }
 
@@ -141,107 +147,122 @@ impl SessionDraft {
         self.ipv4 && !self.mp_bgp
     }
 
-    fn requires_peer6(&self) -> bool {
-        self.ipv6 || self.mp_bgp
+    fn tunnel_fields(&self) -> (Option<String>, Option<String>, Option<String>) {
+        (
+            optional_string(&self.peer4),
+            optional_string(&self.peer6),
+            optional_string(&self.own6),
+        )
+    }
+
+    fn peer4_requirement_error(&self, peer4: Option<&str>) -> Option<&'static str> {
+        (self.requires_peer4() && peer4.is_none()).then_some(PEER4_REQUIRED_ERROR)
+    }
+
+    fn peer6_requirement_error(&self, peer6: Option<&str>) -> Option<&'static str> {
+        if self.mp_bgp && peer6.is_none() {
+            Some(PEER6_MP_BGP_REQUIRED_ERROR)
+        } else if self.ipv6 && peer6.is_none() {
+            Some(PEER6_IPV6_REQUIRED_ERROR)
+        } else {
+            None
+        }
+    }
+
+    fn own6_dependency_error(
+        &self,
+        own6: Option<&str>,
+        peer6: Option<&str>,
+    ) -> Option<&'static str> {
+        if own6.is_some() && peer6.is_none() {
+            Some(OWN6_REQUIRES_PEER6_ERROR)
+        } else if own6.is_some() && !self.peer6_is_link_local() {
+            Some(OWN6_REQUIRES_LINK_LOCAL_PEER6_ERROR)
+        } else {
+            None
+        }
+    }
+
+    fn own6_prefix_error(own6: Option<&str>) -> Option<&'static str> {
+        own6.filter(|value| !value.to_ascii_lowercase().starts_with("fe80:"))
+            .map(|_| OWN6_MUST_BE_LINK_LOCAL_ERROR)
     }
 
     pub fn field_error(&self, field: SessionDraftField) -> Option<String> {
-        let peer4 = optional_string(&self.peer4);
-        let peer6 = optional_string(&self.peer6);
-        let own6 = optional_string(&self.own6);
+        let (peer4, peer6, own6) = self.tunnel_fields();
 
         match field {
             SessionDraftField::Endpoint => validate_endpoint(&self.endpoint).err(),
             SessionDraftField::WgPublicKey => {
                 validate_wireguard_public_key(&self.wg_public_key).err()
             }
-            SessionDraftField::Peer4 => {
-                if self.requires_peer4() && peer4.is_none() {
-                    Some(
-                        "An IPv4 peer address is required for IPv4 when MP-BGP is disabled"
-                            .to_string(),
+            SessionDraftField::Peer4 => self
+                .peer4_requirement_error(peer4.as_deref())
+                .map(str::to_string)
+                .or_else(|| {
+                    validate_peer_ipv4(peer4, "validation.peer4.invalid", "validation.peer4.range")
+                        .err()
+                }),
+            SessionDraftField::Peer6 => self
+                .peer6_requirement_error(peer6.as_deref())
+                .map(str::to_string)
+                .or_else(|| {
+                    validate_peer_ipv6(peer6, "validation.peer6.invalid", "validation.peer6.scope")
+                        .err()
+                }),
+            SessionDraftField::Own6 => self
+                .own6_dependency_error(own6.as_deref(), peer6.as_deref())
+                .map(str::to_string)
+                .or_else(|| Self::own6_prefix_error(own6.as_deref()).map(str::to_string))
+                .or_else(|| {
+                    validate_link_local_ipv6(
+                        own6,
+                        "validation.own6.invalid",
+                        "validation.own6.scope",
                     )
-                } else {
-                    validate_peer_ipv4(peer4, "Peer IPv4 address").err()
-                }
-            }
-            SessionDraftField::Peer6 => {
-                if self.mp_bgp && peer6.is_none() {
-                    Some("An IPv6 peer address is required when MP-BGP is enabled".to_string())
-                } else if self.ipv6 && peer6.is_none() {
-                    Some("An IPv6 peer address is required for IPv6 routes".to_string())
-                } else {
-                    validate_peer_ipv6(peer6, "Peer IPv6 address").err()
-                }
-            }
-            SessionDraftField::Own6 => {
-                if own6.is_some() && peer6.is_none() {
-                    Some("A local link-local IPv6 needs a peer IPv6 address".to_string())
-                } else if own6.is_some() && !self.peer6_is_link_local() {
-                    Some("Local link-local IPv6 only applies when the peer IPv6 address is link-local".to_string())
-                } else if let Some(local_ipv6) = own6.as_deref() {
-                    if !local_ipv6.to_ascii_lowercase().starts_with("fe80:") {
-                        Some("Local link-local IPv6 must start with fe80:".to_string())
-                    } else {
-                        validate_link_local_ipv6(own6, "Local link-local IPv6").err()
-                    }
-                } else {
-                    None
-                }
-            }
+                    .err()
+                }),
             SessionDraftField::Keepalive => {
-                optional_u16(&self.keepalive, "Persistent keepalive").err()
+                optional_u16(&self.keepalive, "validation.keepalive.invalid").err()
             }
             SessionDraftField::Mtu => validate_optional_mtu(&self.mtu).err(),
         }
     }
 
     pub fn to_spec(&self) -> Result<PeerSessionSpec, String> {
-        let peer4 = optional_string(&self.peer4);
-        let peer6 = optional_string(&self.peer6);
-        let own6 = optional_string(&self.own6);
+        let (peer4, peer6, own6) = self.tunnel_fields();
 
         if peer4.is_none() && peer6.is_none() {
-            return Err("Add at least one tunnel address: IPv4 or IPv6".to_string());
+            return Err(TUNNEL_ADDRESS_REQUIRED_ERROR.to_string());
         }
         if !self.ipv4 && !self.ipv6 {
-            return Err("Enable at least one BGP family".to_string());
+            return Err(BGP_FAMILY_REQUIRED_ERROR.to_string());
         }
-        if self.mp_bgp && peer6.is_none() {
-            return Err("An IPv6 peer address is required when MP-BGP is enabled".to_string());
+        if let Some(message) = self.peer6_requirement_error(peer6.as_deref()) {
+            return Err(message.to_string());
         }
-        if self.requires_peer4() && peer4.is_none() {
-            return Err(
-                "An IPv4 peer address is required for IPv4 when MP-BGP is disabled".to_string(),
-            );
-        }
-        if self.requires_peer6() && peer6.is_none() {
-            return Err("An IPv6 peer address is required for IPv6 routes".to_string());
+        if let Some(message) = self.peer4_requirement_error(peer4.as_deref()) {
+            return Err(message.to_string());
         }
         if self.extended_next_hop && !self.mp_bgp {
-            return Err("Extended next hop requires MP-BGP".to_string());
+            return Err(EXTENDED_NEXT_HOP_REQUIRES_MP_BGP_ERROR.to_string());
         }
-        if own6.is_some() && peer6.is_none() {
-            return Err("A local link-local IPv6 needs a peer IPv6 address".to_string());
-        }
-        if own6.is_some() && !self.peer6_is_link_local() {
-            return Err(
-                "Local link-local IPv6 only applies when the peer IPv6 address is link-local"
-                    .to_string(),
-            );
+        if let Some(message) = self.own6_dependency_error(own6.as_deref(), peer6.as_deref()) {
+            return Err(message.to_string());
         }
 
         let endpoint = validate_endpoint(&self.endpoint)?;
         let wg_public_key = validate_wireguard_public_key(&self.wg_public_key)?;
-        let peer4 = validate_peer_ipv4(peer4, "Peer IPv4 address")?;
-        let peer6 = validate_peer_ipv6(peer6, "Peer IPv6 address")?;
+        let peer4 =
+            validate_peer_ipv4(peer4, "validation.peer4.invalid", "validation.peer4.range")?;
+        let peer6 =
+            validate_peer_ipv6(peer6, "validation.peer6.invalid", "validation.peer6.scope")?;
 
-        if let Some(local_ipv6) = own6.as_deref()
-            && !local_ipv6.to_ascii_lowercase().starts_with("fe80:")
-        {
-            return Err("Local link-local IPv6 must start with fe80:".to_string());
+        if let Some(message) = Self::own6_prefix_error(own6.as_deref()) {
+            return Err(message.to_string());
         }
-        let own6 = validate_link_local_ipv6(own6, "Local link-local IPv6")?;
+        let own6 =
+            validate_link_local_ipv6(own6, "validation.own6.invalid", "validation.own6.scope")?;
         let mtu = validate_optional_mtu(&self.mtu)?;
 
         Ok(PeerSessionSpec {
@@ -252,7 +273,7 @@ impl SessionDraft {
             peer4,
             peer6,
             own6,
-            keepalive: optional_u16(&self.keepalive, "keepalive")?,
+            keepalive: optional_u16(&self.keepalive, "validation.keepalive.invalid")?,
             mtu,
             ipv4: self.ipv4,
             ipv6: self.ipv6,
@@ -298,77 +319,77 @@ pub fn save_persisted_sessions(sessions: &PersistedSessions) {
     }
 }
 
-fn required(value: &str, field: &str) -> Result<String, String> {
+fn required(value: &str, error_key: &str) -> Result<String, String> {
     let trimmed = value.trim();
     if trimmed.is_empty() {
-        Err(format!("{field} is required"))
+        Err(error_key.to_string())
     } else {
         Ok(trimmed.to_string())
     }
 }
 
 fn validate_endpoint(value: &str) -> Result<String, String> {
-    let endpoint = required(value, "endpoint")?;
+    let endpoint = required(value, "validation.endpoint.required")?;
 
     if endpoint.contains(char::is_whitespace) {
-        return Err("Remote endpoint cannot contain spaces".to_string());
+        return Err("validation.endpoint.no_spaces".to_string());
     }
 
     if let Some(host) = endpoint.strip_prefix('[') {
         let Some((ipv6, port)) = host.split_once("]:") else {
-            return Err("IPv6 endpoints must use the format [addr]:port".to_string());
+            return Err("validation.endpoint.ipv6_format".to_string());
         };
-        parse_ipv6(ipv6, "Remote endpoint IPv6 address")?;
+        parse_ipv6(ipv6, "validation.endpoint.ipv6_invalid")?;
         parse_port_component(port)?;
         return Ok(endpoint);
     }
 
     if endpoint.matches(':').count() != 1 {
-        return Err("Remote endpoint must use host:port or [ipv6]:port".to_string());
+        return Err("validation.endpoint.host_port_format".to_string());
     }
 
     let Some((host, port)) = endpoint.rsplit_once(':') else {
-        return Err("Remote endpoint must include a port".to_string());
+        return Err("validation.endpoint.port_required".to_string());
     };
     if host.is_empty() {
-        return Err("Remote endpoint host is required".to_string());
+        return Err("validation.endpoint.host_required".to_string());
     }
     if host.parse::<Ipv4Addr>().is_err() && !is_valid_endpoint_hostname(host) {
-        return Err(
-            "Remote endpoint host must be an IPv4 address or a fully qualified hostname"
-                .to_string(),
-        );
+        return Err("validation.endpoint.host_invalid".to_string());
     }
     parse_port_component(port)?;
     Ok(endpoint)
 }
 
 fn validate_wireguard_public_key(value: &str) -> Result<String, String> {
-    let key = required(value, "wg_public_key")?;
+    let key = required(value, "validation.wg_public_key.required")?;
 
     if key.len() != 44 {
-        return Err("Peer WireGuard key must be a 44-character base64 public key".to_string());
+        return Err("validation.wg_public_key.length".to_string());
     }
     if !key.ends_with('=') {
-        return Err("Peer WireGuard key must end with '='".to_string());
+        return Err("validation.wg_public_key.suffix".to_string());
     }
     if !key
         .chars()
         .all(|char| char.is_ascii_alphanumeric() || matches!(char, '+' | '/' | '='))
     {
-        return Err("Peer WireGuard key contains invalid base64 characters".to_string());
+        return Err("validation.wg_public_key.charset".to_string());
     }
 
     Ok(key)
 }
 
-fn validate_peer_ipv4(value: Option<String>, label: &str) -> Result<Option<String>, String> {
+fn validate_peer_ipv4(
+    value: Option<String>,
+    invalid_key: &str,
+    range_key: &str,
+) -> Result<Option<String>, String> {
     match value {
         Some(value) => {
-            let addr = parse_ipv4(&value, label)?;
+            let addr = parse_ipv4(&value, invalid_key)?;
             if !is_dn42_tunnel_ipv4(addr) {
-                // TODO: too tight?
-                return Err(format!("{label} must be within 172.20.0.0/14"));
+                return Err(range_key.to_string());
             }
             Ok(Some(value))
         }
@@ -376,12 +397,16 @@ fn validate_peer_ipv4(value: Option<String>, label: &str) -> Result<Option<Strin
     }
 }
 
-fn validate_peer_ipv6(value: Option<String>, label: &str) -> Result<Option<String>, String> {
+fn validate_peer_ipv6(
+    value: Option<String>,
+    invalid_key: &str,
+    scope_key: &str,
+) -> Result<Option<String>, String> {
     match value {
         Some(value) => {
-            let addr = parse_ipv6(&value, label)?;
+            let addr = parse_ipv6(&value, invalid_key)?;
             if !is_link_local_ipv6(addr) && !is_unique_local_ipv6(addr) {
-                return Err(format!("{label} must be a ULA or link-local IPv6 address"));
+                return Err(scope_key.to_string());
             }
             Ok(Some(value))
         }
@@ -389,12 +414,16 @@ fn validate_peer_ipv6(value: Option<String>, label: &str) -> Result<Option<Strin
     }
 }
 
-fn validate_link_local_ipv6(value: Option<String>, label: &str) -> Result<Option<String>, String> {
+fn validate_link_local_ipv6(
+    value: Option<String>,
+    invalid_key: &str,
+    scope_key: &str,
+) -> Result<Option<String>, String> {
     match value {
         Some(value) => {
-            let addr = parse_ipv6(&value, label)?;
+            let addr = parse_ipv6(&value, invalid_key)?;
             if !is_link_local_ipv6(addr) {
-                return Err(format!("{label} must be a link-local IPv6 address"));
+                return Err(scope_key.to_string());
             }
             Ok(Some(value))
         }
@@ -403,34 +432,34 @@ fn validate_link_local_ipv6(value: Option<String>, label: &str) -> Result<Option
 }
 
 fn validate_optional_mtu(value: &str) -> Result<Option<u16>, String> {
-    let mtu = optional_u16(value, "Interface MTU")?;
+    let mtu = optional_u16(value, "validation.mtu.invalid")?;
     if let Some(mtu) = mtu
         && !(1280..=1500).contains(&mtu)
     {
-        return Err("Interface MTU must be between 1280 and 1500".to_string());
+        return Err("validation.mtu.range".to_string());
     }
     Ok(mtu)
 }
 
-fn parse_ipv4(value: &str, label: &str) -> Result<Ipv4Addr, String> {
+fn parse_ipv4(value: &str, invalid_key: &str) -> Result<Ipv4Addr, String> {
     value
         .parse::<Ipv4Addr>()
-        .map_err(|_| format!("{label} must be a valid IPv4 address"))
+        .map_err(|_| invalid_key.to_string())
 }
 
-fn parse_ipv6(value: &str, label: &str) -> Result<Ipv6Addr, String> {
+fn parse_ipv6(value: &str, invalid_key: &str) -> Result<Ipv6Addr, String> {
     value
         .parse::<Ipv6Addr>()
-        .map_err(|_| format!("{label} must be a valid IPv6 address"))
+        .map_err(|_| invalid_key.to_string())
 }
 
 fn parse_port_component(value: &str) -> Result<u16, String> {
     value
         .parse::<u16>()
-        .map_err(|_| "Remote endpoint port must be a valid number".to_string())
+        .map_err(|_| "validation.endpoint.port.invalid".to_string())
         .and_then(|port| {
             if port == 0 {
-                Err("Remote endpoint port must be between 1 and 65535".to_string())
+                Err("validation.endpoint.port.range".to_string())
             } else {
                 Ok(port)
             }
@@ -474,7 +503,7 @@ fn optional_string(value: &str) -> Option<String> {
     (!trimmed.is_empty()).then(|| trimmed.to_string())
 }
 
-fn optional_u16(value: &str, field: &str) -> Result<Option<u16>, String> {
+fn optional_u16(value: &str, error_key: &str) -> Result<Option<u16>, String> {
     let trimmed = value.trim();
     if trimmed.is_empty() {
         return Ok(None);
@@ -483,14 +512,16 @@ fn optional_u16(value: &str, field: &str) -> Result<Option<u16>, String> {
     trimmed
         .parse::<u16>()
         .map(Some)
-        .map_err(|_| format!("{field} must be a valid number"))
+        .map_err(|_| error_key.to_string())
 }
 
 #[cfg(test)]
 mod tests {
-    use common::auto_peer::{AuthMethod, AuthMethodKind, AuthSessionResponse, PeeringStrategy};
+    use common::auto_peer::{
+        AuthMethod, AuthMethodKind, AuthSessionResponse, PeerSessionSpec, PeeringStrategy,
+    };
 
-    use super::{PersistedSessions, SessionDraft};
+    use super::{PersistedSessions, SessionDraft, SessionDraftField};
 
     const VALID_WG_KEY: &str = "sLbzTRr2gfLFb24NPzDOpy8j09Y6zI+a7NkeVMdVSR8=";
 
@@ -590,7 +621,7 @@ mod tests {
 
         assert_eq!(
             draft.to_spec().unwrap_err(),
-            "An IPv6 peer address is required when MP-BGP is enabled"
+            "validation.peer6.required_mp_bgp"
         );
     }
 
@@ -608,7 +639,7 @@ mod tests {
 
         assert_eq!(
             draft.to_spec().unwrap_err(),
-            "An IPv6 peer address is required for IPv6 routes"
+            "validation.peer6.required_ipv6"
         );
     }
 
@@ -623,7 +654,7 @@ mod tests {
 
         assert_eq!(
             draft.to_spec().unwrap_err(),
-            "Peer WireGuard key must be a 44-character base64 public key"
+            "validation.wg_public_key.length"
         );
     }
 
@@ -637,10 +668,7 @@ mod tests {
             ..SessionDraft::default()
         };
 
-        assert_eq!(
-            draft.to_spec().unwrap_err(),
-            "Peer IPv4 address must be a valid IPv4 address"
-        );
+        assert_eq!(draft.to_spec().unwrap_err(), "validation.peer4.invalid");
     }
 
     #[test]
@@ -654,7 +682,7 @@ mod tests {
 
         assert_eq!(
             draft.to_spec().unwrap_err(),
-            "Remote endpoint must use host:port or [ipv6]:port"
+            "validation.endpoint.host_port_format"
         );
     }
 
@@ -669,7 +697,7 @@ mod tests {
 
         assert_eq!(
             draft.to_spec().unwrap_err(),
-            "Remote endpoint host must be an IPv4 address or a fully qualified hostname"
+            "validation.endpoint.host_invalid"
         );
     }
 
@@ -683,10 +711,7 @@ mod tests {
             ..SessionDraft::default()
         };
 
-        assert_eq!(
-            draft.to_spec().unwrap_err(),
-            "Peer IPv4 address must be within 172.20.0.0/14"
-        );
+        assert_eq!(draft.to_spec().unwrap_err(), "validation.peer4.range");
     }
 
     #[test]
@@ -698,10 +723,7 @@ mod tests {
             ..SessionDraft::default()
         };
 
-        assert_eq!(
-            draft.to_spec().unwrap_err(),
-            "Peer IPv6 address must be a ULA or link-local IPv6 address"
-        );
+        assert_eq!(draft.to_spec().unwrap_err(), "validation.peer6.scope");
     }
 
     #[test]
@@ -714,10 +736,7 @@ mod tests {
             ..SessionDraft::default()
         };
 
-        assert_eq!(
-            draft.to_spec().unwrap_err(),
-            "Interface MTU must be between 1280 and 1500"
-        );
+        assert_eq!(draft.to_spec().unwrap_err(), "validation.mtu.range");
     }
 
     #[test]
@@ -732,8 +751,83 @@ mod tests {
 
         assert_eq!(
             draft.to_spec().unwrap_err(),
-            "Local link-local IPv6 must start with fe80:"
+            "validation.own6.must_start_fe80"
         );
+    }
+
+    #[test]
+    fn field_error_requires_peer4_for_ipv4_without_mp_bgp() {
+        let draft = SessionDraft {
+            endpoint: "peer.example.net:21023".into(),
+            wg_public_key: VALID_WG_KEY.into(),
+            ipv6: false,
+            extended_next_hop: false,
+            mp_bgp: false,
+            ..SessionDraft::default()
+        };
+
+        assert_eq!(
+            draft.field_error(SessionDraftField::Peer4),
+            Some("validation.peer4.required".into())
+        );
+    }
+
+    #[test]
+    fn field_error_requires_peer6_before_link_local_own6() {
+        let draft = SessionDraft {
+            endpoint: "peer.example.net:21023".into(),
+            wg_public_key: VALID_WG_KEY.into(),
+            own6: "fe80::1".into(),
+            ..SessionDraft::default()
+        };
+
+        assert_eq!(
+            draft.field_error(SessionDraftField::Own6),
+            Some("validation.own6.requires_peer6".into())
+        );
+    }
+
+    #[test]
+    fn field_error_matches_to_spec_for_missing_peer6() {
+        let draft = SessionDraft {
+            endpoint: "peer.example.net:21023".into(),
+            wg_public_key: VALID_WG_KEY.into(),
+            peer4: "172.20.193.67".into(),
+            ipv6: false,
+            ..SessionDraft::default()
+        };
+
+        let expected = "validation.peer6.required_mp_bgp";
+        assert_eq!(
+            draft.field_error(SessionDraftField::Peer6),
+            Some(expected.into())
+        );
+        assert_eq!(draft.to_spec().unwrap_err(), expected);
+    }
+
+    #[test]
+    fn from_session_roundtrip_preserves_flags_and_strategy() {
+        let spec = PeerSessionSpec {
+            comment: Some("peer note".into()),
+            endpoint: "peer.example.net:21023".into(),
+            wg_public_key: VALID_WG_KEY.into(),
+            port: None,
+            peer4: Some("172.20.193.67".into()),
+            peer6: Some("fe80::3".into()),
+            own6: Some("fe80::1".into()),
+            keepalive: Some(25),
+            mtu: Some(1420),
+            ipv4: true,
+            ipv6: true,
+            extended_next_hop: false,
+            mp_bgp: false,
+            peering_strategy: PeeringStrategy::Transit,
+        };
+
+        let roundtrip = SessionDraft::from_session("lax-01", &spec)
+            .to_spec()
+            .unwrap();
+        assert_eq!(roundtrip, spec);
     }
 
     #[test]

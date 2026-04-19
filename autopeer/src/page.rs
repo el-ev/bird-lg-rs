@@ -2,8 +2,8 @@ use std::collections::BTreeSet;
 
 use common::{
     auto_peer::{
-        ALL_PEERING_STRATEGIES, AuthMethodKind, NodeView, OperationState, OperationStatus,
-        PeeringStrategy, SessionState, SessionView,
+        ALL_PEERING_STRATEGIES, AuthMethodKind, NodeView, OperationFailureStage, OperationKind,
+        OperationState, OperationStatus, PeeringStrategy, SessionState, SessionView,
     },
     models::PeeringInfo,
 };
@@ -170,12 +170,12 @@ fn session_details_live_validation(
             && peer4_blank
             && peer6_blank
         {
-            Some("Add at least one tunnel address: IPv4 or IPv6".to_string())
+            Some("validation.tunnel.required".to_string())
         } else {
             own6_message.clone()
         },
         families_message: if families_touched && no_families_selected {
-            Some("Enable at least one BGP family".to_string())
+            Some("validation.bgp_family.required".to_string())
         } else {
             None
         },
@@ -205,10 +205,10 @@ fn session_details_live_validation(
     }
 }
 
-fn render_live_validation_message(message: Option<&str>) -> Html {
+fn render_live_validation_message(i18n: &I18n, message: Option<&str>) -> Html {
     match message {
         Some(message) => html! {
-            <p class="autopeer-live-validation" aria-live="polite">{message}</p>
+            <p class="autopeer-live-validation" aria-live="polite">{i18n.translate_owned(message)}</p>
         },
         None => Html::default(),
     }
@@ -236,14 +236,9 @@ fn pgp_sign_command(challenge_text: &str, key_id: &str) -> String {
 
 fn render_error(i18n: &I18n, error: &Option<String>) -> Html {
     if let Some(error) = error {
-        let display = if error.starts_with("error.") || error.starts_with("loading.") {
-            i18n.translate_owned(error)
-        } else {
-            error.clone()
-        };
         html! {
             <ShellLine>
-                <span class="error-message">{display}</span>
+                <span class="error-message">{i18n.translate_owned(error)}</span>
             </ShellLine>
         }
     } else {
@@ -252,11 +247,7 @@ fn render_error(i18n: &I18n, error: &Option<String>) -> Html {
 }
 
 fn render_loading_message(i18n: &I18n, raw: &str) -> String {
-    if raw.starts_with("loading.") || raw.starts_with("status.") {
-        i18n.translate_owned(raw)
-    } else {
-        raw.to_string()
-    }
+    i18n.translate_owned(raw)
 }
 
 fn render_loading(i18n: &I18n, loading: bool, loading_message: Option<&str>) -> Html {
@@ -323,16 +314,16 @@ fn session_for_node<'a>(node_name: &str, sessions: &'a [SessionView]) -> Option<
     sessions.iter().find(|session| session.node == node_name)
 }
 
-fn humanize_token(token: &str) -> String {
+fn humanize_token(i18n: &I18n, token: &str) -> String {
     match token {
-        "N" => "North".to_string(),
-        "S" => "South".to_string(),
-        "E" => "East".to_string(),
-        "W" => "West".to_string(),
-        "NE" => "Northeast".to_string(),
-        "NW" => "Northwest".to_string(),
-        "SE" => "Southeast".to_string(),
-        "SW" => "Southwest".to_string(),
+        "N" => i18n.t("location.direction.n").to_string(),
+        "S" => i18n.t("location.direction.s").to_string(),
+        "E" => i18n.t("location.direction.e").to_string(),
+        "W" => i18n.t("location.direction.w").to_string(),
+        "NE" => i18n.t("location.direction.ne").to_string(),
+        "NW" => i18n.t("location.direction.nw").to_string(),
+        "SE" => i18n.t("location.direction.se").to_string(),
+        "SW" => i18n.t("location.direction.sw").to_string(),
         other if other.len() <= 3 && other.chars().all(|char| char.is_ascii_uppercase()) => {
             other.to_string()
         }
@@ -346,28 +337,28 @@ fn humanize_token(token: &str) -> String {
     }
 }
 
-fn humanize_region(region: &Option<String>) -> Option<String> {
+fn humanize_region(i18n: &I18n, region: &Option<String>) -> Option<String> {
     region.as_ref().map(|value| {
         value
             .split('_')
-            .map(humanize_token)
+            .map(|token| humanize_token(i18n, token))
             .collect::<Vec<_>>()
             .join(" ")
     })
 }
 
-fn humanize_ip_support(value: &str) -> &'static str {
+fn humanize_ip_support(i18n: &I18n, value: &str) -> &'static str {
     match value {
-        "ipv4" => "IPv4 transport",
-        "ipv6" => "IPv6 transport",
-        _ => "Dual-stack transport",
+        "ipv4" => i18n.t("node.transport.ipv4"),
+        "ipv6" => i18n.t("node.transport.ipv6"),
+        _ => i18n.t("node.transport.dual_stack"),
     }
 }
 
-fn node_context_line(node: &NodeView) -> String {
+fn node_context_line(i18n: &I18n, node: &NodeView) -> String {
     let mut parts = Vec::new();
 
-    if let Some(region) = humanize_region(&node.region) {
+    if let Some(region) = humanize_region(i18n, &node.region) {
         parts.push(region);
     }
     if let Some(country) = &node.country {
@@ -375,18 +366,75 @@ fn node_context_line(node: &NodeView) -> String {
     }
 
     if parts.is_empty() {
-        humanize_ip_support(&node.ip_support).to_string()
+        humanize_ip_support(i18n, &node.ip_support).to_string()
     } else {
         parts.join(", ")
     }
 }
 
-fn node_review_line(node: &NodeView) -> String {
-    let context = node_context_line(node);
+fn node_review_line(i18n: &I18n, node: &NodeView) -> String {
+    let context = node_context_line(i18n, node);
     if context.is_empty() {
         node.name.clone()
     } else {
         format!("{} ({context})", node.name)
+    }
+}
+
+fn session_state_label(i18n: &I18n, state: &SessionState) -> &'static str {
+    match state {
+        SessionState::Managed => i18n.t("session_state.managed"),
+        SessionState::Manual => i18n.t("session_state.manual"),
+        SessionState::PendingPr => i18n.t("session_state.pending_pr"),
+        SessionState::Conflict => i18n.t("session_state.conflict"),
+    }
+}
+
+fn operation_kind_label(i18n: &I18n, kind: &OperationKind) -> &'static str {
+    match kind {
+        OperationKind::Create => i18n.t("operation.kind.create"),
+        OperationKind::Update => i18n.t("operation.kind.update"),
+        OperationKind::Delete => i18n.t("operation.kind.delete"),
+        OperationKind::Migrate => i18n.t("operation.kind.migrate"),
+    }
+}
+
+fn operation_state_label(i18n: &I18n, state: &OperationState) -> &'static str {
+    match state {
+        OperationState::PendingPullRequest => i18n.t("operation.state.pending_pull_request"),
+        OperationState::PendingChecks => i18n.t("operation.state.pending_checks"),
+        OperationState::Applying => i18n.t("operation.state.applying"),
+        OperationState::PendingMerge => i18n.t("operation.state.pending_merge"),
+        OperationState::Completed => i18n.t("operation.state.completed"),
+        OperationState::Failed => i18n.t("operation.state.failed"),
+        OperationState::Conflict => i18n.t("operation.state.conflict"),
+    }
+}
+
+fn operation_failure_stage_label(i18n: &I18n, stage: &OperationFailureStage) -> &'static str {
+    match stage {
+        OperationFailureStage::Checks => i18n.t("operation.failure_stage.checks"),
+        OperationFailureStage::Preflight => i18n.t("operation.failure_stage.preflight"),
+        OperationFailureStage::Apply => i18n.t("operation.failure_stage.apply"),
+        OperationFailureStage::Merge => i18n.t("operation.failure_stage.merge"),
+    }
+}
+
+fn peering_strategy_label(i18n: &I18n, strategy: PeeringStrategy) -> &'static str {
+    match strategy {
+        PeeringStrategy::FullTable => i18n.t("peering_strategy.full_table.label"),
+        PeeringStrategy::Transit => i18n.t("peering_strategy.transit.label"),
+        PeeringStrategy::Peer => i18n.t("peering_strategy.peer.label"),
+        PeeringStrategy::Downstream => i18n.t("peering_strategy.downstream.label"),
+    }
+}
+
+fn peering_strategy_description(i18n: &I18n, strategy: PeeringStrategy) -> &'static str {
+    match strategy {
+        PeeringStrategy::FullTable => i18n.t("peering_strategy.full_table.description"),
+        PeeringStrategy::Transit => i18n.t("peering_strategy.transit.description"),
+        PeeringStrategy::Peer => i18n.t("peering_strategy.peer.description"),
+        PeeringStrategy::Downstream => i18n.t("peering_strategy.downstream.description"),
     }
 }
 
@@ -509,7 +557,7 @@ fn retire_button_text(i18n: &I18n, retire_confirmation: bool) -> &'static str {
     }
 }
 
-fn render_flow_steps(stage: PeerConfigStage) -> Html {
+fn render_flow_steps(i18n: &I18n, stage: PeerConfigStage) -> Html {
     let steps = [
         PeerConfigStage::SelectNode,
         PeerConfigStage::SessionDetails,
@@ -530,8 +578,8 @@ fn render_flow_steps(stage: PeerConfigStage) -> Html {
                     <li class={classes!("autopeer-flow-step", state_class)}>
                         <span class="autopeer-flow-step-index">{candidate.index() + 1}</span>
                         <span class="autopeer-flow-step-copy">
-                            <strong>{candidate.title()}</strong>
-                            <span>{candidate.description()}</span>
+                            <strong>{i18n.t(candidate.title_key())}</strong>
+                            <span>{i18n.t(candidate.description_key())}</span>
                         </span>
                     </li>
                 }
@@ -1293,7 +1341,7 @@ pub fn auto_peer_page() -> Html {
                                     } else {
                                         node_session
                                             .as_ref()
-                                            .map(|session| session.state.label())
+                                            .map(|session| session_state_label(&i18n, &session.state))
                                             .unwrap_or(i18n.t("stage1.state.available"))
                                     };
                                     let state_note = if autopeer_disabled {
@@ -1354,9 +1402,7 @@ pub fn auto_peer_page() -> Html {
                                                     <span class="autopeer-status-pill">{state_label}</span>
                                                 </span>
                                             </span>
-                                            <span class="autopeer-node-meta">
-                                                {node_context_line(node)}
-                                            </span>
+                                            <span class="autopeer-node-meta">{node_context_line(&i18n, node)}</span>
                                             if let Some(comment) = &node.comment {
                                                 <span class="autopeer-node-note">{comment.clone()}</span>
                                             }
@@ -1397,7 +1443,7 @@ pub fn auto_peer_page() -> Html {
                         if let Some(node) = &selected_node {
                             <div class="autopeer-node-summary">
                                 <div>
-                                    <strong>{node_context_line(node)}</strong>
+                                    <strong>{node_context_line(&i18n, node)}</strong>
                                     if let Some(comment) = &node.comment {
                                         <p class="text-secondary">{comment.clone()}</p>
                                     }
@@ -1498,7 +1544,7 @@ pub fn auto_peer_page() -> Html {
                                     </span>
                                 </ShellLine>
                             }
-                            {render_live_validation_message(live_validation.tunnel_message.as_deref())}
+                            {render_live_validation_message(&i18n, live_validation.tunnel_message.as_deref())}
                         </div>
 
                         <div class={classes!(
@@ -1533,7 +1579,7 @@ pub fn auto_peer_page() -> Html {
                                     </span>
                                 </span>
                             </ShellLine>
-                            {render_live_validation_message(live_validation.families_message.as_deref())}
+                            {render_live_validation_message(&i18n, live_validation.families_message.as_deref())}
                         </div>
 
                         <div class={classes!(
@@ -1568,13 +1614,13 @@ pub fn auto_peer_page() -> Html {
                                     </span>
                                 </span>
                             </ShellLine>
-                            {render_live_validation_message(live_validation.bgp_message.as_deref())}
+                            {render_live_validation_message(&i18n, live_validation.bgp_message.as_deref())}
                         </div>
 
                         <div class="autopeer-form-section">
                             <span class="autopeer-section-label">{i18n.t("stage2.section.policy")}</span>
                             <p class="text-secondary">
-                                {draft.peering_strategy.description()}
+                                {peering_strategy_description(&i18n, draft.peering_strategy)}
                             </p>
                             <ShellLine>
                                 <ShellPrompt>{i18n.t("stage2.field.policy")}</ShellPrompt>
@@ -1585,7 +1631,7 @@ pub fn auto_peer_page() -> Html {
                                 >
                                     {
                                         for ALL_PEERING_STRATEGIES.iter().map(|strategy| html! {
-                                            <option value={strategy.as_str()}>{strategy.label()}</option>
+                                            <option value={strategy.as_str()}>{peering_strategy_label(&i18n, *strategy)}</option>
                                         })
                                     }
                                 </ShellSelect>
@@ -1671,7 +1717,7 @@ pub fn auto_peer_page() -> Html {
                             <div class="autopeer-review-item">
                                 <span class="autopeer-review-label">{i18n.t("stage3.review.our_node")}</span>
                                 <strong class="autopeer-review-value">
-                                    {selected_node.as_ref().map(node_review_line).unwrap_or_else(|| i18n.t("stage3.review.not_selected").to_string())}
+                                    {selected_node.as_ref().map(|node| node_review_line(&i18n, node)).unwrap_or_else(|| i18n.t("stage3.review.not_selected").to_string())}
                                 </strong>
                             </div>
                             <div class="autopeer-review-item">
@@ -1684,7 +1730,7 @@ pub fn auto_peer_page() -> Html {
                             </div>
                             <div class="autopeer-review-item">
                                 <span class="autopeer-review-label">{i18n.t("stage3.review.route_families")}</span>
-                                <strong class="autopeer-review-value">{draft.families_label()}</strong>
+                                <strong class="autopeer-review-value">{i18n.t(draft.families_label_key())}</strong>
                             </div>
                             <div class="autopeer-review-item">
                                 <span class="autopeer-review-label">{i18n.t("stage3.review.bgp_behavior")}</span>
@@ -1698,7 +1744,7 @@ pub fn auto_peer_page() -> Html {
                             </div>
                             <div class="autopeer-review-item">
                                 <span class="autopeer-review-label">{i18n.t("stage3.review.routing_policy")}</span>
-                                <strong class="autopeer-review-value">{draft.peering_strategy.label()}</strong>
+                                <strong class="autopeer-review-value">{peering_strategy_label(&i18n, draft.peering_strategy)}</strong>
                             </div>
                             if !draft.peer4.trim().is_empty() {
                                 <div class="autopeer-review-item">
@@ -1814,7 +1860,7 @@ pub fn auto_peer_page() -> Html {
                                 </article>
                             } else {
                                 <>
-                                    {render_flow_steps(active_stage)}
+                                    {render_flow_steps(&i18n, active_stage)}
                                     {main_panel}
                                 </>
                             }
@@ -1895,9 +1941,9 @@ pub fn auto_peer_page() -> Html {
                                     <div class="autopeer-panel-header">
                                         <p class="autopeer-panel-kicker">{i18n.t("sidebar.current_operation")}</p>
                                         <h3 class="autopeer-panel-title">
-                                            {format!("{} {}", operation_status.kind.label(), operation_status.node)}
+                                            {format!("{} {}", operation_kind_label(&i18n, &operation_status.kind), operation_status.node)}
                                         </h3>
-                                        <span class="autopeer-status-pill">{operation_status.state.label()}</span>
+                                        <span class="autopeer-status-pill">{operation_state_label(&i18n, &operation_status.state)}</span>
                                         if operation_status.failure_details.is_none() {
                                             if let Some(message) = &operation_status.message {
                                                 <p class="text-secondary">{message}</p>
@@ -1909,7 +1955,7 @@ pub fn auto_peer_page() -> Html {
                                         <div class="autopeer-failure-details">
                                             <p class="autopeer-failure-stage">
                                                 <strong>{i18n.t("operation.failure.stage")}{": "}</strong>
-                                                {details.stage.label()}
+                                                {operation_failure_stage_label(&i18n, &details.stage)}
                                                 if let Some(step) = &details.step {
                                                     {format!(" — {}", step)}
                                                 }
@@ -2069,7 +2115,7 @@ mod tests {
 
         assert_eq!(
             validation.bgp_message,
-            Some("An IPv4 peer address is required for IPv4 when MP-BGP is disabled".into())
+            Some("validation.peer4.required".into())
         );
         assert!(validation.highlight_peer4);
         assert!(validation.highlight_ipv4);
@@ -2092,7 +2138,7 @@ mod tests {
 
         assert_eq!(
             validation.bgp_message,
-            Some("An IPv6 peer address is required when MP-BGP is enabled".into())
+            Some("validation.peer6.required_mp_bgp".into())
         );
         assert!(validation.highlight_peer6);
         assert!(validation.highlight_mp_bgp);
