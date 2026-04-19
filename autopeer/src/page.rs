@@ -205,7 +205,7 @@ fn session_details_live_validation(
     }
 }
 
-fn render_live_validation_message(i18n: &I18n, message: Option<&str>) -> Html {
+fn live_validation_message(i18n: &I18n, message: Option<&str>) -> Html {
     match message {
         Some(message) => html! {
             <p class="autopeer-live-validation" aria-live="polite">{i18n.translate_owned(message)}</p>
@@ -445,6 +445,22 @@ fn has_peering_info(peering: &PeeringInfo) -> bool {
         || peering.wg_pubkey.is_some()
         || peering.endpoint.is_some()
         || peering.comment.is_some()
+}
+
+fn review_item(label: &'static str, value: String) -> Html {
+    html! {
+        <div class="autopeer-review-item">
+            <span class="autopeer-review-label">{label}</span>
+            <strong class="autopeer-review-value">{value}</strong>
+        </div>
+    }
+}
+
+fn optional_review_item(label: &'static str, value: &str) -> Html {
+    match value.trim() {
+        "" => Html::default(),
+        value => review_item(label, value.to_string()),
+    }
 }
 
 fn render_peering_field(label: &'static str, value: Option<&str>) -> Html {
@@ -1544,7 +1560,7 @@ pub fn auto_peer_page() -> Html {
                                     </span>
                                 </ShellLine>
                             }
-                            {render_live_validation_message(&i18n, live_validation.tunnel_message.as_deref())}
+                            {live_validation_message(&i18n, live_validation.tunnel_message.as_deref())}
                         </div>
 
                         <div class={classes!(
@@ -1579,7 +1595,7 @@ pub fn auto_peer_page() -> Html {
                                     </span>
                                 </span>
                             </ShellLine>
-                            {render_live_validation_message(&i18n, live_validation.families_message.as_deref())}
+                            {live_validation_message(&i18n, live_validation.families_message.as_deref())}
                         </div>
 
                         <div class={classes!(
@@ -1614,7 +1630,7 @@ pub fn auto_peer_page() -> Html {
                                     </span>
                                 </span>
                             </ShellLine>
-                            {render_live_validation_message(&i18n, live_validation.bgp_message.as_deref())}
+                            {live_validation_message(&i18n, live_validation.bgp_message.as_deref())}
                         </div>
 
                         <div class="autopeer-form-section">
@@ -1714,74 +1730,37 @@ pub fn auto_peer_page() -> Html {
                         </div>
 
                         <div class="autopeer-review-grid">
-                            <div class="autopeer-review-item">
-                                <span class="autopeer-review-label">{i18n.t("stage3.review.our_node")}</span>
-                                <strong class="autopeer-review-value">
-                                    {selected_node.as_ref().map(|node| node_review_line(&i18n, node)).unwrap_or_else(|| i18n.t("stage3.review.not_selected").to_string())}
-                                </strong>
-                            </div>
-                            <div class="autopeer-review-item">
-                                <span class="autopeer-review-label">{i18n.t("stage3.review.endpoint")}</span>
-                                <strong class="autopeer-review-value">{draft.endpoint.clone()}</strong>
-                            </div>
-                            <div class="autopeer-review-item">
-                                <span class="autopeer-review-label">{i18n.t("stage3.review.wg_key")}</span>
-                                <strong class="autopeer-review-value">{draft.wg_public_key.clone()}</strong>
-                            </div>
-                            <div class="autopeer-review-item">
-                                <span class="autopeer-review-label">{i18n.t("stage3.review.route_families")}</span>
-                                <strong class="autopeer-review-value">{i18n.t(draft.families_label_key())}</strong>
-                            </div>
-                            <div class="autopeer-review-item">
-                                <span class="autopeer-review-label">{i18n.t("stage3.review.bgp_behavior")}</span>
-                                <strong class="autopeer-review-value">
-                                    {format!(
-                                        "{}{}",
-                                        if draft.mp_bgp { i18n.t("stage3.review.bgp.mpbgp") } else { i18n.t("stage3.review.bgp.separate") },
-                                        if draft.extended_next_hop { i18n.t("stage3.review.bgp.enh_suffix") } else { "" },
-                                    )}
-                                </strong>
-                            </div>
-                            <div class="autopeer-review-item">
-                                <span class="autopeer-review-label">{i18n.t("stage3.review.routing_policy")}</span>
-                                <strong class="autopeer-review-value">{peering_strategy_label(&i18n, draft.peering_strategy)}</strong>
-                            </div>
-                            if !draft.peer4.trim().is_empty() {
-                                <div class="autopeer-review-item">
-                                    <span class="autopeer-review-label">{i18n.t("stage3.review.peer4")}</span>
-                                    <strong class="autopeer-review-value">{draft.peer4.clone()}</strong>
-                                </div>
-                            }
-                            if !draft.peer6.trim().is_empty() {
-                                <div class="autopeer-review-item">
-                                    <span class="autopeer-review-label">{i18n.t("stage3.review.peer6")}</span>
-                                    <strong class="autopeer-review-value">{draft.peer6.clone()}</strong>
-                                </div>
-                            }
-                            if !draft.own6.trim().is_empty() {
-                                <div class="autopeer-review-item">
-                                    <span class="autopeer-review-label">{i18n.t("stage3.review.own6")}</span>
-                                    <strong class="autopeer-review-value">{draft.own6.clone()}</strong>
-                                </div>
-                            }
-                            if !draft.keepalive.trim().is_empty() {
-                                <div class="autopeer-review-item">
-                                    <span class="autopeer-review-label">{i18n.t("stage3.review.keepalive")}</span>
-                                    <strong class="autopeer-review-value">{draft.keepalive.clone()}</strong>
-                                </div>
-                            }
-                            if !draft.mtu.trim().is_empty() {
-                                <div class="autopeer-review-item">
-                                    <span class="autopeer-review-label">{i18n.t("stage3.review.mtu")}</span>
-                                    <strong class="autopeer-review-value">{draft.mtu.clone()}</strong>
-                                </div>
-                            }
-                            if !draft.comment.trim().is_empty() {
-                                <div class="autopeer-review-item">
-                                    <span class="autopeer-review-label">{i18n.t("stage3.review.note")}</span>
-                                    <strong class="autopeer-review-value">{draft.comment.clone()}</strong>
-                                </div>
-                            }
+                            {review_item(
+                                i18n.t("stage3.review.our_node"),
+                                selected_node
+                                    .as_ref()
+                                    .map(|node| node_review_line(&i18n, node))
+                                    .unwrap_or_else(|| i18n.t("stage3.review.not_selected").to_string()),
+                            )}
+                            {review_item(i18n.t("stage3.review.endpoint"), draft.endpoint.clone())}
+                            {review_item(i18n.t("stage3.review.wg_key"), draft.wg_public_key.clone())}
+                            {review_item(
+                                i18n.t("stage3.review.route_families"),
+                                i18n.t(draft.families_label_key()).to_string(),
+                            )}
+                            {review_item(
+                                i18n.t("stage3.review.bgp_behavior"),
+                                format!(
+                                    "{}{}",
+                                    if draft.mp_bgp { i18n.t("stage3.review.bgp.mpbgp") } else { i18n.t("stage3.review.bgp.separate") },
+                                    if draft.extended_next_hop { i18n.t("stage3.review.bgp.enh_suffix") } else { "" },
+                                ),
+                            )}
+                            {review_item(
+                                i18n.t("stage3.review.routing_policy"),
+                                peering_strategy_label(&i18n, draft.peering_strategy).to_string(),
+                            )}
+                            {optional_review_item(i18n.t("stage3.review.peer4"), &draft.peer4)}
+                            {optional_review_item(i18n.t("stage3.review.peer6"), &draft.peer6)}
+                            {optional_review_item(i18n.t("stage3.review.own6"), &draft.own6)}
+                            {optional_review_item(i18n.t("stage3.review.keepalive"), &draft.keepalive)}
+                            {optional_review_item(i18n.t("stage3.review.mtu"), &draft.mtu)}
+                            {optional_review_item(i18n.t("stage3.review.note"), &draft.comment)}
                         </div>
 
                         {render_inventory_peering_review(&i18n, selected_node.as_ref(), &active_asn)}
