@@ -1709,8 +1709,10 @@ pub fn auto_peer_page() -> Html {
                                             {format!("{} {}", operation_status.kind.label(), operation_status.node)}
                                         </h3>
                                         <span class="autopeer-status-pill">{operation_status.state.label()}</span>
-                                        if let Some(message) = &operation_status.message {
-                                            <p class="text-secondary">{message}</p>
+                                        if operation_status.failure_details.is_none() {
+                                            if let Some(message) = &operation_status.message {
+                                                <p class="text-secondary">{message}</p>
+                                            }
                                         }
                                     </div>
                                     {render_operation_progress(&i18n, operation_status)}
