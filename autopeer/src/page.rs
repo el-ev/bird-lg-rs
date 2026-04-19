@@ -63,6 +63,19 @@ fn field_key(field: SessionDraftField) -> &'static str {
     }
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum SessionDraftToggleGroup {
+    Families,
+    Bgp,
+}
+
+fn toggle_group_key(group: SessionDraftToggleGroup) -> &'static str {
+    match group {
+        SessionDraftToggleGroup::Families => "__toggle_group.families",
+        SessionDraftToggleGroup::Bgp => "__toggle_group.bgp",
+    }
+}
+
 fn update_draft_state(
     draft: &UseStateHandle<SessionDraft>,
     update: impl FnOnce(&mut SessionDraft),
@@ -76,6 +89,129 @@ fn mark_field_touched(touched_fields: &UseStateHandle<BTreeSet<String>>, field: 
     let mut next = (**touched_fields).clone();
     next.insert(field_key(field).to_string());
     touched_fields.set(next);
+}
+
+fn mark_toggle_group_touched(
+    touched_fields: &UseStateHandle<BTreeSet<String>>,
+    group: SessionDraftToggleGroup,
+) {
+    let mut next = (**touched_fields).clone();
+    next.insert(toggle_group_key(group).to_string());
+    touched_fields.set(next);
+}
+
+fn control_is_touched(touched_controls: &BTreeSet<String>, field: SessionDraftField) -> bool {
+    touched_controls.contains(field_key(field))
+}
+
+fn toggle_group_is_touched(
+    touched_controls: &BTreeSet<String>,
+    group: SessionDraftToggleGroup,
+) -> bool {
+    touched_controls.contains(toggle_group_key(group))
+}
+
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+struct SessionDraftLiveValidation {
+    tunnel_message: Option<String>,
+    families_message: Option<String>,
+    bgp_message: Option<String>,
+    highlight_peer4: bool,
+    highlight_peer6: bool,
+    highlight_own6: bool,
+    highlight_ipv4: bool,
+    highlight_ipv6: bool,
+    highlight_mp_bgp: bool,
+}
+
+impl SessionDraftLiveValidation {
+    fn highlights_field(&self, field: SessionDraftField) -> bool {
+        match field {
+            SessionDraftField::Peer4 => self.highlight_peer4,
+            SessionDraftField::Peer6 => self.highlight_peer6,
+            SessionDraftField::Own6 => self.highlight_own6,
+            _ => false,
+        }
+    }
+}
+
+fn session_details_live_validation(
+    draft: &SessionDraft,
+    touched_controls: &BTreeSet<String>,
+) -> SessionDraftLiveValidation {
+    let peer4_touched = control_is_touched(touched_controls, SessionDraftField::Peer4);
+    let peer6_touched = control_is_touched(touched_controls, SessionDraftField::Peer6);
+    let own6_touched = control_is_touched(touched_controls, SessionDraftField::Own6);
+    let families_touched =
+        toggle_group_is_touched(touched_controls, SessionDraftToggleGroup::Families);
+    let bgp_touched = toggle_group_is_touched(touched_controls, SessionDraftToggleGroup::Bgp);
+    let combo_touched = families_touched || bgp_touched;
+
+    let peer4_blank = draft.peer4.trim().is_empty();
+    let peer6_blank = draft.peer6.trim().is_empty();
+    let own6_present = !draft.own6.trim().is_empty();
+
+    let no_families_selected = !draft.ipv4 && !draft.ipv6;
+    let peer4_missing = draft.ipv4 && !draft.mp_bgp && peer4_blank;
+    let peer6_missing_for_ipv6 = draft.ipv6 && peer6_blank;
+    let peer6_missing_for_mp_bgp = draft.mp_bgp && peer6_blank;
+
+    let own6_missing_peer6 = own6_present && peer6_blank;
+    let own6_requires_link_local_peer6 =
+        own6_present && !peer6_blank && !draft.peer6_is_link_local();
+    let own6_message = if own6_present || own6_touched {
+        draft.field_error(SessionDraftField::Own6)
+    } else {
+        None
+    };
+
+    SessionDraftLiveValidation {
+        tunnel_message: if (peer4_touched || peer6_touched || own6_touched)
+            && peer4_blank
+            && peer6_blank
+        {
+            Some("Add at least one tunnel address: IPv4 or IPv6".to_string())
+        } else {
+            own6_message.clone()
+        },
+        families_message: if families_touched && no_families_selected {
+            Some("Enable at least one BGP family".to_string())
+        } else {
+            None
+        },
+        bgp_message: if !combo_touched {
+            None
+        } else if peer6_missing_for_mp_bgp {
+            draft.field_error(SessionDraftField::Peer6)
+        } else if peer4_missing {
+            draft.field_error(SessionDraftField::Peer4)
+        } else if peer6_missing_for_ipv6 {
+            draft.field_error(SessionDraftField::Peer6)
+        } else {
+            None
+        },
+        highlight_peer4: (peer4_touched && draft.field_error(SessionDraftField::Peer4).is_some())
+            || (peer4_missing && combo_touched),
+        highlight_peer6: (peer6_touched && draft.field_error(SessionDraftField::Peer6).is_some())
+            || ((peer6_missing_for_mp_bgp || peer6_missing_for_ipv6) && combo_touched)
+            || own6_missing_peer6
+            || own6_requires_link_local_peer6,
+        highlight_own6: own6_message.is_some(),
+        highlight_ipv4: (families_touched && no_families_selected)
+            || (peer4_missing && combo_touched),
+        highlight_ipv6: (families_touched && no_families_selected)
+            || (peer6_missing_for_ipv6 && combo_touched),
+        highlight_mp_bgp: peer6_missing_for_mp_bgp && combo_touched,
+    }
+}
+
+fn render_live_validation_message(message: Option<&str>) -> Html {
+    match message {
+        Some(message) => html! {
+            <p class="autopeer-live-validation" aria-live="polite">{message}</p>
+        },
+        None => Html::default(),
+    }
 }
 
 fn ssh_sign_command(challenge_text: &str) -> String {
@@ -945,6 +1081,7 @@ pub fn auto_peer_page() -> Html {
                 .unwrap_or_else(|| (*asn).clone());
             let draft_is_valid = draft.to_spec().is_ok();
             let peer6_kind = detect_peer6_address_kind(&draft.peer6);
+            let live_validation = session_details_live_validation(&draft, &touched_fields);
             let node_inventory_ipv6 = selected_node
                 .as_ref()
                 .and_then(|node| node.peering.as_ref())
@@ -993,11 +1130,11 @@ pub fn auto_peer_page() -> Html {
             };
 
             let field_is_invalid = |field: SessionDraftField| {
-                touched_fields.contains(field_key(field)) && draft.field_error(field).is_some()
+                control_is_touched(&touched_fields, field) && draft.field_error(field).is_some()
             };
 
             let input_class = |field: SessionDraftField| {
-                if field_is_invalid(field) {
+                if field_is_invalid(field) || live_validation.highlights_field(field) {
                     classes!("shell-input--invalid")
                 } else {
                     Classes::new()
@@ -1005,7 +1142,7 @@ pub fn auto_peer_page() -> Html {
             };
 
             let input_frame_class = |field: SessionDraftField| {
-                if field_is_invalid(field) {
+                if field_is_invalid(field) || live_validation.highlights_field(field) {
                     classes!("shell-input-frame--invalid")
                 } else {
                     Classes::new()
@@ -1013,6 +1150,9 @@ pub fn auto_peer_page() -> Html {
             };
 
             let on_peer6_change = {
+            let toggle_item_class =
+                |invalid: bool| classes!("autopeer-toggle-item", invalid.then_some("is-invalid"));
+
                 let draft = draft.clone();
                 Callback::from(move |value: String| {
                     update_draft_state(&draft, |next| {
@@ -1026,18 +1166,28 @@ pub fn auto_peer_page() -> Html {
 
             let on_toggle_ipv4 = {
                 let draft = draft.clone();
-                Callback::from(move |_| update_draft_state(&draft, |next| next.ipv4 = !next.ipv4))
+                let touched_fields = touched_fields.clone();
+                Callback::from(move |_| {
+                    mark_toggle_group_touched(&touched_fields, SessionDraftToggleGroup::Families);
+                    update_draft_state(&draft, |next| next.ipv4 = !next.ipv4);
+                })
             };
 
             let on_toggle_ipv6 = {
                 let draft = draft.clone();
-                Callback::from(move |_| update_draft_state(&draft, |next| next.ipv6 = !next.ipv6))
+                let touched_fields = touched_fields.clone();
+                Callback::from(move |_| {
+                    mark_toggle_group_touched(&touched_fields, SessionDraftToggleGroup::Families);
+                    update_draft_state(&draft, |next| next.ipv6 = !next.ipv6);
+                })
             };
 
             let on_toggle_mp_bgp = {
                 let draft = draft.clone();
                 Callback::from(move |_: ()| {
+                let touched_fields = touched_fields.clone();
                     update_draft_state(&draft, |next| {
+                    mark_toggle_group_touched(&touched_fields, SessionDraftToggleGroup::Bgp);
                         next.mp_bgp = !next.mp_bgp;
                         if !next.mp_bgp {
                             next.extended_next_hop = false;
@@ -1049,7 +1199,9 @@ pub fn auto_peer_page() -> Html {
             let on_toggle_extended_next_hop = {
                 let draft = draft.clone();
                 Callback::from(move |_| {
+                let touched_fields = touched_fields.clone();
                     update_draft_state(&draft, |next| {
+                    mark_toggle_group_touched(&touched_fields, SessionDraftToggleGroup::Bgp);
                         next.extended_next_hop = !next.extended_next_hop;
                         if next.extended_next_hop {
                             next.mp_bgp = true;
@@ -1285,7 +1437,13 @@ pub fn auto_peer_page() -> Html {
                             </ShellLine>
                         </div>
 
-                        <div class="autopeer-form-section">
+                        <div class={classes!(
+                            "autopeer-form-section",
+                            live_validation
+                                .tunnel_message
+                                .is_some()
+                                .then_some("autopeer-form-section--invalid")
+                        )}>
                             <span class="autopeer-section-label">{i18n.t("stage2.section.tunnel")}</span>
                             <p class="text-secondary">
                                 {i18n.t("stage2.section.tunnel.help")}
@@ -1340,8 +1498,15 @@ pub fn auto_peer_page() -> Html {
                                 </ShellLine>
                             }
                         </div>
+                            {render_live_validation_message(live_validation.tunnel_message.as_deref())}
 
-                        <div class="autopeer-form-section">
+                        <div class={classes!(
+                            "autopeer-form-section",
+                            live_validation
+                                .families_message
+                                .is_some()
+                                .then_some("autopeer-form-section--invalid")
+                        )}>
                             <span class="autopeer-section-label">{i18n.t("stage2.section.families")}</span>
                             <p class="text-secondary">
                                 {i18n.t("stage2.section.families.help")}
@@ -1350,22 +1515,33 @@ pub fn auto_peer_page() -> Html {
                                 <ShellPrompt>{i18n.t("stage2.field.families")}</ShellPrompt>
                                 {" "}
                                 <span class="autopeer-toggle-row">
-                                    <ShellToggle
-                                        active={draft.ipv4}
-                                        on_toggle={on_toggle_ipv4}
-                                        label={i18n.t("stage2.field.families.ipv4_label")}
-                                    />
+                                    <span class={toggle_item_class(live_validation.highlight_ipv4)}>
+                                        <ShellToggle
+                                            active={draft.ipv4}
+                                            on_toggle={on_toggle_ipv4}
+                                            label={i18n.t("stage2.field.families.ipv4_label")}
+                                        />
+                                    </span>
                                     {" "}
-                                    <ShellToggle
-                                        active={draft.ipv6}
-                                        on_toggle={on_toggle_ipv6}
-                                        label={i18n.t("stage2.field.families.ipv6_label")}
-                                    />
+                                    <span class={toggle_item_class(live_validation.highlight_ipv6)}>
+                                        <ShellToggle
+                                            active={draft.ipv6}
+                                            on_toggle={on_toggle_ipv6}
+                                            label={i18n.t("stage2.field.families.ipv6_label")}
+                                        />
+                                    </span>
                                 </span>
                             </ShellLine>
                         </div>
+                            {render_live_validation_message(live_validation.families_message.as_deref())}
 
-                        <div class="autopeer-form-section">
+                        <div class={classes!(
+                            "autopeer-form-section",
+                            live_validation
+                                .bgp_message
+                                .is_some()
+                                .then_some("autopeer-form-section--invalid")
+                        )}>
                             <span class="autopeer-section-label">{i18n.t("stage2.section.bgp")}</span>
                             <p class="text-secondary">
                                 {i18n.t("stage2.section.bgp.help")}
@@ -1374,20 +1550,25 @@ pub fn auto_peer_page() -> Html {
                                 <ShellPrompt>{i18n.t("stage2.field.bgp_features")}</ShellPrompt>
                                 {" "}
                                 <span class="autopeer-toggle-row">
-                                    <ShellToggle
-                                        active={draft.mp_bgp}
-                                        on_toggle={on_toggle_mp_bgp}
-                                        label={i18n.t("stage2.field.bgp.mpbgp_label")}
-                                    />
+                                    <span class={toggle_item_class(live_validation.highlight_mp_bgp)}>
+                                        <ShellToggle
+                                            active={draft.mp_bgp}
+                                            on_toggle={on_toggle_mp_bgp}
+                                            label={i18n.t("stage2.field.bgp.mpbgp_label")}
+                                        />
+                                    </span>
                                     {" "}
-                                    <ShellToggle
-                                        active={draft.extended_next_hop}
-                                        on_toggle={on_toggle_extended_next_hop}
-                                        label={i18n.t("stage2.field.bgp.enh_label")}
-                                    />
+                                    <span class={toggle_item_class(false)}>
+                                        <ShellToggle
+                                            active={draft.extended_next_hop}
+                                            on_toggle={on_toggle_extended_next_hop}
+                                            label={i18n.t("stage2.field.bgp.enh_label")}
+                                        />
+                                    </span>
                                 </span>
                             </ShellLine>
                         </div>
+                            {render_live_validation_message(live_validation.bgp_message.as_deref())}
 
                         <div class="autopeer-form-section">
                             <span class="autopeer-section-label">{i18n.t("stage2.section.policy")}</span>
@@ -1782,15 +1963,18 @@ pub fn auto_peer_page() -> Html {
 
 #[cfg(test)]
 mod tests {
-    use common::auto_peer::{AuthMethod, AuthMethodKind};
+    use std::collections::BTreeSet;
+
+    use common::auto_peer::{AuthMethod, AuthMethodKind, PeeringStrategy};
 
     use super::{
-        Peer6AddressKind, autopeer_node_endpoint_port, detect_peer6_address_kind,
-        displayed_peer_config_stage, retire_button_text,
+        Peer6AddressKind, SessionDraftLiveValidation, SessionDraftToggleGroup,
+        autopeer_node_endpoint_port, detect_peer6_address_kind, displayed_peer_config_stage,
+        retire_button_text, session_details_live_validation, toggle_group_key,
     };
     use crate::{
         controller::{configured_href, filter_supported_methods, validate_ssh_signature_input},
-        store::PeerConfigStage,
+        store::{PeerConfigStage, SessionDraft},
     };
 
     #[test]
@@ -1867,6 +2051,61 @@ mod tests {
 
     #[test]
     fn rejects_raw_challenge_text_in_ssh_signature_field() {
+    #[test]
+    fn live_validation_flags_ipv4_only_without_peer4_after_toggle_interaction() {
+        let draft = SessionDraft {
+            endpoint: "peer.example.net:21023".into(),
+            wg_public_key: "Cbefg96Owv1Xk/jrUExO3i5OeUSlsdirv4ONenEnNXc=".into(),
+            ipv6: false,
+            extended_next_hop: false,
+            mp_bgp: false,
+            peering_strategy: PeeringStrategy::FullTable,
+            ..SessionDraft::default()
+        };
+        let touched =
+            BTreeSet::from([toggle_group_key(SessionDraftToggleGroup::Families).to_string()]);
+
+        let validation = session_details_live_validation(&draft, &touched);
+
+        assert_eq!(
+            validation.bgp_message,
+            Some("An IPv4 peer address is required for IPv4 when MP-BGP is disabled".into())
+        );
+        assert!(validation.highlight_peer4);
+        assert!(validation.highlight_ipv4);
+        assert!(!validation.highlight_mp_bgp);
+    }
+
+    #[test]
+    fn live_validation_flags_mp_bgp_without_peer6_after_toggle_interaction() {
+        let draft = SessionDraft {
+            endpoint: "peer.example.net:21023".into(),
+            wg_public_key: "Cbefg96Owv1Xk/jrUExO3i5OeUSlsdirv4ONenEnNXc=".into(),
+            peer4: "172.20.193.67".into(),
+            ipv6: false,
+            peering_strategy: PeeringStrategy::FullTable,
+            ..SessionDraft::default()
+        };
+        let touched = BTreeSet::from([toggle_group_key(SessionDraftToggleGroup::Bgp).to_string()]);
+
+        let validation = session_details_live_validation(&draft, &touched);
+
+        assert_eq!(
+            validation.bgp_message,
+            Some("An IPv6 peer address is required when MP-BGP is enabled".into())
+        );
+        assert!(validation.highlight_peer6);
+        assert!(validation.highlight_mp_bgp);
+    }
+
+    #[test]
+    fn live_validation_stays_quiet_for_untouched_default_draft() {
+        let validation =
+            session_details_live_validation(&SessionDraft::default(), &BTreeSet::new());
+
+        assert_eq!(validation, SessionDraftLiveValidation::default());
+    }
+
         assert_eq!(
             validate_ssh_signature_input(
                 "dn42-autopeer challenge\nasn: 4242421024\nchallenge_id: example\nissued_at: 2026-04-18T12:42:04.075Z"
