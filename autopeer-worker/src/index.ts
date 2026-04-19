@@ -9,6 +9,7 @@ import {
 import {
   claimNodeOperationLock,
   consumeFreshChallenge,
+  consumeCompletedRegistryEmailAuthRequestByToken,
   deleteChallenge,
   deleteRegistryEmailAuthRequest,
   getAuthSession,
@@ -90,6 +91,7 @@ import {
   parseJsonEnv,
   readJson,
   readNonNegativeIntegerEnv,
+  readOptionalEnvString,
   requireBoolean,
   requireNonEmptyString,
   requireOptionalInteger,
@@ -324,6 +326,16 @@ function configuredOidcProviders(env: Env): OidcProviderConfig[] {
   return parseJsonEnv(env.OIDC_PROVIDERS, "OIDC_PROVIDERS");
 }
 
+function registryEmailAuthConfigured(env: Env): boolean {
+  return readOptionalEnvString(env, "RESEND_API_KEY") !== null;
+}
+
+function requireRegistryEmailAuthConfigured(env: Env): void {
+  if (!registryEmailAuthConfigured(env)) {
+    throw new HttpError("Registry email login is not available in this deployment", 503);
+  }
+}
+
 async function consumeChallengeOrThrow(env: Env, challengeId: string): Promise<ChallengeRecord> {
   const result = await consumeFreshChallenge(env, challengeId);
   switch (result.kind) {
@@ -417,44 +429,14 @@ function registryEmailCallbackUrl(
   return callback.toString();
 }
 
-async function loadRegistryEmailSessionOrThrow(
+async function createCompletedRegistryEmailSession(
   env: Env,
-  emailAuthRequest: {
-    challenge_id: string;
-    session_token?: string | null;
-    expires_at: string;
-  },
+  challengeId: string,
+  effectiveMnt: string,
 ): Promise<SessionRecord> {
-  if (!emailAuthRequest.session_token && Date.parse(emailAuthRequest.expires_at) <= Date.now()) {
-    await deleteRegistryEmailAuthRequest(env, emailAuthRequest.challenge_id);
-    throw new HttpError("Registry email login has expired", 400);
-  }
-  if (!emailAuthRequest.session_token) {
-    throw new HttpError("Registry email login has not completed yet", 409);
-  }
-
-  const session = await getAuthSession(env, emailAuthRequest.session_token);
-  if (!session) {
-    throw new HttpError("Registry email login session is no longer available", 404);
-  }
-  if (Date.parse(session.expires_at) <= Date.now()) {
-    throw new HttpError("Registry email login session has expired", 401);
-  }
-  return session;
-}
-
-async function completeRegistryEmailAuth(
-  env: Env,
-  challenge: ChallengeRecord,
-  emailAuthRequest: RegistryEmailAuthRequestRecord,
-): Promise<SessionRecord> {
-  const session = createRegistryEmailSession(challenge, emailAuthRequest.effective_mnt);
+  const challenge = await consumeChallengeOrThrow(env, challengeId);
+  const session = createRegistryEmailSession(challenge, effectiveMnt);
   await putAuthSession(env, session);
-  await putRegistryEmailAuthRequest(env, {
-    ...emailAuthRequest,
-    session_token: session.token,
-  });
-  await deleteChallenge(env, challenge.id);
   return session;
 }
 
@@ -1275,7 +1257,9 @@ async function router(request: Request, env: Env): Promise<Response> {
     const maintainers = await loadMaintainersForRequestAsn(env, asn);
     const challenge = createChallenge(asn);
     challenge.maintainers = maintainers;
-    challenge.methods = methodsFromMaintainers(maintainers, []);
+    challenge.methods = methodsFromMaintainers(maintainers, [], {
+      registryEmailEnabled: registryEmailAuthConfigured(env),
+    });
 
     if (challenge.methods.length === 0) {
       const message = configuredOidcProviders(env).length > 0
@@ -1366,6 +1350,7 @@ async function router(request: Request, env: Env): Promise<Response> {
   }
 
   if (request.method === "POST" && url.pathname === "/v1/auth/verify/registry-email/send") {
+    requireRegistryEmailAuthConfigured(env);
     const body = requireRequestRecord(
       await readJson<RegistryEmailSendRequest>(request),
       "request body",
@@ -1416,8 +1401,10 @@ async function router(request: Request, env: Env): Promise<Response> {
     }
 
     if (emailAuthRequest.session_token) {
-      const session = await loadRegistryEmailSessionOrThrow(env, emailAuthRequest);
-      return jsonWithCors(request, authSessionResponseForEnv(env, session));
+      throw new HttpError(
+        "Registry email login has already completed; finish it from the emailed sign-in link.",
+        409,
+      );
     }
 
     if (Date.parse(emailAuthRequest.expires_at) <= Date.now()) {
@@ -1429,17 +1416,12 @@ async function router(request: Request, env: Env): Promise<Response> {
       throw new HttpError("Registry email auth code is invalid", 400);
     }
 
-    const challenge = await getChallenge(env, challengeId);
-    if (!challenge) {
-      await deleteRegistryEmailAuthRequest(env, challengeId);
-      throw new HttpError(
-        "Your authentication challenge has expired. Start again.",
-        400,
-      );
-    }
-    assertChallengeFresh(challenge);
-
-    const session = await completeRegistryEmailAuth(env, challenge, emailAuthRequest);
+    const session = await createCompletedRegistryEmailSession(
+      env,
+      challengeId,
+      emailAuthRequest.effective_mnt,
+    );
+    await deleteRegistryEmailAuthRequest(env, challengeId);
     return jsonWithCors(request, authSessionResponseForEnv(env, session));
   }
 
@@ -1449,12 +1431,34 @@ async function router(request: Request, env: Env): Promise<Response> {
       "request body",
     );
     const token = requireRequestString(body.token, "token");
-    const emailAuthRequest = await getRegistryEmailAuthRequestByToken(env, token);
+    const emailAuthRequest = await consumeCompletedRegistryEmailAuthRequestByToken(env, token);
     if (!emailAuthRequest) {
+      const pendingRequest = await getRegistryEmailAuthRequestByToken(env, token);
+      if (!pendingRequest) {
+        throw new HttpError("Registry email login state was not found or has expired", 404);
+      }
+      if (Date.parse(pendingRequest.expires_at) <= Date.now()) {
+        await deleteRegistryEmailAuthRequest(env, pendingRequest.challenge_id);
+        throw new HttpError("Registry email login has expired", 400);
+      }
+      if (!pendingRequest.session_token) {
+        throw new HttpError("Registry email login has not completed yet", 409);
+      }
       throw new HttpError("Registry email login state was not found or has expired", 404);
     }
 
-    const session = await loadRegistryEmailSessionOrThrow(env, emailAuthRequest);
+    const sessionToken = emailAuthRequest.session_token;
+    if (!sessionToken) {
+      throw new HttpError("Registry email login state was not found or has expired", 404);
+    }
+
+    const session = await getAuthSession(env, sessionToken);
+    if (!session) {
+      throw new HttpError("Registry email login session is no longer available", 404);
+    }
+    if (Date.parse(session.expires_at) <= Date.now()) {
+      throw new HttpError("Registry email login session has expired", 401);
+    }
     return jsonWithCors(request, authSessionResponseForEnv(env, session));
   }
 
@@ -1682,19 +1686,16 @@ async function router(request: Request, env: Env): Promise<Response> {
       );
     }
 
-    const challenge = await getChallenge(env, challengeId);
-    if (!challenge) {
-      await deleteRegistryEmailAuthRequest(env, emailAuthRequest.challenge_id);
-      return siteRedirectResponse(
-        env,
-        request,
-        "email_error=Your%20authentication%20challenge%20has%20expired.%20Start%20again.",
-      );
-    }
-
     try {
-      assertChallengeFresh(challenge);
-      await completeRegistryEmailAuth(env, challenge, emailAuthRequest);
+      const session = await createCompletedRegistryEmailSession(
+        env,
+        challengeId,
+        emailAuthRequest.effective_mnt,
+      );
+      await putRegistryEmailAuthRequest(env, {
+        ...emailAuthRequest,
+        session_token: session.token,
+      });
       return siteRedirectResponse(
         env,
         request,
