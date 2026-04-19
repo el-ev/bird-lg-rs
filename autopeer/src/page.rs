@@ -67,6 +67,21 @@ fn field_key(field: SessionDraftField) -> &'static str {
     }
 }
 
+fn update_draft_state(
+    draft: &UseStateHandle<SessionDraft>,
+    update: impl FnOnce(&mut SessionDraft),
+) {
+    let mut next = (**draft).clone();
+    update(&mut next);
+    draft.set(next);
+}
+
+fn mark_field_touched(touched_fields: &UseStateHandle<BTreeSet<String>>, field: SessionDraftField) {
+    let mut next = (**touched_fields).clone();
+    next.insert(field_key(field).to_string());
+    touched_fields.set(next);
+}
+
 fn ssh_sign_command(challenge_text: &str) -> String {
     format!("ssh-keygen -Y sign -f <PRIVATE_KEY_PATH> -n file <<'EOF'\n{challenge_text}\nEOF")
 }
@@ -947,19 +962,13 @@ pub fn auto_peer_page() -> Html {
             let update_text_field = |setter: fn(&mut SessionDraft) -> &mut String| {
                 let draft = draft.clone();
                 Callback::from(move |value: String| {
-                    let mut next = (*draft).clone();
-                    *setter(&mut next) = value;
-                    draft.set(next);
+                    update_draft_state(&draft, |next| *setter(next) = value)
                 })
             };
 
             let on_field_blur = |field: SessionDraftField| {
                 let touched_fields = touched_fields.clone();
-                Callback::from(move |_: FocusEvent| {
-                    let mut next = (*touched_fields).clone();
-                    next.insert(field_key(field).to_string());
-                    touched_fields.set(next);
-                })
+                Callback::from(move |_: FocusEvent| mark_field_touched(&touched_fields, field))
             };
 
             let input_class = |field: SessionDraftField| {
@@ -983,54 +992,46 @@ pub fn auto_peer_page() -> Html {
             let on_peer6_change = {
                 let draft = draft.clone();
                 Callback::from(move |value: String| {
-                    let mut next = (*draft).clone();
-                    next.peer6 = value;
-                    if !next.peer6_is_link_local() {
-                        next.own6.clear();
-                    }
-                    draft.set(next);
+                    update_draft_state(&draft, |next| {
+                        next.peer6 = value;
+                        if !next.peer6_is_link_local() {
+                            next.own6.clear();
+                        }
+                    });
                 })
             };
 
             let on_toggle_ipv4 = {
                 let draft = draft.clone();
-                Callback::from(move |_| {
-                    let mut next = (*draft).clone();
-                    next.ipv4 = !next.ipv4;
-                    draft.set(next);
-                })
+                Callback::from(move |_| update_draft_state(&draft, |next| next.ipv4 = !next.ipv4))
             };
 
             let on_toggle_ipv6 = {
                 let draft = draft.clone();
-                Callback::from(move |_| {
-                    let mut next = (*draft).clone();
-                    next.ipv6 = !next.ipv6;
-                    draft.set(next);
-                })
+                Callback::from(move |_| update_draft_state(&draft, |next| next.ipv6 = !next.ipv6))
             };
 
             let on_toggle_mp_bgp = {
                 let draft = draft.clone();
                 Callback::from(move |_: ()| {
-                    let mut next = (*draft).clone();
-                    next.mp_bgp = !next.mp_bgp;
-                    if !next.mp_bgp {
-                        next.extended_next_hop = false;
-                    }
-                    draft.set(next);
+                    update_draft_state(&draft, |next| {
+                        next.mp_bgp = !next.mp_bgp;
+                        if !next.mp_bgp {
+                            next.extended_next_hop = false;
+                        }
+                    });
                 })
             };
 
             let on_toggle_extended_next_hop = {
                 let draft = draft.clone();
                 Callback::from(move |_| {
-                    let mut next = (*draft).clone();
-                    next.extended_next_hop = !next.extended_next_hop;
-                    if next.extended_next_hop {
-                        next.mp_bgp = true;
-                    }
-                    draft.set(next);
+                    update_draft_state(&draft, |next| {
+                        next.extended_next_hop = !next.extended_next_hop;
+                        if next.extended_next_hop {
+                            next.mp_bgp = true;
+                        }
+                    });
                 })
             };
 
@@ -1038,10 +1039,11 @@ pub fn auto_peer_page() -> Html {
                 let draft = draft.clone();
                 Callback::from(move |event: Event| {
                     let select: HtmlSelectElement = event.target_unchecked_into();
-                    let mut next = (*draft).clone();
-                    next.peering_strategy = PeeringStrategy::from_value(&select.value())
-                        .unwrap_or(PeeringStrategy::FullTable);
-                    draft.set(next);
+                    let value = select.value();
+                    update_draft_state(&draft, |next| {
+                        next.peering_strategy = PeeringStrategy::from_value(&value)
+                            .unwrap_or(PeeringStrategy::FullTable);
+                    });
                 })
             };
 
@@ -1126,10 +1128,10 @@ pub fn auto_peer_page() -> Html {
                                         match node_session_for_click.as_ref().map(|session| &session.state) {
                                             None => {
                                                 editing_node.set(None);
-                                                let mut next = (*draft).clone();
-                                                next.node = node_value.name.clone();
-                                                next.peering_strategy = PeeringStrategy::FullTable;
-                                                draft.set(next);
+                                                update_draft_state(&draft, |next| {
+                                                    next.node = node_value.name.clone();
+                                                    next.peering_strategy = PeeringStrategy::FullTable;
+                                                });
                                                 config_stage.set(PeerConfigStage::SessionDetails);
                                             }
                                             Some(SessionState::Managed) | Some(SessionState::Manual) => {

@@ -36,6 +36,21 @@ struct AuthHandles {
     step: UseStateHandle<AutoPeerStep>,
 }
 
+#[derive(Clone)]
+struct AuthFlowHandles {
+    challenge_id: UseStateHandle<Option<String>>,
+    challenge_text: UseStateHandle<Option<String>>,
+    methods: UseStateHandle<Vec<AuthMethod>>,
+    selected_method: UseStateHandle<Option<AuthMethod>>,
+    selected_pgp_key: UseStateHandle<String>,
+    ssh_signature: UseStateHandle<String>,
+    pgp_public_key: UseStateHandle<String>,
+    pgp_signed_message: UseStateHandle<String>,
+    selected_email_maintainer: UseStateHandle<String>,
+    registry_email_code: UseStateHandle<String>,
+    registry_email_sent_to: UseStateHandle<Vec<String>>,
+}
+
 pub(crate) fn validate_ssh_signature_input(signature: &str) -> Result<(), &'static str> {
     let trimmed = signature.trim();
     if trimmed.is_empty() {
@@ -128,6 +143,87 @@ pub(crate) fn sync_create_draft(
     }
 
     draft
+}
+
+fn reset_session_selection(handles: &SessionHandles) {
+    handles.editing_node.set(None);
+    handles.config_stage.set(PeerConfigStage::SelectNode);
+}
+
+fn reset_loaded_sessions(handles: &SessionHandles, asn: &str) {
+    handles.nodes.set(Vec::new());
+    handles.sessions.set(Vec::new());
+    handles.draft.set(SessionDraft::default_for_asn(asn));
+    reset_session_selection(handles);
+}
+
+fn clear_session_state(handles: &SessionHandles) {
+    handles.asn.set(String::new());
+    handles.nodes.set(Vec::new());
+    handles.sessions.set(Vec::new());
+    handles.draft.set(SessionDraft::default());
+    reset_session_selection(handles);
+}
+
+fn clear_auth_inputs(handles: &AuthFlowHandles) {
+    handles.ssh_signature.set(String::new());
+    handles.pgp_public_key.set(String::new());
+    handles.pgp_signed_message.set(String::new());
+    handles.registry_email_code.set(String::new());
+    handles.registry_email_sent_to.set(Vec::new());
+}
+
+fn clear_selected_auth_method(handles: &AuthFlowHandles) {
+    handles.selected_method.set(None);
+    handles.selected_pgp_key.set(String::new());
+    handles.selected_email_maintainer.set(String::new());
+    clear_auth_inputs(handles);
+}
+
+fn set_auth_challenge(
+    handles: &AuthFlowHandles,
+    challenge_id: String,
+    challenge_text: String,
+    methods: Vec<AuthMethod>,
+) {
+    handles.challenge_id.set(Some(challenge_id));
+    handles.challenge_text.set(Some(challenge_text));
+    handles.methods.set(methods);
+    clear_selected_auth_method(handles);
+}
+
+fn clear_auth_challenge(handles: &AuthFlowHandles) {
+    handles.challenge_id.set(None);
+    handles.challenge_text.set(None);
+    handles.methods.set(Vec::new());
+    clear_selected_auth_method(handles);
+}
+
+fn set_selected_auth_method(handles: &AuthFlowHandles, method: AuthMethod) {
+    handles.selected_pgp_key.set(default_pgp_key(&method));
+    handles
+        .selected_email_maintainer
+        .set(default_registry_email_target(&method));
+    handles.selected_method.set(Some(method));
+    clear_auth_inputs(handles);
+}
+
+fn matching_auth_method(
+    available_methods: &[AuthMethod],
+    method: &AuthMethod,
+) -> Option<AuthMethod> {
+    available_methods
+        .iter()
+        .find(|candidate| candidate.kind == method.kind && candidate.provider == method.provider)
+        .cloned()
+}
+
+fn clear_impersonation_inputs(
+    impersonate_asn: &UseStateHandle<String>,
+    impersonate_mnt: &UseStateHandle<String>,
+) {
+    impersonate_asn.set(String::new());
+    impersonate_mnt.set(String::new());
 }
 
 fn apply_session_list(response: SessionListResponse, handles: &SessionHandles) {
@@ -254,10 +350,7 @@ async fn activate_authenticated_session(
                 &session_handles.draft,
             );
             session_handles.draft.set(next_draft);
-            session_handles.editing_node.set(None);
-            session_handles
-                .config_stage
-                .set(PeerConfigStage::SelectNode);
+            reset_session_selection(session_handles);
             error.set(None);
             auth_handles.step.set(AutoPeerStep::ManageSessions);
         }
@@ -268,19 +361,34 @@ async fn activate_authenticated_session(
                 session,
             );
             session_handles.asn.set(session_asn.clone());
-            session_handles.nodes.set(Vec::new());
-            session_handles.sessions.set(Vec::new());
-            session_handles.editing_node.set(None);
-            session_handles
-                .config_stage
-                .set(PeerConfigStage::SelectNode);
-            session_handles
-                .draft
-                .set(SessionDraft::default_for_asn(&session_asn));
+            reset_loaded_sessions(session_handles, &session_asn);
             error.set(Some(message));
             auth_handles.step.set(AutoPeerStep::ManageSessions);
         }
     }
+}
+
+async fn finish_redirected_auth_session(
+    api_url: &str,
+    result: Result<AuthSessionResponse, String>,
+    session_handles: &SessionHandles,
+    auth_handles: &AuthHandles,
+    error: &UseStateHandle<Option<String>>,
+    loading: &UseStateHandle<bool>,
+    loading_message: &UseStateHandle<Option<String>>,
+) {
+    clear_location_hash();
+    match result {
+        Ok(session) => {
+            activate_authenticated_session(api_url, session, session_handles, auth_handles, error)
+                .await;
+        }
+        Err(message) => {
+            error.set(Some(message));
+            auth_handles.step.set(AutoPeerStep::EnterAsn);
+        }
+    }
+    clear_loading(loading, loading_message);
 }
 
 async fn restore_persisted_state(
@@ -318,10 +426,7 @@ async fn restore_persisted_state(
                     auth_session: Some(active),
                     host_session: valid_host_session,
                 });
-                session_handles.editing_node.set(None);
-                session_handles
-                    .config_stage
-                    .set(PeerConfigStage::SelectNode);
+                reset_session_selection(session_handles);
                 error.set(None);
                 auth_handles.step.set(AutoPeerStep::ManageSessions);
                 return;
@@ -343,18 +448,12 @@ async fn restore_persisted_state(
             auth_session: Some(host.clone()),
             host_session: Some(host),
         });
-        session_handles.editing_node.set(None);
-        session_handles
-            .config_stage
-            .set(PeerConfigStage::SelectNode);
+        reset_session_selection(session_handles);
         error.set(None);
         auth_handles.step.set(AutoPeerStep::ManageSessions);
     } else {
         save_persisted_sessions(&PersistedSessions::default());
-        session_handles.editing_node.set(None);
-        session_handles
-            .config_stage
-            .set(PeerConfigStage::SelectNode);
+        reset_session_selection(session_handles);
         error.set(None);
         auth_handles.step.set(AutoPeerStep::EnterAsn);
     }
@@ -478,6 +577,19 @@ pub fn use_autopeer_controller(
         host_session: host_session.clone(),
         step: step.clone(),
     };
+    let auth_flow_handles = AuthFlowHandles {
+        challenge_id: challenge_id.clone(),
+        challenge_text: challenge_text.clone(),
+        methods: methods.clone(),
+        selected_method: selected_method.clone(),
+        selected_pgp_key: selected_pgp_key.clone(),
+        ssh_signature: ssh_signature.clone(),
+        pgp_public_key: pgp_public_key.clone(),
+        pgp_signed_message: pgp_signed_message.clone(),
+        selected_email_maintainer: selected_email_maintainer.clone(),
+        registry_email_code: registry_email_code.clone(),
+        registry_email_sent_to: registry_email_sent_to.clone(),
+    };
 
     {
         let api_base = api_base.clone();
@@ -526,28 +638,17 @@ pub fn use_autopeer_controller(
                                 &loading_message,
                                 "Finishing your email login and loading your sessions...",
                             );
-                            match service::complete_registry_email(&api_url, &token).await {
-                                Ok(session) => {
-                                    clear_location_hash();
-                                    activate_authenticated_session(
-                                        &api_url,
-                                        session,
-                                        &session_handles,
-                                        &auth_handles,
-                                        &error,
-                                    )
-                                    .await;
-                                    clear_loading(&loading, &loading_message);
-                                    return;
-                                }
-                                Err(message) => {
-                                    clear_location_hash();
-                                    clear_loading(&loading, &loading_message);
-                                    error.set(Some(message));
-                                    auth_handles.step.set(AutoPeerStep::EnterAsn);
-                                    return;
-                                }
-                            }
+                            finish_redirected_auth_session(
+                                &api_url,
+                                service::complete_registry_email(&api_url, &token).await,
+                                &session_handles,
+                                &auth_handles,
+                                &error,
+                                &loading,
+                                &loading_message,
+                            )
+                            .await;
+                            return;
                         }
 
                         if let Some(state) = hash_param("oidc_state") {
@@ -556,28 +657,17 @@ pub fn use_autopeer_controller(
                                 &loading_message,
                                 "Finishing your OIDC login and loading your sessions...",
                             );
-                            match service::complete_oidc(&api_url, &state).await {
-                                Ok(session) => {
-                                    clear_location_hash();
-                                    activate_authenticated_session(
-                                        &api_url,
-                                        session,
-                                        &session_handles,
-                                        &auth_handles,
-                                        &error,
-                                    )
-                                    .await;
-                                    clear_loading(&loading, &loading_message);
-                                    return;
-                                }
-                                Err(message) => {
-                                    clear_location_hash();
-                                    clear_loading(&loading, &loading_message);
-                                    error.set(Some(message));
-                                    auth_handles.step.set(AutoPeerStep::EnterAsn);
-                                    return;
-                                }
-                            }
+                            finish_redirected_auth_session(
+                                &api_url,
+                                service::complete_oidc(&api_url, &state).await,
+                                &session_handles,
+                                &auth_handles,
+                                &error,
+                                &loading,
+                                &loading_message,
+                            )
+                            .await;
+                            return;
                         }
 
                         let persisted = PersistedSessions {
@@ -736,11 +826,8 @@ pub fn use_autopeer_controller(
                         );
                         match service::list_sessions(&api_base, &auth_session.session_token).await {
                             Ok(response) => {
-                                session_handles.editing_node.set(None);
                                 apply_session_list(response, &session_handles);
-                                session_handles
-                                    .config_stage
-                                    .set(PeerConfigStage::SelectNode);
+                                reset_session_selection(&session_handles);
                                 error.set(None);
                             }
                             Err(message) => error.set(Some(message)),
@@ -799,27 +886,14 @@ pub fn use_autopeer_controller(
     let submit_asn = {
         let api_base = api_base.clone();
         let asn = asn.clone();
-        let challenge_id = challenge_id.clone();
-        let challenge_text = challenge_text.clone();
-        let methods = methods.clone();
+        let auth_flow_handles = auth_flow_handles.clone();
         let oidc_methods = oidc_methods.clone();
-        let selected_method = selected_method.clone();
-        let selected_pgp_key = selected_pgp_key.clone();
-        let auth_session = auth_session.clone();
-        let host_session = host_session.clone();
+        let auth_handles = auth_handles.clone();
         let operation = operation.clone();
         let error = error.clone();
         let loading = loading.clone();
         let loading_message = loading_message.clone();
-        let step = step.clone();
-        let nodes = nodes.clone();
-        let sessions = sessions.clone();
-        let draft = draft.clone();
-        let editing_node = editing_node.clone();
-        let config_stage = config_stage.clone();
-        let selected_email_maintainer = selected_email_maintainer.clone();
-        let registry_email_code = registry_email_code.clone();
-        let registry_email_sent_to = registry_email_sent_to.clone();
+        let session_handles = session_handles.clone();
 
         Callback::from(move |_| {
             let Some(api_base) = require_api_base(&api_base, &error) else {
@@ -840,48 +914,27 @@ pub fn use_autopeer_controller(
             error.set(None);
             operation.set(None);
 
-            let challenge_id = challenge_id.clone();
-            let challenge_text = challenge_text.clone();
-            let methods = methods.clone();
+            let auth_flow_handles = auth_flow_handles.clone();
             let oidc_methods = oidc_methods.clone();
-            let selected_method = selected_method.clone();
-            let selected_pgp_key = selected_pgp_key.clone();
-            let auth_session = auth_session.clone();
-            let host_session = host_session.clone();
+            let auth_handles = auth_handles.clone();
             let error = error.clone();
             let loading = loading.clone();
             let loading_message = loading_message.clone();
-            let step = step.clone();
-            let nodes = nodes.clone();
-            let sessions = sessions.clone();
-            let draft = draft.clone();
-            let editing_node = editing_node.clone();
-            let config_stage = config_stage.clone();
-            let selected_email_maintainer = selected_email_maintainer.clone();
-            let registry_email_code = registry_email_code.clone();
-            let registry_email_sent_to = registry_email_sent_to.clone();
+            let session_handles = session_handles.clone();
 
             spawn_local(async move {
                 match service::start_auth(&api_base, &asn_value).await {
                     Ok(response) => {
-                        let available_methods =
-                            filter_supported_methods(response.methods, !oidc_methods.is_empty());
-                        challenge_id.set(Some(response.challenge_id));
-                        challenge_text.set(Some(response.challenge_text));
-                        methods.set(available_methods);
-                        selected_method.set(None);
-                        selected_pgp_key.set(String::new());
-                        selected_email_maintainer.set(String::new());
-                        registry_email_code.set(String::new());
-                        registry_email_sent_to.set(Vec::new());
-                        auth_session.set(None);
-                        host_session.set(None);
-                        nodes.set(Vec::new());
-                        sessions.set(Vec::new());
-                        editing_node.set(None);
-                        config_stage.set(PeerConfigStage::SelectNode);
-                        draft.set(SessionDraft::default_for_asn(&asn_value));
-                        step.set(AutoPeerStep::SelectMethod);
+                        set_auth_challenge(
+                            &auth_flow_handles,
+                            response.challenge_id,
+                            response.challenge_text,
+                            filter_supported_methods(response.methods, !oidc_methods.is_empty()),
+                        );
+                        auth_handles.auth_session.set(None);
+                        auth_handles.host_session.set(None);
+                        reset_loaded_sessions(&session_handles, &asn_value);
+                        auth_handles.step.set(AutoPeerStep::SelectMethod);
                     }
                     Err(message) => error.set(Some(message)),
                 }
@@ -951,48 +1004,23 @@ pub fn use_autopeer_controller(
     };
 
     let on_select_method_back = {
-        let step = step.clone();
-        let selected_method = selected_method.clone();
-        let challenge_id = challenge_id.clone();
-        let challenge_text = challenge_text.clone();
-        let selected_pgp_key = selected_pgp_key.clone();
-        let selected_email_maintainer = selected_email_maintainer.clone();
-        let registry_email_code = registry_email_code.clone();
-        let registry_email_sent_to = registry_email_sent_to.clone();
+        let auth_flow_handles = auth_flow_handles.clone();
+        let auth_handles = auth_handles.clone();
         Callback::from(move |_| {
-            selected_method.set(None);
-            challenge_id.set(None);
-            challenge_text.set(None);
-            selected_pgp_key.set(String::new());
-            selected_email_maintainer.set(String::new());
-            registry_email_code.set(String::new());
-            registry_email_sent_to.set(Vec::new());
-            step.set(AutoPeerStep::EnterAsn);
+            clear_auth_challenge(&auth_flow_handles);
+            auth_handles.step.set(AutoPeerStep::EnterAsn);
         })
     };
 
     let on_select_method = {
         let api_base = api_base.clone();
         let asn = asn.clone();
-        let challenge_id = challenge_id.clone();
-        let challenge_text = challenge_text.clone();
-        let methods = methods.clone();
+        let auth_flow_handles = auth_flow_handles.clone();
         let oidc_methods = oidc_methods.clone();
-        let selected_method = selected_method.clone();
-        let selected_pgp_key = selected_pgp_key.clone();
-        let step = step.clone();
+        let auth_handles = auth_handles.clone();
         let error = error.clone();
         let loading = loading.clone();
         let loading_message = loading_message.clone();
-        let ssh_signature = ssh_signature.clone();
-        let pgp_public_key = pgp_public_key.clone();
-        let pgp_signed_message = pgp_signed_message.clone();
-        let selected_email_maintainer = selected_email_maintainer.clone();
-        let registry_email_code = registry_email_code.clone();
-        let registry_email_sent_to = registry_email_sent_to.clone();
-        let selected_email_maintainer = selected_email_maintainer.clone();
-        let registry_email_code = registry_email_code.clone();
-        let registry_email_sent_to = registry_email_sent_to.clone();
 
         Callback::from(move |method_value: AuthMethod| {
             let Some(api_base) = require_api_base(&api_base, &error) else {
@@ -1012,51 +1040,31 @@ pub fn use_autopeer_controller(
             );
             error.set(None);
 
-            let challenge_id = challenge_id.clone();
-            let challenge_text = challenge_text.clone();
-            let methods = methods.clone();
-            let selected_method = selected_method.clone();
-            let selected_pgp_key = selected_pgp_key.clone();
-            let step = step.clone();
+            let auth_flow_handles = auth_flow_handles.clone();
+            let auth_handles = auth_handles.clone();
             let error = error.clone();
             let loading = loading.clone();
             let loading_message = loading_message.clone();
             let oidc_methods = oidc_methods.clone();
-            let ssh_signature = ssh_signature.clone();
-            let pgp_public_key = pgp_public_key.clone();
-            let pgp_signed_message = pgp_signed_message.clone();
-            let selected_email_maintainer = selected_email_maintainer.clone();
-            let registry_email_code = registry_email_code.clone();
-            let registry_email_sent_to = registry_email_sent_to.clone();
 
             spawn_local(async move {
                 match service::start_auth(&api_base, &asn_value).await {
                     Ok(response) => {
                         let available_methods =
                             filter_supported_methods(response.methods, !oidc_methods.is_empty());
-                        let matched_method = available_methods
-                            .iter()
-                            .find(|candidate| {
-                                candidate.kind == method_value.kind
-                                    && candidate.provider == method_value.provider
-                            })
-                            .cloned();
+                        let matched_method =
+                            matching_auth_method(&available_methods, &method_value);
 
                         match matched_method {
                             Some(method) => {
-                                challenge_id.set(Some(response.challenge_id));
-                                challenge_text.set(Some(response.challenge_text));
-                                methods.set(available_methods);
-                                selected_pgp_key.set(default_pgp_key(&method));
-                                selected_email_maintainer
-                                    .set(default_registry_email_target(&method));
-                                selected_method.set(Some(method));
-                                ssh_signature.set(String::new());
-                                pgp_public_key.set(String::new());
-                                pgp_signed_message.set(String::new());
-                                registry_email_code.set(String::new());
-                                registry_email_sent_to.set(Vec::new());
-                                step.set(AutoPeerStep::VerifyMethod);
+                                set_auth_challenge(
+                                    &auth_flow_handles,
+                                    response.challenge_id,
+                                    response.challenge_text,
+                                    available_methods,
+                                );
+                                set_selected_auth_method(&auth_flow_handles, method);
+                                auth_handles.step.set(AutoPeerStep::VerifyMethod);
                             }
                             None => error.set(Some(
                                 "That authentication method is no longer available for your ASN."
@@ -1292,61 +1300,27 @@ pub fn use_autopeer_controller(
     };
 
     let on_logout = {
-        let asn = asn.clone();
-        let challenge_id = challenge_id.clone();
-        let challenge_text = challenge_text.clone();
-        let methods = methods.clone();
-        let selected_method = selected_method.clone();
-        let selected_pgp_key = selected_pgp_key.clone();
-        let auth_session = auth_session.clone();
-        let host_session = host_session.clone();
-        let nodes = nodes.clone();
-        let sessions = sessions.clone();
-        let draft = draft.clone();
-        let editing_node = editing_node.clone();
-        let config_stage = config_stage.clone();
+        let auth_flow_handles = auth_flow_handles.clone();
+        let auth_handles = auth_handles.clone();
+        let session_handles = session_handles.clone();
         let operation = operation.clone();
         let error = error.clone();
         let loading = loading.clone();
         let loading_message = loading_message.clone();
-        let step = step.clone();
         let impersonate_asn = impersonate_asn.clone();
         let impersonate_mnt = impersonate_mnt.clone();
-        let ssh_signature = ssh_signature.clone();
-        let pgp_public_key = pgp_public_key.clone();
-        let pgp_signed_message = pgp_signed_message.clone();
-        let selected_email_maintainer = selected_email_maintainer.clone();
-        let registry_email_code = registry_email_code.clone();
-        let registry_email_sent_to = registry_email_sent_to.clone();
 
         Callback::from(move |_| {
             save_persisted_sessions(&PersistedSessions::default());
-            asn.set(String::new());
-            challenge_id.set(None);
-            challenge_text.set(None);
-            methods.set(Vec::new());
-            selected_method.set(None);
-            selected_pgp_key.set(String::new());
-            auth_session.set(None);
-            host_session.set(None);
-            nodes.set(Vec::new());
-            sessions.set(Vec::new());
-            draft.set(SessionDraft::default());
-            editing_node.set(None);
-            config_stage.set(PeerConfigStage::SelectNode);
+            clear_auth_challenge(&auth_flow_handles);
+            auth_handles.auth_session.set(None);
+            auth_handles.host_session.set(None);
+            clear_session_state(&session_handles);
             operation.set(None);
             error.set(None);
             clear_loading(&loading, &loading_message);
-            step.set(AutoPeerStep::EnterAsn);
-            impersonate_asn.set(String::new());
-            impersonate_mnt.set(String::new());
-            ssh_signature.set(String::new());
-            selected_pgp_key.set(String::new());
-            pgp_public_key.set(String::new());
-            pgp_signed_message.set(String::new());
-            selected_email_maintainer.set(String::new());
-            registry_email_code.set(String::new());
-            registry_email_sent_to.set(Vec::new());
+            auth_handles.step.set(AutoPeerStep::EnterAsn);
+            clear_impersonation_inputs(&impersonate_asn, &impersonate_mnt);
         })
     };
 
@@ -1431,12 +1405,7 @@ pub fn use_autopeer_controller(
         let api_base = api_base.clone();
         let host_session = host_session.clone();
         let auth_session = auth_session.clone();
-        let asn = asn.clone();
-        let nodes = nodes.clone();
-        let sessions = sessions.clone();
-        let draft = draft.clone();
-        let editing_node = editing_node.clone();
-        let config_stage = config_stage.clone();
+        let session_handles = session_handles.clone();
         let impersonate_asn = impersonate_asn.clone();
         let impersonate_mnt = impersonate_mnt.clone();
         let error = error.clone();
@@ -1462,12 +1431,7 @@ pub fn use_autopeer_controller(
             error.set(None);
 
             let auth_session = auth_session.clone();
-            let asn = asn.clone();
-            let nodes = nodes.clone();
-            let sessions = sessions.clone();
-            let draft = draft.clone();
-            let editing_node = editing_node.clone();
-            let config_stage = config_stage.clone();
+            let session_handles = session_handles.clone();
             let impersonate_asn = impersonate_asn.clone();
             let impersonate_mnt = impersonate_mnt.clone();
             let error = error.clone();
@@ -1478,14 +1442,6 @@ pub fn use_autopeer_controller(
                 match service::list_sessions(&api_base, &host_session_value.session_token).await {
                     Ok(response) => {
                         auth_session.set(Some(host_session_value.clone()));
-                        let session_handles = SessionHandles {
-                            asn,
-                            nodes,
-                            sessions,
-                            draft,
-                            editing_node,
-                            config_stage,
-                        };
                         apply_session_list(response, &session_handles);
                         let next_draft = sync_create_draft(
                             &host_session_value.asn,
@@ -1494,16 +1450,12 @@ pub fn use_autopeer_controller(
                             &session_handles.draft,
                         );
                         session_handles.draft.set(next_draft);
-                        session_handles.editing_node.set(None);
-                        session_handles
-                            .config_stage
-                            .set(PeerConfigStage::SelectNode);
-                        impersonate_asn.set(String::new());
-                        impersonate_mnt.set(String::new());
+                        reset_session_selection(&session_handles);
+                        clear_impersonation_inputs(&impersonate_asn, &impersonate_mnt);
                         error.set(None);
                     }
                     Err(message) => {
-                        asn.set(host_session_value.asn.clone());
+                        session_handles.asn.set(host_session_value.asn.clone());
                         error.set(Some(message));
                     }
                 }
@@ -1739,7 +1691,8 @@ mod tests {
     use common::auto_peer::{AuthMethod, AuthMethodKind};
 
     use crate::controller::{
-        configured_href, filter_supported_methods, validate_ssh_signature_input,
+        configured_href, filter_supported_methods, matching_auth_method,
+        validate_ssh_signature_input,
     };
 
     #[test]
@@ -1793,6 +1746,51 @@ mod tests {
                 "-----BEGIN SSH SIGNATURE-----\nZm9v\n-----END SSH SIGNATURE-----"
             ),
             Ok(()),
+        );
+    }
+
+    #[test]
+    fn matches_auth_method_by_kind_and_provider() {
+        let registry = AuthMethod {
+            kind: AuthMethodKind::RegistrySsh,
+            label: "Registry SSH".into(),
+            description: "SSH".into(),
+            ..AuthMethod::default()
+        };
+        let kioubit = AuthMethod {
+            kind: AuthMethodKind::Oidc,
+            label: "Kioubit".into(),
+            description: "OIDC".into(),
+            provider: Some("kioubit".into()),
+            ..AuthMethod::default()
+        };
+        let lwm = AuthMethod {
+            kind: AuthMethodKind::Oidc,
+            label: "LWM".into(),
+            description: "OIDC".into(),
+            provider: Some("lwm".into()),
+            ..AuthMethod::default()
+        };
+        let available_methods = vec![registry.clone(), kioubit.clone(), lwm];
+
+        assert_eq!(
+            matching_auth_method(&available_methods, &kioubit),
+            Some(kioubit),
+        );
+        assert_eq!(
+            matching_auth_method(
+                &available_methods,
+                &AuthMethod {
+                    kind: AuthMethodKind::Oidc,
+                    provider: Some("missing".into()),
+                    ..AuthMethod::default()
+                }
+            ),
+            None,
+        );
+        assert_eq!(
+            matching_auth_method(&available_methods, &registry),
+            Some(registry),
         );
     }
 }
