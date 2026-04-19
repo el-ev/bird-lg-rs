@@ -191,6 +191,63 @@ export class GitHubClient {
     );
   }
 
+  async forcePushSingleFile(input: {
+    branch: string;
+    baseSha: string;
+    path: string;
+    content: string;
+    message: string;
+  }): Promise<string> {
+    const repoPath = joinPath(this.env.GITHUB_OWNER, this.env.GITHUB_REPO);
+
+    const baseCommit = await this.request<{ tree: { sha: string } }>(
+      `/repos/${repoPath}/git/commits/${encodeURIComponent(input.baseSha)}`,
+    );
+
+    const blob = await this.request<{ sha: string }>(
+      `/repos/${repoPath}/git/blobs`,
+      {
+        method: "POST",
+        body: JSON.stringify({ content: toBase64(input.content), encoding: "base64" }),
+      },
+    );
+
+    const tree = await this.request<{ sha: string }>(
+      `/repos/${repoPath}/git/trees`,
+      {
+        method: "POST",
+        body: JSON.stringify({
+          base_tree: baseCommit.tree.sha,
+          tree: [
+            { path: input.path, mode: "100644", type: "blob", sha: blob.sha },
+          ],
+        }),
+      },
+    );
+
+    const commit = await this.request<{ sha: string }>(
+      `/repos/${repoPath}/git/commits`,
+      {
+        method: "POST",
+        body: JSON.stringify({
+          message: input.message,
+          tree: tree.sha,
+          parents: [input.baseSha],
+        }),
+      },
+    );
+
+    await this.request(
+      `/repos/${repoPath}/git/refs/heads/${input.branch}`,
+      {
+        method: "PATCH",
+        body: JSON.stringify({ sha: commit.sha, force: true }),
+      },
+    );
+
+    return commit.sha;
+  }
+
   async upsertFile(input: {
     path: string;
     branch: string;

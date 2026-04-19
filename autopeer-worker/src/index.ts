@@ -1043,20 +1043,13 @@ async function handleMutation(
   );
 
   if (reusableOperation) {
-    const branchFile = await github.getFile(peerPath, reusableOperation.branch);
-    if (!branchFile.exists || !branchFile.sha) {
-      throw new HttpError(
-        `reusable branch ${reusableOperation.branch} is missing ${peerPath}`,
-        502,
-      );
-    }
-
-    await github.upsertFile({
-      path: peerPath,
+    const baseSha = await github.getBranchHead(env.GITHUB_BASE_BRANCH);
+    await github.forcePushSingleFile({
       branch: reusableOperation.branch,
-      sha: branchFile.sha,
+      baseSha,
+      path: peerPath,
       content: mutation.content,
-      message: `feat: autopeer ${kind} AS${authSession.asn} on ${nodeName} (retry)`,
+      message: `feat: autopeer ${kind} AS${authSession.asn} on ${nodeName}`,
     });
 
     const refreshedPr = reusableOperation.pr_number
