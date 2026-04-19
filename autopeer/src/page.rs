@@ -14,7 +14,8 @@ use yew::prelude::*;
 
 use crate::{
     controller::{
-        default_pgp_key, selected_registry_email_target, sync_create_draft, use_autopeer_controller,
+        OngoingTask, default_pgp_key, selected_registry_email_target, sync_create_draft,
+        use_autopeer_controller,
     },
     i18n::{I18n, use_i18n},
     store::{AutoPeerStep, PeerConfigStage, SessionDraft, SessionDraftField},
@@ -113,22 +114,48 @@ fn render_error(i18n: &I18n, error: &Option<String>) -> Html {
     }
 }
 
+fn render_loading_message(i18n: &I18n, raw: &str) -> String {
+    if raw.starts_with("loading.") || raw.starts_with("status.") {
+        i18n.translate_owned(raw)
+    } else {
+        raw.to_string()
+    }
+}
+
 fn render_loading(i18n: &I18n, loading: bool, loading_message: Option<&str>) -> Html {
-    if loading {
-        let message: String = match loading_message {
-            Some(raw) if raw.starts_with("loading.") || raw.starts_with("status.") => {
-                i18n.translate_owned(raw)
-            }
-            Some(raw) => raw.to_string(),
-            None => i18n.t("status.working").to_string(),
-        };
-        html! {
+    if !loading {
+        return Html::default();
+    }
+    let message = match loading_message {
+        Some(raw) => render_loading_message(i18n, raw),
+        None => i18n.t("status.working").to_string(),
+    };
+    html! {
+        <div class="autopeer-ongoing-task">
             <ShellLine>
                 <span class="text-secondary">{message}</span>
             </ShellLine>
-        }
-    } else {
-        Html::default()
+        </div>
+    }
+}
+
+fn render_ongoing_tasks(i18n: &I18n, tasks: &[OngoingTask]) -> Html {
+    if tasks.is_empty() {
+        return Html::default();
+    }
+    html! {
+        <div class="autopeer-ongoing-tasks">
+            { for tasks.iter().map(|task| {
+                let message = render_loading_message(i18n, &task.message);
+                html! {
+                    <div class="autopeer-ongoing-task" key={task.id}>
+                        <ShellLine>
+                            <span class="text-secondary">{message}</span>
+                        </ShellLine>
+                    </div>
+                }
+            }) }
+        </div>
     }
 }
 
@@ -443,8 +470,8 @@ pub fn auto_peer_page() -> Html {
     let retire_confirmation = controller.retire_confirmation.clone();
     let operation = controller.operation.clone();
     let error = controller.error.clone();
-    let loading = controller.loading.clone();
-    let loading_message = controller.loading_message.clone();
+    let ongoing_tasks = controller.ongoing_tasks.clone();
+    let loading = !ongoing_tasks.is_empty();
     let impersonate_asn = controller.impersonate_asn.clone();
     let impersonate_mnt = controller.impersonate_mnt.clone();
     let ssh_signature = controller.ssh_signature.clone();
@@ -499,17 +526,17 @@ pub fn auto_peer_page() -> Html {
                         value={(*asn).clone()}
                         on_change={on_asn_change}
                         placeholder={i18n.t("step.enter_asn.placeholder")}
-                        disabled={*loading}
+                        disabled={loading}
                         on_keydown={on_asn_keydown}
                     />
                 </ShellLine>
-                {render_loading(&i18n, *loading, loading_message.as_deref())}
+                {render_ongoing_tasks(&i18n, ongoing_tasks.tasks())}
                 {render_error(&i18n, &error)}
                 <ShellLine>
                     <ShellButton
                         text={i18n.t("action.find_registry_auth")}
                         onclick={on_submit_asn}
-                        disabled={*loading || asn.trim().is_empty()}
+                        disabled={loading || asn.trim().is_empty()}
                     />
                 </ShellLine>
                 if !oidc_methods.is_empty() {
@@ -520,7 +547,6 @@ pub fn auto_peer_page() -> Html {
                         <div class="autopeer-challenge-list">
                             {for oidc_methods.iter().map(|method| {
                                 let on_enter_oidc = on_enter_oidc.clone();
-                                let loading_for_button = loading.clone();
                                 let method = method.clone();
                                 let method_copy = method.clone();
                                 let onclick = Callback::from(move |_| {
@@ -532,7 +558,7 @@ pub fn auto_peer_page() -> Html {
                                         <ShellButton
                                             text={format!("{}{}", i18n.t("step.enter_asn.continue_with"), method.label)}
                                             onclick={onclick}
-                                            disabled={*loading_for_button}
+                                            disabled={loading}
                                         />
                                         <span class="autopeer-method-desc">
                                             {format!(" - {}", method.description)}
@@ -565,7 +591,7 @@ pub fn auto_peer_page() -> Html {
                                     <ShellButton
                                         text={method.label.clone()}
                                         onclick={onclick}
-                                        disabled={*loading}
+                                        disabled={loading}
                                     />
                                     <span class="autopeer-method-desc">
                                         {format!(" - {}", method.description)}
@@ -574,13 +600,13 @@ pub fn auto_peer_page() -> Html {
                             }
                         })}
                     </div>
-                    {render_loading(&i18n, *loading, loading_message.as_deref())}
+                    {render_ongoing_tasks(&i18n, ongoing_tasks.tasks())}
                     {render_error(&i18n, &error)}
                     <ShellLine>
                         <ShellButton
                             text={i18n.t("action.back")}
                             onclick={on_select_method_back.clone()}
-                            disabled={*loading}
+                            disabled={loading}
                         />
                     </ShellLine>
                 </div>
@@ -633,7 +659,7 @@ pub fn auto_peer_page() -> Html {
                                         value={(*ssh_signature).clone()}
                                         on_change={on_change}
                                         placeholder={i18n.t("verify.ssh.placeholder")}
-                                        disabled={*loading}
+                                        disabled={loading}
                                         multiline=true
                                         rows={10}
                                     />
@@ -719,7 +745,7 @@ pub fn auto_peer_page() -> Html {
                                         value={(*pgp_signed_message).clone()}
                                         on_change={on_signed_change}
                                         placeholder={i18n.t("verify.pgp.signed_placeholder")}
-                                        disabled={*loading}
+                                        disabled={loading}
                                         multiline=true
                                         rows={12}
                                     />
@@ -737,7 +763,7 @@ pub fn auto_peer_page() -> Html {
                                         value={(*pgp_public_key).clone()}
                                         on_change={on_pubkey_change}
                                         placeholder={i18n.t("verify.pgp.pubkey_placeholder")}
-                                        disabled={*loading}
+                                        disabled={loading}
                                         multiline=true
                                         rows={8}
                                     />
@@ -821,7 +847,7 @@ pub fn auto_peer_page() -> Html {
                                     <ShellButton
                                         text={send_button_text}
                                         onclick={on_send_registry_email.clone()}
-                                        disabled={*loading || selected_target.is_none()}
+                                        disabled={loading || selected_target.is_none()}
                                     />
                                 </ShellLine>
                                 <ShellLine>
@@ -833,7 +859,7 @@ pub fn auto_peer_page() -> Html {
                                         value={(*registry_email_code).clone()}
                                         on_change={on_code_change}
                                         placeholder={i18n.t("verify.email.code_placeholder")}
-                                        disabled={*loading}
+                                        disabled={loading}
                                     />
                                 </ShellLine>
                             </>
@@ -877,16 +903,16 @@ pub fn auto_peer_page() -> Html {
                             {format!(" {}{}{}", method.label, i18n.t("verify.auth_for_as"), *asn)}
                         </ShellLine>
                         {verification_fields}
-                        {render_loading(&i18n, *loading, loading_message.as_deref())}
+                        {render_ongoing_tasks(&i18n, ongoing_tasks.tasks())}
                         {render_error(&i18n, &error)}
                         <ShellLine>
                             <ShellButton
                                 text={i18n.t("action.back")}
                                 onclick={on_verify_back.clone()}
-                                disabled={*loading}
+                                disabled={loading}
                             />
                             {" "}
-                            <ShellButton text={verify_button_text} onclick={on_verify} disabled={*loading} />
+                            <ShellButton text={verify_button_text} onclick={on_verify} disabled={loading} />
                         </ShellLine>
                     </div>
                 }
@@ -1166,7 +1192,7 @@ pub fn auto_peer_page() -> Html {
                                                 (!selectable).then_some("is-unavailable")
                                             )}
                                             onclick={onclick}
-                                            disabled={*loading || !selectable}
+                                            disabled={loading || !selectable}
                                         >
                                             <span class="autopeer-node-option-head">
                                                 <strong class="autopeer-node-name">{node.name.clone()}</strong>
@@ -1224,7 +1250,7 @@ pub fn auto_peer_page() -> Html {
                                     }
                                 </div>
                                 if editing_node_value.is_none() {
-                                    <ShellButton text={i18n.t("action.choose_another_node")} onclick={on_change_node.clone()} disabled={*loading} />
+                                    <ShellButton text={i18n.t("action.choose_another_node")} onclick={on_change_node.clone()} disabled={loading} />
                                 }
                             </div>
                         }
@@ -1232,7 +1258,7 @@ pub fn auto_peer_page() -> Html {
                         <div class="autopeer-form-section">
                             <span class="autopeer-section-label">{i18n.t("stage2.section.connection")}</span>
                             <ShellLine>
-                                <ShellPrompt>{i18n.t("stage2.field.your_endpoint")}</ShellPrompt>
+                                <ShellPrompt>{i18n.t("stage2.field.endpoint")}</ShellPrompt>
                                 {" "}
                                 <ShellInput
                                     value={draft.endpoint.clone()}
@@ -1240,12 +1266,12 @@ pub fn auto_peer_page() -> Html {
                                     class={input_class(SessionDraftField::Endpoint)}
                                     frame_class={input_frame_class(SessionDraftField::Endpoint)}
                                     on_blur={on_field_blur(SessionDraftField::Endpoint)}
-                                    placeholder={i18n.t("stage2.field.your_endpoint.placeholder")}
-                                    disabled={*loading}
+                                    placeholder={i18n.t("stage2.field.endpoint.placeholder")}
+                                    disabled={loading}
                                 />
                             </ShellLine>
                             <ShellLine>
-                                <ShellPrompt>{i18n.t("stage2.field.your_wg_key")}</ShellPrompt>
+                                <ShellPrompt>{i18n.t("stage2.field.wg_key")}</ShellPrompt>
                                 {" "}
                                 <ShellInput
                                     value={draft.wg_public_key.clone()}
@@ -1253,8 +1279,8 @@ pub fn auto_peer_page() -> Html {
                                     class={input_class(SessionDraftField::WgPublicKey)}
                                     frame_class={input_frame_class(SessionDraftField::WgPublicKey)}
                                     on_blur={on_field_blur(SessionDraftField::WgPublicKey)}
-                                    placeholder={i18n.t("stage2.field.your_wg_key.placeholder")}
-                                    disabled={*loading}
+                                    placeholder={i18n.t("stage2.field.wg_key.placeholder")}
+                                    disabled={loading}
                                 />
                             </ShellLine>
                         </div>
@@ -1274,7 +1300,7 @@ pub fn auto_peer_page() -> Html {
                                     frame_class={input_frame_class(SessionDraftField::Peer4)}
                                     on_blur={on_field_blur(SessionDraftField::Peer4)}
                                     placeholder={i18n.t("stage2.field.peer4.placeholder")}
-                                    disabled={*loading}
+                                    disabled={loading}
                                 />
                             </ShellLine>
                             <ShellLine>
@@ -1287,7 +1313,7 @@ pub fn auto_peer_page() -> Html {
                                     frame_class={input_frame_class(SessionDraftField::Peer6)}
                                     on_blur={on_field_blur(SessionDraftField::Peer6)}
                                     placeholder={i18n.t("stage2.field.peer6.placeholder")}
-                                    disabled={*loading}
+                                    disabled={loading}
                                 />
                             </ShellLine>
                             if peer6_kind == Some(Peer6AddressKind::LinkLocal) {
@@ -1301,7 +1327,7 @@ pub fn auto_peer_page() -> Html {
                                         frame_class={input_frame_class(SessionDraftField::Own6)}
                                         on_blur={on_field_blur(SessionDraftField::Own6)}
                                         placeholder={own6_placeholder}
-                                        disabled={*loading}
+                                        disabled={loading}
                                     />
                                 </ShellLine>
                             } else if peer6_kind == Some(Peer6AddressKind::Ula) {
@@ -1394,7 +1420,7 @@ pub fn auto_peer_page() -> Html {
                                         value={draft.comment.clone()}
                                         on_change={update_text_field(|draft| &mut draft.comment)}
                                         placeholder={i18n.t("stage2.field.comment.placeholder")}
-                                        disabled={*loading}
+                                        disabled={loading}
                                     />
                                 </ShellLine>
                                 <ShellLine>
@@ -1407,7 +1433,7 @@ pub fn auto_peer_page() -> Html {
                                         frame_class={input_frame_class(SessionDraftField::Keepalive)}
                                         on_blur={on_field_blur(SessionDraftField::Keepalive)}
                                         placeholder={i18n.t("stage2.field.keepalive.placeholder")}
-                                        disabled={*loading}
+                                        disabled={loading}
                                     />
                                 </ShellLine>
                                 <ShellLine>
@@ -1420,31 +1446,31 @@ pub fn auto_peer_page() -> Html {
                                         frame_class={input_frame_class(SessionDraftField::Mtu)}
                                         on_blur={on_field_blur(SessionDraftField::Mtu)}
                                         placeholder={i18n.t("stage2.field.mtu.placeholder")}
-                                        disabled={*loading}
+                                        disabled={loading}
                                     />
                                 </ShellLine>
                             </div>
                         </details>
 
-                        {render_loading(&i18n, *loading, loading_message.as_deref())}
+                        {render_ongoing_tasks(&i18n, ongoing_tasks.tasks())}
                         {render_error(&i18n, &error)}
 
                         <div class="autopeer-inline-actions">
                             if editing_node_value.is_some() {
-                                <ShellButton text={i18n.t("action.cancel_edit")} onclick={on_cancel_edit.clone()} disabled={*loading} />
+                                <ShellButton text={i18n.t("action.cancel_edit")} onclick={on_cancel_edit.clone()} disabled={loading} />
                                 <ShellButton
                                     text={retire_button_text(&i18n, retire_confirmation_value)}
                                     onclick={on_retire_selected_session.clone()}
-                                    disabled={*loading}
+                                    disabled={loading}
                                 />
                             } else {
-                                <ShellButton text={i18n.t("action.back_to_nodes")} onclick={on_change_node.clone()} disabled={*loading} />
+                                <ShellButton text={i18n.t("action.back_to_nodes")} onclick={on_change_node.clone()} disabled={loading} />
                             }
                             <ShellButton
                                 text={if editing_node_value.is_some() { i18n.t("action.review_your_update") } else { i18n.t("action.review_your_change") }}
                                 onclick={on_continue_to_review}
                                 disabled={
-                                    *loading
+                                    loading
                                         || (editing_node_value.is_none() && draft.node.trim().is_empty())
                                         || !draft_is_valid
                                 }
@@ -1467,11 +1493,11 @@ pub fn auto_peer_page() -> Html {
                                 </strong>
                             </div>
                             <div class="autopeer-review-item">
-                                <span class="autopeer-review-label">{i18n.t("stage3.review.your_endpoint")}</span>
+                                <span class="autopeer-review-label">{i18n.t("stage3.review.endpoint")}</span>
                                 <strong class="autopeer-review-value">{draft.endpoint.clone()}</strong>
                             </div>
                             <div class="autopeer-review-item">
-                                <span class="autopeer-review-label">{i18n.t("stage3.review.your_wg_key")}</span>
+                                <span class="autopeer-review-label">{i18n.t("stage3.review.wg_key")}</span>
                                 <strong class="autopeer-review-value">{draft.wg_public_key.clone()}</strong>
                             </div>
                             <div class="autopeer-review-item">
@@ -1532,21 +1558,21 @@ pub fn auto_peer_page() -> Html {
 
                         {render_inventory_peering_review(&i18n, selected_node.as_ref(), &active_asn)}
 
-                        {render_loading(&i18n, *loading, loading_message.as_deref())}
+                        {render_ongoing_tasks(&i18n, ongoing_tasks.tasks())}
                         {render_error(&i18n, &error)}
 
                         <div class="autopeer-inline-actions">
-                            <ShellButton text={i18n.t("action.back_to_details")} onclick={on_back_to_details} disabled={*loading} />
+                            <ShellButton text={i18n.t("action.back_to_details")} onclick={on_back_to_details} disabled={loading} />
                             if editing_node_value.is_some() {
-                                <ShellButton text={i18n.t("action.cancel_edit")} onclick={on_cancel_edit} disabled={*loading} />
+                                <ShellButton text={i18n.t("action.cancel_edit")} onclick={on_cancel_edit} disabled={loading} />
                             } else {
-                                <ShellButton text={i18n.t("action.choose_another_node")} onclick={on_change_node} disabled={*loading} />
+                                <ShellButton text={i18n.t("action.choose_another_node")} onclick={on_change_node} disabled={loading} />
                             }
                             <ShellButton
                                 text={if editing_node_value.is_some() { i18n.t("action.open_update_pr") } else { i18n.t("action.open_create_pr") }}
                                 onclick={on_submit_session}
                                 disabled={
-                                    *loading
+                                    loading
                                         || (editing_node_value.is_none() && draft.node.trim().is_empty())
                                         || !draft_is_valid
                                 }
@@ -1587,8 +1613,8 @@ pub fn auto_peer_page() -> Html {
                                     </span>
                                 </>
                             }
-                            <ShellButton text={i18n.t("action.refresh")} onclick={on_refresh.clone()} disabled={*loading} />
-                            <ShellButton text={i18n.t("action.logout")} onclick={on_logout} disabled={*loading} />
+                            <ShellButton text={i18n.t("action.refresh")} onclick={on_refresh.clone()} disabled={loading} />
+                            <ShellButton text={i18n.t("action.logout")} onclick={on_logout} disabled={loading} />
                         </div>
                     </section>
 
@@ -1621,14 +1647,10 @@ pub fn auto_peer_page() -> Html {
                                     </h3>
                                     if let Some(session) = &auth_summary {
                                         <p class="text-secondary">
-                                            {format!(
-                                                "{}{}{}{}{}",
-                                                i18n.t("sidebar.session_authed_prefix"),
-                                                session.effective_mnt,
-                                                i18n.t("sidebar.session_authed_via"),
-                                                session.auth_method.label,
-                                                i18n.t("sidebar.session_authed_suffix"),
-                                            )}
+                                            {i18n
+                                                .t("sidebar.session_authed_template")
+                                                .replace("{mnt}", &session.effective_mnt)
+                                                .replace("{label}", &session.auth_method.label)}
                                         </p>
                                     }
                                 </div>
@@ -1654,7 +1676,7 @@ pub fn auto_peer_page() -> Html {
                                                 value={(*impersonate_asn).clone()}
                                                 on_change={on_impersonate_asn_change}
                                                 placeholder={i18n.t("sidebar.impersonate_asn_placeholder")}
-                                                disabled={*loading}
+                                                disabled={loading}
                                             />
                                         </ShellLine>
                                         <ShellLine>
@@ -1664,20 +1686,20 @@ pub fn auto_peer_page() -> Html {
                                                 value={(*impersonate_mnt).clone()}
                                                 on_change={on_impersonate_mnt_change}
                                                 placeholder={i18n.t("sidebar.impersonate_mnt_placeholder")}
-                                                disabled={*loading}
+                                                disabled={loading}
                                             />
                                         </ShellLine>
                                         <div class="autopeer-inline-actions">
                                             <ShellButton
                                                 text={i18n.t("action.impersonate_this_asn")}
                                                 onclick={on_impersonate}
-                                                disabled={*loading || impersonate_asn.trim().is_empty()}
+                                                disabled={loading || impersonate_asn.trim().is_empty()}
                                             />
                                             if auth_summary.as_ref().map(|session| session.asn.as_str()) != Some(host_session.asn.as_str()) {
                                                 <ShellButton
                                                     text={i18n.t("action.return_to_host_asn")}
                                                     onclick={on_return_to_host}
-                                                    disabled={*loading}
+                                                    disabled={loading}
                                                 />
                                             }
                                         </div>

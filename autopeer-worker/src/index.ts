@@ -1112,7 +1112,6 @@ async function handleMutation(
       `- Node: \`${nodeName}\``,
       `- Maintainer: \`${authSession.effective_mnt}\``,
       `- Auth: \`${mutationAuthMethod.provider ?? mutationAuthMethod.kind}\``,
-      `- Managed by: \`bird-lg-autopeer\``,
     ].join("\n"),
     head: operation.branch,
     base: env.GITHUB_BASE_BRANCH,

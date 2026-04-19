@@ -1078,6 +1078,19 @@ details[open] .summary-header {
     gap: var(--spacing-md);
 }
 
+.autopeer-ongoing-tasks {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.autopeer-ongoing-task {
+    padding: 8px 12px;
+    border-radius: var(--radius-sm, 6px);
+    border: 1px solid color-mix(in srgb, var(--accent) 25%, var(--border));
+    background: color-mix(in srgb, var(--accent) 6%, transparent);
+}
+
 .autopeer-panel-header {
     display: flex;
     flex-direction: column;

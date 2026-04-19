@@ -1,4 +1,6 @@
 use std::collections::BTreeSet;
+use std::rc::Rc;
+use std::sync::atomic::{AtomicU64, Ordering};
 
 use common::auto_peer::{
     AuthMethod, AuthMethodKind, AuthSessionResponse, CreateSessionRequest, NodeView,
@@ -8,6 +10,53 @@ use gloo_timers::future::TimeoutFuture;
 use wasm_bindgen_futures::spawn_local;
 use web_sys::UrlSearchParams;
 use yew::prelude::*;
+
+static NEXT_ONGOING_TASK_ID: AtomicU64 = AtomicU64::new(1);
+
+#[derive(Clone, PartialEq)]
+pub struct OngoingTask {
+    pub id: u64,
+    pub message: String,
+}
+
+#[derive(Clone, PartialEq, Default)]
+pub struct OngoingTasks(Vec<OngoingTask>);
+
+impl OngoingTasks {
+    pub fn is_empty(&self) -> bool {
+        self.0.is_empty()
+    }
+
+    pub fn tasks(&self) -> &[OngoingTask] {
+        &self.0
+    }
+}
+
+pub enum OngoingTaskAction {
+    Add(OngoingTask),
+    Remove(u64),
+    Clear,
+}
+
+impl Reducible for OngoingTasks {
+    type Action = OngoingTaskAction;
+
+    fn reduce(self: Rc<Self>, action: Self::Action) -> Rc<Self> {
+        match action {
+            OngoingTaskAction::Add(task) => {
+                let mut next = self.0.clone();
+                next.push(task);
+                Rc::new(OngoingTasks(next))
+            }
+            OngoingTaskAction::Remove(id) => {
+                let next: Vec<OngoingTask> =
+                    self.0.iter().filter(|t| t.id != id).cloned().collect();
+                Rc::new(OngoingTasks(next))
+            }
+            OngoingTaskAction::Clear => Rc::new(OngoingTasks(Vec::new())),
+        }
+    }
+}
 
 use crate::{
     service,
@@ -270,18 +319,21 @@ fn set_authenticated_session(
     auth_session.set(Some(session));
 }
 
-fn start_loading(
-    loading: &UseStateHandle<bool>,
-    loading_message: &UseStateHandle<Option<String>>,
-    message: &str,
-) {
-    loading.set(true);
-    loading_message.set(Some(message.to_string()));
+fn start_loading(ongoing_tasks: &UseReducerHandle<OngoingTasks>, message: &str) -> u64 {
+    let id = NEXT_ONGOING_TASK_ID.fetch_add(1, Ordering::Relaxed);
+    ongoing_tasks.dispatch(OngoingTaskAction::Add(OngoingTask {
+        id,
+        message: message.to_string(),
+    }));
+    id
 }
 
-fn clear_loading(loading: &UseStateHandle<bool>, loading_message: &UseStateHandle<Option<String>>) {
-    loading.set(false);
-    loading_message.set(None);
+fn clear_loading(ongoing_tasks: &UseReducerHandle<OngoingTasks>, id: u64) {
+    ongoing_tasks.dispatch(OngoingTaskAction::Remove(id));
+}
+
+fn clear_all_loading(ongoing_tasks: &UseReducerHandle<OngoingTasks>) {
+    ongoing_tasks.dispatch(OngoingTaskAction::Clear);
 }
 
 fn hash_param(name: &str) -> Option<String> {
@@ -365,8 +417,8 @@ async fn finish_redirected_auth_session(
     session_handles: &SessionHandles,
     auth_handles: &AuthHandles,
     error: &UseStateHandle<Option<String>>,
-    loading: &UseStateHandle<bool>,
-    loading_message: &UseStateHandle<Option<String>>,
+    ongoing_tasks: &UseReducerHandle<OngoingTasks>,
+    task_id: u64,
 ) {
     clear_location_hash();
     match result {
@@ -379,7 +431,7 @@ async fn finish_redirected_auth_session(
             auth_handles.step.set(AutoPeerStep::EnterAsn);
         }
     }
-    clear_loading(loading, loading_message);
+    clear_loading(ongoing_tasks, task_id);
 }
 
 async fn restore_persisted_state(
@@ -471,8 +523,7 @@ pub struct AutoPeerController {
     pub retire_confirmation: UseStateHandle<bool>,
     pub operation: UseStateHandle<Option<OperationStatus>>,
     pub error: UseStateHandle<Option<String>>,
-    pub loading: UseStateHandle<bool>,
-    pub loading_message: UseStateHandle<Option<String>>,
+    pub ongoing_tasks: UseReducerHandle<OngoingTasks>,
     pub impersonate_asn: UseStateHandle<String>,
     pub impersonate_mnt: UseStateHandle<String>,
     pub ssh_signature: UseStateHandle<String>,
@@ -542,8 +593,7 @@ pub fn use_autopeer_controller(
     let retire_confirmation = use_state(|| false);
     let operation = use_state(|| None::<OperationStatus>);
     let error = use_state(|| None::<String>);
-    let loading = use_state(|| false);
-    let loading_message = use_state(|| None::<String>);
+    let ongoing_tasks = use_reducer(OngoingTasks::default);
 
     let impersonate_asn = use_state(String::new);
     let impersonate_mnt = use_state(String::new);
@@ -588,8 +638,7 @@ pub fn use_autopeer_controller(
         let looking_glass_site_href = looking_glass_site_href.clone();
         let oidc_methods = oidc_methods.clone();
         let error = error.clone();
-        let loading = loading.clone();
-        let loading_message = loading_message.clone();
+        let ongoing_tasks = ongoing_tasks.clone();
         let session_handles = session_handles.clone();
         let auth_handles = auth_handles.clone();
 
@@ -624,38 +673,30 @@ pub fn use_autopeer_controller(
                         }
 
                         if let Some(token) = hash_param("email_token") {
-                            start_loading(
-                                &loading,
-                                &loading_message,
-                                "loading.email_login",
-                            );
+                            let task_id = start_loading(&ongoing_tasks, "loading.email_login");
                             finish_redirected_auth_session(
                                 &api_url,
                                 service::complete_registry_email(&api_url, &token).await,
                                 &session_handles,
                                 &auth_handles,
                                 &error,
-                                &loading,
-                                &loading_message,
+                                &ongoing_tasks,
+                                task_id,
                             )
                             .await;
                             return;
                         }
 
                         if let Some(state) = hash_param("oidc_state") {
-                            start_loading(
-                                &loading,
-                                &loading_message,
-                                "loading.oidc_login",
-                            );
+                            let task_id = start_loading(&ongoing_tasks, "loading.oidc_login");
                             finish_redirected_auth_session(
                                 &api_url,
                                 service::complete_oidc(&api_url, &state).await,
                                 &session_handles,
                                 &auth_handles,
                                 &error,
-                                &loading,
-                                &loading_message,
+                                &ongoing_tasks,
+                                task_id,
                             )
                             .await;
                             return;
@@ -740,8 +781,7 @@ pub fn use_autopeer_controller(
         let api_base = api_base.clone();
         let auth_session = auth_session.clone();
         let error = error.clone();
-        let loading = loading.clone();
-        let loading_message = loading_message.clone();
+        let ongoing_tasks = ongoing_tasks.clone();
         let session_handles = session_handles.clone();
 
         Callback::from(move |_| {
@@ -752,15 +792,10 @@ pub fn use_autopeer_controller(
                 return;
             };
 
-            start_loading(
-                &loading,
-                &loading_message,
-                "loading.fetch_sessions",
-            );
+            let task_id = start_loading(&ongoing_tasks, "loading.fetch_sessions");
 
             let error = error.clone();
-            let loading = loading.clone();
-            let loading_message = loading_message.clone();
+            let ongoing_tasks = ongoing_tasks.clone();
             let session_handles = session_handles.clone();
 
             spawn_local(async move {
@@ -776,7 +811,7 @@ pub fn use_autopeer_controller(
                     }
                     Err(message) => error.set(Some(message)),
                 }
-                clear_loading(&loading, &loading_message);
+                clear_loading(&ongoing_tasks, task_id);
             });
         })
     };
@@ -786,8 +821,7 @@ pub fn use_autopeer_controller(
         let auth_session = auth_session.clone();
         let operation = operation.clone();
         let error = error.clone();
-        let loading = loading.clone();
-        let loading_message = loading_message.clone();
+        let ongoing_tasks = ongoing_tasks.clone();
         let session_handles = session_handles.clone();
 
         Callback::from(move |initial_operation: OperationStatus| {
@@ -800,8 +834,7 @@ pub fn use_autopeer_controller(
 
             let operation = operation.clone();
             let error = error.clone();
-            let loading = loading.clone();
-            let loading_message = loading_message.clone();
+            let ongoing_tasks = ongoing_tasks.clone();
             let session_handles = session_handles.clone();
 
             spawn_local(async move {
@@ -810,11 +843,7 @@ pub fn use_autopeer_controller(
 
                 loop {
                     if current.state.is_terminal() {
-                        start_loading(
-                            &loading,
-                            &loading_message,
-                            "loading.refresh_sessions",
-                        );
+                        let task_id = start_loading(&ongoing_tasks, "loading.refresh_sessions");
                         match service::list_sessions(&api_base, &auth_session.session_token).await {
                             Ok(response) => {
                                 apply_session_list(response, &session_handles);
@@ -823,7 +852,7 @@ pub fn use_autopeer_controller(
                             }
                             Err(message) => error.set(Some(message)),
                         }
-                        clear_loading(&loading, &loading_message);
+                        clear_loading(&ongoing_tasks, task_id);
                         break;
                     }
 
@@ -882,8 +911,7 @@ pub fn use_autopeer_controller(
         let auth_handles = auth_handles.clone();
         let operation = operation.clone();
         let error = error.clone();
-        let loading = loading.clone();
-        let loading_message = loading_message.clone();
+        let ongoing_tasks = ongoing_tasks.clone();
         let session_handles = session_handles.clone();
 
         Callback::from(move |_| {
@@ -897,11 +925,7 @@ pub fn use_autopeer_controller(
                 return;
             }
 
-            start_loading(
-                &loading,
-                &loading_message,
-                "loading.fetch_methods",
-            );
+            let task_id = start_loading(&ongoing_tasks, "loading.fetch_methods");
             error.set(None);
             operation.set(None);
 
@@ -909,8 +933,7 @@ pub fn use_autopeer_controller(
             let oidc_methods = oidc_methods.clone();
             let auth_handles = auth_handles.clone();
             let error = error.clone();
-            let loading = loading.clone();
-            let loading_message = loading_message.clone();
+            let ongoing_tasks = ongoing_tasks.clone();
             let session_handles = session_handles.clone();
 
             spawn_local(async move {
@@ -929,7 +952,7 @@ pub fn use_autopeer_controller(
                     }
                     Err(message) => error.set(Some(message)),
                 }
-                clear_loading(&loading, &loading_message);
+                clear_loading(&ongoing_tasks, task_id);
             });
         })
     };
@@ -941,10 +964,10 @@ pub fn use_autopeer_controller(
 
     let on_asn_keydown = {
         let submit_asn = submit_asn.clone();
-        let loading = loading.clone();
+        let ongoing_tasks = ongoing_tasks.clone();
         let asn = asn.clone();
         Callback::from(move |event: KeyboardEvent| {
-            if event.key() == "Enter" && !*loading && !asn.trim().is_empty() {
+            if event.key() == "Enter" && ongoing_tasks.is_empty() && !asn.trim().is_empty() {
                 event.prevent_default();
                 submit_asn.emit(());
             }
@@ -954,8 +977,7 @@ pub fn use_autopeer_controller(
     let on_enter_oidc = {
         let api_base = api_base.clone();
         let error = error.clone();
-        let loading = loading.clone();
-        let loading_message = loading_message.clone();
+        let ongoing_tasks = ongoing_tasks.clone();
 
         Callback::from(move |method: AuthMethod| {
             let Some(api_base) = require_api_base(&api_base, &error) else {
@@ -966,27 +988,22 @@ pub fn use_autopeer_controller(
                 return;
             };
 
-            start_loading(
-                &loading,
-                &loading_message,
-                "loading.redirect_oidc",
-            );
+            let task_id = start_loading(&ongoing_tasks, "loading.redirect_oidc");
             error.set(None);
 
-            let loading = loading.clone();
-            let loading_message = loading_message.clone();
+            let ongoing_tasks = ongoing_tasks.clone();
             let error = error.clone();
 
             spawn_local(async move {
                 match service::start_oidc(&api_base, &provider, None).await {
                     Ok(response) => {
                         if let Err(message) = redirect_to(&response.authorization_url) {
-                            clear_loading(&loading, &loading_message);
+                            clear_loading(&ongoing_tasks, task_id);
                             error.set(Some(message));
                         }
                     }
                     Err(message) => {
-                        clear_loading(&loading, &loading_message);
+                        clear_loading(&ongoing_tasks, task_id);
                         error.set(Some(message));
                     }
                 }
@@ -1010,8 +1027,7 @@ pub fn use_autopeer_controller(
         let oidc_methods = oidc_methods.clone();
         let auth_handles = auth_handles.clone();
         let error = error.clone();
-        let loading = loading.clone();
-        let loading_message = loading_message.clone();
+        let ongoing_tasks = ongoing_tasks.clone();
 
         Callback::from(move |method_value: AuthMethod| {
             let Some(api_base) = require_api_base(&api_base, &error) else {
@@ -1024,18 +1040,13 @@ pub fn use_autopeer_controller(
                 return;
             }
 
-            start_loading(
-                &loading,
-                &loading_message,
-                "loading.fetch_challenge",
-            );
+            let task_id = start_loading(&ongoing_tasks, "loading.fetch_challenge");
             error.set(None);
 
             let auth_flow_handles = auth_flow_handles.clone();
             let auth_handles = auth_handles.clone();
             let error = error.clone();
-            let loading = loading.clone();
-            let loading_message = loading_message.clone();
+            let ongoing_tasks = ongoing_tasks.clone();
             let oidc_methods = oidc_methods.clone();
 
             spawn_local(async move {
@@ -1065,7 +1076,7 @@ pub fn use_autopeer_controller(
                     }
                     Err(message) => error.set(Some(message)),
                 }
-                clear_loading(&loading, &loading_message);
+                clear_loading(&ongoing_tasks, task_id);
             });
         })
     };
@@ -1086,8 +1097,7 @@ pub fn use_autopeer_controller(
         let selected_email_maintainer = selected_email_maintainer.clone();
         let registry_email_sent_to = registry_email_sent_to.clone();
         let error = error.clone();
-        let loading = loading.clone();
-        let loading_message = loading_message.clone();
+        let ongoing_tasks = ongoing_tasks.clone();
 
         Callback::from(move |_| {
             let Some(api_base) = require_api_base(&api_base, &error) else {
@@ -1117,18 +1127,13 @@ pub fn use_autopeer_controller(
                 return;
             };
 
-            start_loading(
-                &loading,
-                &loading_message,
-                "loading.send_email",
-            );
+            let task_id = start_loading(&ongoing_tasks, "loading.send_email");
             error.set(None);
 
             let effective_mnt = target.maintainer.clone();
             let registry_email_sent_to = registry_email_sent_to.clone();
             let error = error.clone();
-            let loading = loading.clone();
-            let loading_message = loading_message.clone();
+            let ongoing_tasks = ongoing_tasks.clone();
 
             spawn_local(async move {
                 match service::send_registry_email(&api_base, &challenge_id, Some(&effective_mnt))
@@ -1141,7 +1146,7 @@ pub fn use_autopeer_controller(
                     Err(message) => error.set(Some(message)),
                 }
 
-                clear_loading(&loading, &loading_message);
+                clear_loading(&ongoing_tasks, task_id);
             });
         })
     };
@@ -1151,8 +1156,7 @@ pub fn use_autopeer_controller(
         let challenge_id = challenge_id.clone();
         let selected_method = selected_method.clone();
         let error = error.clone();
-        let loading = loading.clone();
-        let loading_message = loading_message.clone();
+        let ongoing_tasks = ongoing_tasks.clone();
         let ssh_signature = ssh_signature.clone();
         let pgp_public_key = pgp_public_key.clone();
         let pgp_signed_message = pgp_signed_message.clone();
@@ -1197,12 +1201,11 @@ pub fn use_autopeer_controller(
                 AuthMethodKind::Oidc => "loading.redirect_oidc",
                 AuthMethodKind::HostImpersonation => "loading.host_session_prep",
             };
-            start_loading(&loading, &loading_message, loading_text);
+            let task_id = start_loading(&ongoing_tasks, loading_text);
             error.set(None);
 
             let error = error.clone();
-            let loading = loading.clone();
-            let loading_message = loading_message.clone();
+            let ongoing_tasks = ongoing_tasks.clone();
             let ssh_signature_value = (*ssh_signature).clone();
             let pgp_public_key_value = (*pgp_public_key).clone();
             let pgp_signed_message_value = (*pgp_signed_message).clone();
@@ -1213,7 +1216,7 @@ pub fn use_autopeer_controller(
             spawn_local(async move {
                 if method.kind == AuthMethodKind::Oidc {
                     let Some(provider) = method.provider.clone() else {
-                        clear_loading(&loading, &loading_message);
+                        clear_loading(&ongoing_tasks, task_id);
                         error.set(Some("error.oidc_provider_missing".to_string()));
                         return;
                     };
@@ -1221,12 +1224,12 @@ pub fn use_autopeer_controller(
                     match service::start_oidc(&api_base, &provider, Some(&challenge_id)).await {
                         Ok(response) => {
                             if let Err(message) = redirect_to(&response.authorization_url) {
-                                clear_loading(&loading, &loading_message);
+                                clear_loading(&ongoing_tasks, task_id);
                                 error.set(Some(message));
                             }
                         }
                         Err(message) => {
-                            clear_loading(&loading, &loading_message);
+                            clear_loading(&ongoing_tasks, task_id);
                             error.set(Some(message));
                         }
                     }
@@ -1257,7 +1260,7 @@ pub fn use_autopeer_controller(
                     }
                     AuthMethodKind::Oidc => unreachable!(),
                     AuthMethodKind::HostImpersonation => {
-                        clear_loading(&loading, &loading_message);
+                        clear_loading(&ongoing_tasks, task_id);
                         error.set(Some(
                             "error.impersonate_after_host"
                                 .to_string(),
@@ -1280,7 +1283,7 @@ pub fn use_autopeer_controller(
                     Err(message) => error.set(Some(message)),
                 }
 
-                clear_loading(&loading, &loading_message);
+                clear_loading(&ongoing_tasks, task_id);
             });
         })
     };
@@ -1296,8 +1299,7 @@ pub fn use_autopeer_controller(
         let session_handles = session_handles.clone();
         let operation = operation.clone();
         let error = error.clone();
-        let loading = loading.clone();
-        let loading_message = loading_message.clone();
+        let ongoing_tasks = ongoing_tasks.clone();
         let impersonate_asn = impersonate_asn.clone();
         let impersonate_mnt = impersonate_mnt.clone();
 
@@ -1309,7 +1311,7 @@ pub fn use_autopeer_controller(
             clear_session_state(&session_handles);
             operation.set(None);
             error.set(None);
-            clear_loading(&loading, &loading_message);
+            clear_all_loading(&ongoing_tasks);
             auth_handles.step.set(AutoPeerStep::EnterAsn);
             clear_impersonation_inputs(&impersonate_asn, &impersonate_mnt);
         })
@@ -1323,8 +1325,7 @@ pub fn use_autopeer_controller(
         let impersonate_mnt = impersonate_mnt.clone();
         let operation = operation.clone();
         let error = error.clone();
-        let loading = loading.clone();
-        let loading_message = loading_message.clone();
+        let ongoing_tasks = ongoing_tasks.clone();
         let session_handles = session_handles.clone();
         let auth_handles = auth_handles.clone();
 
@@ -1350,18 +1351,13 @@ pub fn use_autopeer_controller(
                 return;
             }
 
-            start_loading(
-                &loading,
-                &loading_message,
-                "loading.authing_asn",
-            );
+            let task_id = start_loading(&ongoing_tasks, "loading.authing_asn");
             error.set(None);
             operation.set(None);
 
             let impersonate_mnt_value = (*impersonate_mnt).clone();
             let error = error.clone();
-            let loading = loading.clone();
-            let loading_message = loading_message.clone();
+            let ongoing_tasks = ongoing_tasks.clone();
             let session_handles = session_handles.clone();
             let auth_handles = auth_handles.clone();
 
@@ -1387,7 +1383,7 @@ pub fn use_autopeer_controller(
                     Err(message) => error.set(Some(message)),
                 }
 
-                clear_loading(&loading, &loading_message);
+                clear_loading(&ongoing_tasks, task_id);
             });
         })
     };
@@ -1400,8 +1396,7 @@ pub fn use_autopeer_controller(
         let impersonate_asn = impersonate_asn.clone();
         let impersonate_mnt = impersonate_mnt.clone();
         let error = error.clone();
-        let loading = loading.clone();
-        let loading_message = loading_message.clone();
+        let ongoing_tasks = ongoing_tasks.clone();
 
         Callback::from(move |_| {
             let Some(api_base) = require_api_base(&api_base, &error) else {
@@ -1414,11 +1409,7 @@ pub fn use_autopeer_controller(
                 return;
             };
 
-            start_loading(
-                &loading,
-                &loading_message,
-                "loading.restore_host",
-            );
+            let task_id = start_loading(&ongoing_tasks, "loading.restore_host");
             error.set(None);
 
             let auth_session = auth_session.clone();
@@ -1426,8 +1417,7 @@ pub fn use_autopeer_controller(
             let impersonate_asn = impersonate_asn.clone();
             let impersonate_mnt = impersonate_mnt.clone();
             let error = error.clone();
-            let loading = loading.clone();
-            let loading_message = loading_message.clone();
+            let ongoing_tasks = ongoing_tasks.clone();
 
             spawn_local(async move {
                 match service::list_sessions(&api_base, &host_session_value.session_token).await {
@@ -1450,7 +1440,7 @@ pub fn use_autopeer_controller(
                     }
                 }
 
-                clear_loading(&loading, &loading_message);
+                clear_loading(&ongoing_tasks, task_id);
             });
         })
     };
@@ -1462,8 +1452,7 @@ pub fn use_autopeer_controller(
         let editing_node = editing_node.clone();
         let operation = operation.clone();
         let error = error.clone();
-        let loading = loading.clone();
-        let loading_message = loading_message.clone();
+        let ongoing_tasks = ongoing_tasks.clone();
         let poll_operation = poll_operation.clone();
 
         Callback::from(move |_| {
@@ -1490,9 +1479,8 @@ pub fn use_autopeer_controller(
                 }
             };
 
-            start_loading(
-                &loading,
-                &loading_message,
+            let task_id = start_loading(
+                &ongoing_tasks,
                 if editing_node.is_some() {
                     "loading.update_pr"
                 } else {
@@ -1503,8 +1491,7 @@ pub fn use_autopeer_controller(
 
             let operation = operation.clone();
             let error = error.clone();
-            let loading = loading.clone();
-            let loading_message = loading_message.clone();
+            let ongoing_tasks = ongoing_tasks.clone();
             let poll_operation = poll_operation.clone();
             let editing = (*editing_node).clone();
             let session_asn = auth_session.asn.clone();
@@ -1541,7 +1528,7 @@ pub fn use_autopeer_controller(
                     Err(message) => error.set(Some(message)),
                 }
 
-                clear_loading(&loading, &loading_message);
+                clear_loading(&ongoing_tasks, task_id);
             });
         })
     };
@@ -1554,8 +1541,7 @@ pub fn use_autopeer_controller(
         let editing_node = editing_node.clone();
         let operation = operation.clone();
         let error = error.clone();
-        let loading = loading.clone();
-        let loading_message = loading_message.clone();
+        let ongoing_tasks = ongoing_tasks.clone();
         let poll_operation = poll_operation.clone();
         let config_stage = config_stage.clone();
         let retire_confirmation = retire_confirmation.clone();
@@ -1586,17 +1572,12 @@ pub fn use_autopeer_controller(
             editing_node.set(None);
             config_stage.set(PeerConfigStage::SelectNode);
 
-            start_loading(
-                &loading,
-                &loading_message,
-                "loading.retire_pr",
-            );
+            let task_id = start_loading(&ongoing_tasks, "loading.retire_pr");
             error.set(None);
 
             let operation = operation.clone();
             let error = error.clone();
-            let loading = loading.clone();
-            let loading_message = loading_message.clone();
+            let ongoing_tasks = ongoing_tasks.clone();
             let poll_operation = poll_operation.clone();
             let session_asn = auth_session.asn.clone();
 
@@ -1616,7 +1597,7 @@ pub fn use_autopeer_controller(
                     Err(message) => error.set(Some(message)),
                 }
 
-                clear_loading(&loading, &loading_message);
+                clear_loading(&ongoing_tasks, task_id);
             });
         })
     };
@@ -1641,8 +1622,7 @@ pub fn use_autopeer_controller(
         retire_confirmation,
         operation,
         error,
-        loading,
-        loading_message,
+        ongoing_tasks,
         impersonate_asn,
         impersonate_mnt,
         ssh_signature,
