@@ -137,6 +137,14 @@ impl SessionDraft {
         self.peer6.trim().to_lowercase().starts_with("fe80:")
     }
 
+    fn requires_peer4(&self) -> bool {
+        self.ipv4 && !self.mp_bgp
+    }
+
+    fn requires_peer6(&self) -> bool {
+        self.ipv6 || self.mp_bgp
+    }
+
     pub fn field_error(&self, field: SessionDraftField) -> Option<String> {
         let peer4 = optional_string(&self.peer4);
         let peer6 = optional_string(&self.peer6);
@@ -148,7 +156,7 @@ impl SessionDraft {
                 validate_wireguard_public_key(&self.wg_public_key).err()
             }
             SessionDraftField::Peer4 => {
-                if !self.mp_bgp && self.ipv4 && peer4.is_none() {
+                if self.requires_peer4() && peer4.is_none() {
                     Some(
                         "An IPv4 peer address is required for IPv4 when MP-BGP is disabled"
                             .to_string(),
@@ -160,11 +168,8 @@ impl SessionDraft {
             SessionDraftField::Peer6 => {
                 if self.mp_bgp && peer6.is_none() {
                     Some("An IPv6 peer address is required when MP-BGP is enabled".to_string())
-                } else if !self.mp_bgp && self.ipv6 && peer6.is_none() {
-                    Some(
-                        "An IPv6 peer address is required for IPv6 when MP-BGP is disabled"
-                            .to_string(),
-                    )
+                } else if self.ipv6 && peer6.is_none() {
+                    Some("An IPv6 peer address is required for IPv6 routes".to_string())
                 } else {
                     validate_peer_ipv6(peer6, "Peer IPv6 address").err()
                 }
@@ -205,15 +210,13 @@ impl SessionDraft {
         if self.mp_bgp && peer6.is_none() {
             return Err("An IPv6 peer address is required when MP-BGP is enabled".to_string());
         }
-        if !self.mp_bgp && self.ipv4 && peer4.is_none() {
+        if self.requires_peer4() && peer4.is_none() {
             return Err(
                 "An IPv4 peer address is required for IPv4 when MP-BGP is disabled".to_string(),
             );
         }
-        if !self.mp_bgp && self.ipv6 && peer6.is_none() {
-            return Err(
-                "An IPv6 peer address is required for IPv6 when MP-BGP is disabled".to_string(),
-            );
+        if self.requires_peer6() && peer6.is_none() {
+            return Err("An IPv6 peer address is required for IPv6 routes".to_string());
         }
         if self.extended_next_hop && !self.mp_bgp {
             return Err("Extended next hop requires MP-BGP".to_string());
@@ -535,6 +538,78 @@ mod tests {
         let spec = draft.to_spec().unwrap();
         assert_eq!(spec.peer4, Some("172.20.193.67".into()));
         assert_eq!(spec.peer6, Some("fd55:dead:beef::3".into()));
+    }
+
+    #[test]
+    fn draft_to_spec_allows_ipv4_only_sessions() {
+        let draft = SessionDraft {
+            endpoint: "peer.example.net:21023".into(),
+            wg_public_key: VALID_WG_KEY.into(),
+            peer4: "172.20.193.67".into(),
+            ipv6: false,
+            extended_next_hop: false,
+            mp_bgp: false,
+            ..SessionDraft::default()
+        };
+
+        let spec = draft.to_spec().unwrap();
+        assert_eq!(spec.peer4, Some("172.20.193.67".into()));
+        assert_eq!(spec.peer6, None);
+        assert!(spec.ipv4);
+        assert!(!spec.ipv6);
+        assert!(!spec.mp_bgp);
+    }
+
+    #[test]
+    fn draft_to_spec_allows_ipv4_routes_over_ipv6_mp_bgp() {
+        let draft = SessionDraft {
+            endpoint: "peer.example.net:21023".into(),
+            wg_public_key: VALID_WG_KEY.into(),
+            peer6: "fd55:dead:beef::3".into(),
+            ipv6: false,
+            ..SessionDraft::default()
+        };
+
+        let spec = draft.to_spec().unwrap();
+        assert_eq!(spec.peer4, None);
+        assert_eq!(spec.peer6, Some("fd55:dead:beef::3".into()));
+        assert!(spec.ipv4);
+        assert!(!spec.ipv6);
+        assert!(spec.mp_bgp);
+    }
+
+    #[test]
+    fn draft_to_spec_rejects_mp_bgp_without_peer6() {
+        let draft = SessionDraft {
+            endpoint: "peer.example.net:21023".into(),
+            wg_public_key: VALID_WG_KEY.into(),
+            peer4: "172.20.193.67".into(),
+            ipv6: false,
+            ..SessionDraft::default()
+        };
+
+        assert_eq!(
+            draft.to_spec().unwrap_err(),
+            "An IPv6 peer address is required when MP-BGP is enabled"
+        );
+    }
+
+    #[test]
+    fn draft_to_spec_rejects_ipv6_routes_without_peer6() {
+        let draft = SessionDraft {
+            endpoint: "peer.example.net:21023".into(),
+            wg_public_key: VALID_WG_KEY.into(),
+            peer4: "172.20.193.67".into(),
+            ipv4: false,
+            extended_next_hop: false,
+            mp_bgp: false,
+            ..SessionDraft::default()
+        };
+
+        assert_eq!(
+            draft.to_spec().unwrap_err(),
+            "An IPv6 peer address is required for IPv6 routes"
+        );
     }
 
     #[test]

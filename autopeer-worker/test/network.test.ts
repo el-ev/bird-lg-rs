@@ -639,6 +639,28 @@ describe("session validation", () => {
     ).not.toThrow();
   });
 
+  it("accepts IPv4-only sessions without peer6", () => {
+    expect(() =>
+      validateSessionSpec(node, "4242422172", {
+        ...baseSpec,
+        peer6: null,
+        ipv6: false,
+        extended_next_hop: false,
+        mp_bgp: false,
+      }),
+    ).not.toThrow();
+  });
+
+  it("accepts IPv4 routes over an IPv6 MP-BGP session without peer4", () => {
+    expect(() =>
+      validateSessionSpec(node, "4242422172", {
+        ...baseSpec,
+        peer4: null,
+        ipv6: false,
+      }),
+    ).not.toThrow();
+  });
+
   it("rejects PR12-style placeholder endpoints before opening a PR", () => {
     expect(() =>
       validateSessionSpec(node, "4242420298", {
@@ -672,6 +694,28 @@ describe("session validation", () => {
         peer6: "::",
       }),
     ).toThrow("peer6 must be a ULA or link-local IPv6 address");
+  });
+
+  it("rejects MP-BGP without an IPv6 tunnel address", () => {
+    expect(() =>
+      validateSessionSpec(node, "4242422172", {
+        ...baseSpec,
+        peer6: null,
+        ipv6: false,
+      }),
+    ).toThrow("peer6 is required when MP-BGP is enabled");
+  });
+
+  it("rejects IPv6 routes without peer6 even if peer4 exists", () => {
+    expect(() =>
+      validateSessionSpec(node, "4242422172", {
+        ...baseSpec,
+        peer6: null,
+        ipv4: false,
+        extended_next_hop: false,
+        mp_bgp: false,
+      }),
+    ).toThrow("peer6 is required for IPv6 routes");
   });
 
   it("rejects MTUs outside the operational range", () => {

@@ -128,7 +128,7 @@ pub(super) const TABLE: &[(&str, &str)] = &[
     ("stage2.section.families", "Route Families"),
     ("stage2.section.families.help", "Choose which DN42 route families your session should carry."),
     ("stage2.section.bgp", "BGP Behavior"),
-    ("stage2.section.bgp.help", "MP-BGP uses your IPv6 address for a combined IPv4+IPv6 session. If you disable it, we will generate separate BGP sessions. Extended Next Hop only applies to MP-BGP."),
+    ("stage2.section.bgp.help", "MP-BGP uses your IPv6 address for a single BGP session that can carry IPv4 and/or IPv6 routes. If you disable it, we will generate separate BGP sessions. Extended Next Hop only applies to MP-BGP."),
     ("stage2.section.policy", "Routing Policy"),
     ("stage2.advanced.summary", "Advanced options"),
 

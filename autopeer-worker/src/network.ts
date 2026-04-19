@@ -622,31 +622,33 @@ function validateMtu(value: number | null | undefined): void {
 }
 
 export function validateSessionSpec(node: InventoryHost, asn: string, spec: PeerSessionSpec): void {
+  const peer4 = spec.peer4?.trim();
+  const peer6 = spec.peer6?.trim();
   parseEndpoint(spec.endpoint);
   if (!spec.wg_public_key.trim()) {
     throw new Error("wg_public_key is required");
   }
   validateWireGuardPublicKey(spec.wg_public_key);
-  if (!spec.peer4?.trim() && !spec.peer6?.trim()) {
+  if (!peer4 && !peer6) {
     throw new Error("add at least one tunnel address: IPv4 or IPv6");
   }
-  if (spec.peer4?.trim()) {
-    validatePeerIpv4(spec.peer4);
+  if (peer4) {
+    validatePeerIpv4(peer4);
   }
-  if (spec.peer6?.trim()) {
-    validatePeerIpv6(spec.peer6);
+  if (peer6) {
+    validatePeerIpv6(peer6);
   }
   if (!spec.ipv4 && !spec.ipv6) {
     throw new Error("at least one BGP family must be enabled");
   }
-  if (spec.mp_bgp && !spec.peer6?.trim()) {
+  if (spec.mp_bgp && !peer6) {
     throw new Error("peer6 is required when MP-BGP is enabled");
   }
-  if (!spec.mp_bgp && spec.ipv4 && !spec.peer4?.trim()) {
+  if (spec.ipv4 && !spec.mp_bgp && !peer4) {
     throw new Error("peer4 is required for IPv4 when MP-BGP is disabled");
   }
-  if (!spec.mp_bgp && spec.ipv6 && !spec.peer6?.trim()) {
-    throw new Error("peer6 is required for IPv6 when MP-BGP is disabled");
+  if (spec.ipv6 && !peer6) {
+    throw new Error("peer6 is required for IPv6 routes");
   }
   if (spec.extended_next_hop && !spec.mp_bgp) {
     throw new Error("extended_next_hop requires MP-BGP");
@@ -655,13 +657,13 @@ export function validateSessionSpec(node: InventoryHost, asn: string, spec: Peer
     throw new Error(`peering_strategy must be one of ${PEERING_STRATEGIES.join(", ")}`);
   }
   if (spec.own6?.trim()) {
-    if (!spec.peer6?.trim()) {
+    if (!peer6) {
       throw new Error("own6 requires an IPv6 tunnel address");
     }
     if (!isValidIpv6Address(spec.own6)) {
       throw new Error("own6 must be a valid IPv6 address");
     }
-    if (!isLinkLocalIpv6Address(spec.peer6)) {
+    if (!isLinkLocalIpv6Address(peer6)) {
       throw new Error("own6 only applies to link-local IPv6 peering");
     }
     if (!isLinkLocalIpv6Address(spec.own6)) {
