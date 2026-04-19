@@ -27,7 +27,7 @@ describe("peer-session-check gate", () => {
       decideCheckGate(
         { created_at: "2026-04-18T12:00:00.000Z" },
         undefined,
-        Date.parse("2026-04-18T12:03:00.000Z"),
+        Date.parse("2026-04-18T12:06:00.000Z"),
       ),
     ).toEqual({
       state: "failed",
