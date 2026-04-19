@@ -50,6 +50,36 @@ interface GitHubWorkflowRunsResponse {
   workflow_runs: GitHubWorkflowRun[];
 }
 
+export interface GitHubWorkflowJobStep {
+  name: string;
+  status: string;
+  conclusion: string | null;
+  number: number;
+}
+
+export interface GitHubWorkflowJob {
+  id: number;
+  name: string;
+  status: string;
+  conclusion: string | null;
+  html_url: string;
+  steps?: GitHubWorkflowJobStep[];
+}
+
+interface GitHubWorkflowJobsResponse {
+  jobs: GitHubWorkflowJob[];
+}
+
+interface GitHubCheckRunAnnotation {
+  path: string;
+  start_line: number;
+  end_line: number;
+  annotation_level: string;
+  title: string | null;
+  message: string;
+  raw_details: string | null;
+}
+
 interface GitHubMergeResponse {
   sha: string;
   merged: boolean;
@@ -246,6 +276,18 @@ export class GitHubClient {
 
     return this.request<GitHubWorkflowRunsResponse>(
       `/repos/${joinPath(this.env.GITHUB_OWNER, this.env.GITHUB_REPO)}/actions/workflows/${encodeURIComponent(workflowId)}/runs?${params.toString()}`,
+    );
+  }
+
+  async listWorkflowRunJobs(runId: number): Promise<GitHubWorkflowJobsResponse> {
+    return this.request<GitHubWorkflowJobsResponse>(
+      `/repos/${joinPath(this.env.GITHUB_OWNER, this.env.GITHUB_REPO)}/actions/runs/${runId}/jobs?per_page=100`,
+    );
+  }
+
+  async listCheckRunAnnotations(checkRunId: number): Promise<GitHubCheckRunAnnotation[]> {
+    return this.request<GitHubCheckRunAnnotation[]>(
+      `/repos/${joinPath(this.env.GITHUB_OWNER, this.env.GITHUB_REPO)}/check-runs/${checkRunId}/annotations?per_page=20`,
     );
   }
 

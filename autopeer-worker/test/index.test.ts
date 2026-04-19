@@ -1,18 +1,16 @@
 import { describe, expect, it } from "vitest";
 
 import {
-  buildApplyWorkflowDispatchInputs,
   classifyMaintainerLookupError,
-  decideApplyFailureRetry,
+  decideApplyGate,
+  decideCheckGate,
   decideNodeLockGate,
-  decidePreMergeCheckGate,
-  resolveDn42TargetPrefix,
 } from "../src/index";
 
-describe("peer-session-check merge gate", () => {
+describe("peer-session-check gate", () => {
   it("waits when the validation workflow has not started yet", () => {
     expect(
-      decidePreMergeCheckGate(
+      decideCheckGate(
         { created_at: "2026-04-18T12:00:00.000Z" },
         undefined,
         Date.parse("2026-04-18T12:00:30.000Z"),
@@ -26,7 +24,7 @@ describe("peer-session-check merge gate", () => {
 
   it("fails closed when peer-session-check never appears", () => {
     expect(
-      decidePreMergeCheckGate(
+      decideCheckGate(
         { created_at: "2026-04-18T12:00:00.000Z" },
         undefined,
         Date.parse("2026-04-18T12:03:00.000Z"),
@@ -38,9 +36,9 @@ describe("peer-session-check merge gate", () => {
     });
   });
 
-  it("does not merge while peer-session-check is still running", () => {
+  it("does not advance while peer-session-check is still running", () => {
     expect(
-      decidePreMergeCheckGate(
+      decideCheckGate(
         { created_at: "2026-04-18T12:00:00.000Z" },
         { status: "in_progress", conclusion: null },
       ),
@@ -51,16 +49,84 @@ describe("peer-session-check merge gate", () => {
     });
   });
 
-  it("allows merge only after peer-session-check completes successfully", () => {
+  it("advances to applying after peer-session-check completes successfully", () => {
     expect(
-      decidePreMergeCheckGate(
+      decideCheckGate(
+        { created_at: "2026-04-18T12:00:00.000Z" },
+        { status: "completed", conclusion: "success" },
+      ),
+    ).toEqual({
+      state: "applying",
+      message: "Checks passed; applying your session to the node for verification.",
+      shouldAttemptMerge: false,
+    });
+  });
+
+  it("marks failure when peer-session-check concludes with failure", () => {
+    expect(
+      decideCheckGate(
+        { created_at: "2026-04-18T12:00:00.000Z" },
+        { status: "completed", conclusion: "failure" },
+      ),
+    ).toEqual({
+      state: "failed",
+      message: "peer-session-check finished with failure",
+      shouldAttemptMerge: false,
+    });
+  });
+});
+
+describe("peer-session-apply gate (PR mode)", () => {
+  it("waits while apply has not started yet", () => {
+    expect(
+      decideApplyGate(
+        { created_at: "2026-04-18T12:00:00.000Z" },
+        undefined,
+        Date.parse("2026-04-18T12:01:00.000Z"),
+      ),
+    ).toEqual({
+      state: "applying",
+      message: "Checks passed; waiting for peer-session-apply to start.",
+      shouldAttemptMerge: false,
+    });
+  });
+
+  it("does not advance while apply is still running (preflight or deploy)", () => {
+    expect(
+      decideApplyGate(
+        { created_at: "2026-04-18T12:00:00.000Z" },
+        { status: "in_progress", conclusion: null },
+      ),
+    ).toEqual({
+      state: "applying",
+      message: "Checks passed; applying your session to the node for verification.",
+      shouldAttemptMerge: false,
+    });
+  });
+
+  it("allows merge only after peer-session-apply completes successfully on the PR", () => {
+    expect(
+      decideApplyGate(
         { created_at: "2026-04-18T12:00:00.000Z" },
         { status: "completed", conclusion: "success" },
       ),
     ).toEqual({
       state: "pending_merge",
-      message: "Your checks passed; waiting for merge.",
+      message: "Apply succeeded on the node; waiting for merge.",
       shouldAttemptMerge: true,
+    });
+  });
+
+  it("marks failure when peer-session-apply concludes with failure (e.g. preflight rejected unreachable node)", () => {
+    expect(
+      decideApplyGate(
+        { created_at: "2026-04-18T12:00:00.000Z" },
+        { status: "completed", conclusion: "failure" },
+      ),
+    ).toEqual({
+      state: "failed",
+      message: "peer-session-apply finished with failure",
+      shouldAttemptMerge: false,
     });
   });
 });
@@ -69,7 +135,7 @@ describe("node merge lock gate", () => {
   it("waits while another change still owns the node lock", () => {
     expect(decideNodeLockGate(false)).toEqual({
       state: "pending_merge",
-      message: "Your checks passed; waiting for another change on this node to finish applying.",
+      message: "Apply succeeded; waiting for another change on this node to finish merging.",
       shouldAttemptMerge: false,
     });
   });
@@ -77,108 +143,9 @@ describe("node merge lock gate", () => {
   it("allows merge once the node lock is free", () => {
     expect(decideNodeLockGate(true)).toEqual({
       state: "pending_merge",
-      message: "Your checks passed; waiting for merge.",
+      message: "Apply succeeded on the node; waiting for merge.",
       shouldAttemptMerge: true,
     });
-  });
-});
-
-describe("apply retry gate", () => {
-  const failedRun = {
-    conclusion: "failure",
-    created_at: "2026-04-18T12:00:00.000Z",
-    updated_at: "2026-04-18T12:00:05.000Z",
-  } as const;
-
-  it("waits for the configured retry interval before dispatching", () => {
-    expect(
-      decideApplyFailureRetry(
-        { apply_retry_count: 0 },
-        failedRun,
-        {
-          retryLimit: 2,
-          retryIntervalMs: 30_000,
-        },
-        Date.parse("2026-04-18T12:00:20.000Z"),
-      ),
-    ).toEqual({
-      action: "wait",
-      message: "peer-session-apply finished for your change with failure; retry 1/2 in 15s.",
-    });
-  });
-
-  it("dispatches a retry once the interval has elapsed", () => {
-    expect(
-      decideApplyFailureRetry(
-        { apply_retry_count: 0 },
-        failedRun,
-        {
-          retryLimit: 2,
-          retryIntervalMs: 30_000,
-        },
-        Date.parse("2026-04-18T12:00:40.000Z"),
-      ),
-    ).toEqual({
-      action: "dispatch",
-      attempt: 1,
-      message: "peer-session-apply finished for your change with failure; starting retry 1/2.",
-    });
-  });
-
-  it("fails once the configured retry limit is exhausted", () => {
-    expect(
-      decideApplyFailureRetry(
-        { apply_retry_count: 2 },
-        failedRun,
-        {
-          retryLimit: 2,
-          retryIntervalMs: 30_000,
-        },
-      ),
-    ).toEqual({
-      action: "fail",
-      message: "peer-session-apply finished for your change with failure after 2 retries.",
-    });
-  });
-});
-
-describe("apply workflow dispatch inputs", () => {
-  it("targets the merged node and peer name with the default prefix", () => {
-    expect(
-      buildApplyWorkflowDispatchInputs({
-        asn: "4242420454",
-        node: "ams-01",
-      }),
-    ).toEqual({
-      deploy_host: "ams-01",
-      peer_targets: '["dn42_0454"]',
-    });
-  });
-
-  it("respects a custom dn42 target prefix from common vars", () => {
-    expect(
-      buildApplyWorkflowDispatchInputs(
-        {
-          asn: "4242420454",
-          node: "ams-01",
-        },
-        "peer_",
-      ),
-    ).toEqual({
-      deploy_host: "ams-01",
-      peer_targets: '["peer_0454"]',
-    });
-  });
-});
-
-describe("dn42 target prefix resolution", () => {
-  it("reads dn42_prefix from common vars", () => {
-    expect(resolveDn42TargetPrefix("dn42_prefix: peer_\n")).toBe("peer_");
-  });
-
-  it("falls back to the default prefix when common vars are absent or invalid", () => {
-    expect(resolveDn42TargetPrefix(null)).toBe("dn42_");
-    expect(resolveDn42TargetPrefix("[")).toBe("dn42_");
   });
 });
 

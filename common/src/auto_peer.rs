@@ -364,9 +364,8 @@ pub enum OperationState {
     #[default]
     PendingPullRequest,
     PendingChecks,
-    PendingMerge,
-    Merged,
     Applying,
+    PendingMerge,
     Completed,
     Failed,
     Conflict,
@@ -377,9 +376,8 @@ impl OperationState {
         match self {
             Self::PendingPullRequest => "Preparing PR",
             Self::PendingChecks => "Waiting For CI",
+            Self::Applying => "Applying On Node",
             Self::PendingMerge => "Waiting For Merge",
-            Self::Merged => "Merged",
-            Self::Applying => "Applying",
             Self::Completed => "Completed",
             Self::Failed => "Failed",
             Self::Conflict => "Conflict",
@@ -389,6 +387,39 @@ impl OperationState {
     pub fn is_terminal(&self) -> bool {
         matches!(self, Self::Completed | Self::Failed | Self::Conflict)
     }
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum OperationFailureStage {
+    Checks,
+    Preflight,
+    Apply,
+    Merge,
+}
+
+impl OperationFailureStage {
+    pub fn label(&self) -> &'static str {
+        match self {
+            Self::Checks => "CI checks",
+            Self::Preflight => "Node preflight",
+            Self::Apply => "Node apply",
+            Self::Merge => "Merge",
+        }
+    }
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+pub struct OperationFailureDetails {
+    pub stage: OperationFailureStage,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub step: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub conclusion: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub run_url: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub annotation: Option<String>,
 }
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize, PartialEq, Eq)]
@@ -407,6 +438,8 @@ pub struct OperationStatus {
     pub workflow_run_url: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub message: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub failure_details: Option<OperationFailureDetails>,
     pub created_at: String,
     pub updated_at: String,
 }

@@ -190,9 +190,13 @@ pub(super) const TABLE: &[(&str, &str)] = &[
     // Operation progress labels
     ("operation.progress.branch", "Branch"),
     ("operation.progress.checks", "Checks"),
-    ("operation.progress.merge", "Merge"),
     ("operation.progress.apply", "Apply"),
+    ("operation.progress.merge", "Merge"),
     ("operation.progress.done", "Done"),
+
+    // Operation failure labels
+    ("operation.failure.stage", "Failed stage"),
+    ("operation.failure.conclusion", "Result"),
 
     // Prompts (shell-style left labels)
     ("prompt.autopeer", "autopeer"),

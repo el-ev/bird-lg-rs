@@ -6,7 +6,9 @@
   "scripts": {
     "build:site": "rm -rf public && cd ../autopeer && env -u NO_COLOR trunk build --release --dist ../autopeer-worker/public",
     "dev": "wrangler dev",
-    "deploy": "npm run build:site && wrangler deploy",
+    "deploy:worker": "wrangler deploy",
+    "deploy:lax-01": "cd \"${NODES_REPO:-../../../network/nodes}\" && ansible-playbook setup-websites.yaml --tags autopeer-frontend --limit 'lax-01,localhost'",
+    "deploy": "npm run build:site && npm run deploy:worker && npm run deploy:lax-01",
     "types": "wrangler types",
     "check": "tsc --noEmit",
     "test": "vitest run"

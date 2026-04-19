@@ -28,7 +28,7 @@ import {
   releaseNodeOperationLock,
 } from "./db";
 import { branchName, GitHubClient } from "./github";
-import type { GitHubWorkflowRun } from "./github";
+import type { GitHubWorkflowJob, GitHubWorkflowRun } from "./github";
 import { sendRegistryEmailAuthMessage } from "./mailer";
 import {
   buildNodeViews,
@@ -58,6 +58,7 @@ import type {
   CreateSessionRequest,
   HostImpersonationRequest,
   MaintainerRecord,
+  OperationFailureDetails,
   RegistryEmailCompleteRequest,
   RegistryEmailSendRequest,
   RegistryEmailSendResponse,
@@ -89,7 +90,6 @@ import {
   parseConfiguredAsns,
   parseJsonEnv,
   readJson,
-  readNonNegativeIntegerEnv,
   readOptionalEnvString,
   requireBoolean,
   requireNonEmptyString,
@@ -99,19 +99,14 @@ import {
   stripOperatorHints,
   timingSafeEqual,
 } from "./utils";
-import { parseDocument } from "yaml";
 
 const INVENTORY_PATH = "inventory.yaml";
 const AUTOPEER_POLICY_PATH = "group_vars/all/autopeer.yaml";
-const COMMON_VARS_PATH = "group_vars/all/common.yaml";
 const PEER_FILE_PATH = (node: string): string => `host_vars/${node}/dn42_peers.yaml`;
 const CHECK_WORKFLOW_ID = "peer-session-check.yml";
 const CHECK_WORKFLOW_GRACE_MS = 2 * 60 * 1000;
 const APPLY_WORKFLOW_ID = "peer-session-apply.yml";
-const APPLY_WORKFLOW_GRACE_MS = 2 * 60 * 1000;
-const DEFAULT_APPLY_RETRY_LIMIT = 2;
-const DEFAULT_APPLY_RETRY_INTERVAL_SECONDS = 30;
-const DEFAULT_DN42_TARGET_PREFIX = "dn42_";
+const APPLY_WORKFLOW_GRACE_MS = 5 * 60 * 1000;
 const CONFIG_PATH = "/config.json";
 const OIDC_CALLBACK_PREFIX = "/oidc/callback/";
 const REGISTRY_EMAIL_CALLBACK_PATH = "/auth/email/callback";
@@ -121,7 +116,7 @@ type ValidationWorkflowRun = {
   conclusion: string | null;
 };
 
-type PreMergeCheckGateDecision = {
+type PreMergeGateDecision = {
   state: OperationState;
   message: string;
   shouldAttemptMerge: boolean;
@@ -129,16 +124,6 @@ type PreMergeCheckGateDecision = {
 
 type RefreshOperationOptions = {
   allowMergeAttempt?: boolean;
-};
-
-type ApplyRetryDecision =
-  | { action: "wait"; message: string }
-  | { action: "dispatch"; message: string; attempt: number }
-  | { action: "fail"; message: string };
-
-type ApplyRunSelection = {
-  run?: GitHubWorkflowRun;
-  awaitingRetryRun: boolean;
 };
 
 function errorMessage(error: unknown, fallback: string): string {
@@ -539,14 +524,12 @@ function buildOperationMessage(state: OperationState): string {
       return "We are preparing your pull request.";
     case "pending_checks":
       return "Your pull request is open; waiting for peer-session-check.";
-    case "pending_merge":
-      return "Your checks passed; waiting for merge.";
-    case "merged":
-      return "Your pull request merged; waiting for peer-session-apply.";
     case "applying":
-      return "We are applying your session from our repo.";
+      return "Checks passed; applying your session to the node for verification.";
+    case "pending_merge":
+      return "Apply succeeded on the node; waiting for merge.";
     case "completed":
-      return "Your change was applied successfully.";
+      return "Your change was applied and merged successfully.";
     case "failed":
       return "Your change failed.";
     case "conflict":
@@ -555,205 +538,96 @@ function buildOperationMessage(state: OperationState): string {
 }
 
 function buildNodeLockWaitMessage(): string {
-  return "Your checks passed; waiting for another change on this node to finish applying.";
+  return "Apply succeeded; waiting for another change on this node to finish merging.";
 }
 
-function configuredApplyRetryLimit(env: Env): number {
-  return readNonNegativeIntegerEnv(
-    env,
-    "AUTOPEER_APPLY_RETRY_LIMIT",
-    DEFAULT_APPLY_RETRY_LIMIT,
+function pickFailingJob(jobs: GitHubWorkflowJob[]): GitHubWorkflowJob | undefined {
+  return jobs.find(
+    (job) =>
+      job.status === "completed" &&
+      job.conclusion !== null &&
+      job.conclusion !== "success" &&
+      job.conclusion !== "skipped" &&
+      job.conclusion !== "neutral",
   );
 }
 
-function configuredApplyRetryIntervalMs(env: Env): number {
-  return (
-    readNonNegativeIntegerEnv(
-      env,
-      "AUTOPEER_APPLY_RETRY_INTERVAL_SECONDS",
-      DEFAULT_APPLY_RETRY_INTERVAL_SECONDS,
-    ) * 1000
+function stageFromJobName(name: string): OperationFailureDetails["stage"] {
+  const normalized = name.toLowerCase();
+  if (normalized.includes("preflight")) return "preflight";
+  if (normalized.includes("check")) return "checks";
+  return "apply";
+}
+
+function pickFailingStepName(job: GitHubWorkflowJob): string | null {
+  const failing = job.steps?.find(
+    (step) =>
+      step.status === "completed" &&
+      step.conclusion !== null &&
+      step.conclusion !== "success" &&
+      step.conclusion !== "skipped" &&
+      step.conclusion !== "neutral",
   );
+  return failing?.name ?? null;
 }
 
-function parseTimestamp(value: string | null | undefined): number {
-  const parsed = Date.parse(value ?? "");
-  return Number.isFinite(parsed) ? parsed : NaN;
-}
-
-function firstFiniteTimestamp(...values: Array<string | null | undefined>): number {
-  for (const value of values) {
-    const parsed = parseTimestamp(value);
-    if (Number.isFinite(parsed)) {
-      return parsed;
-    }
-  }
-  return NaN;
-}
-
-function applyRetryCount(operation: Pick<OperationRecord, "apply_retry_count">): number {
-  return typeof operation.apply_retry_count === "number" && Number.isFinite(operation.apply_retry_count)
-    ? operation.apply_retry_count
-    : 0;
-}
-
-function buildApplyRetryWaitMessage(
-  conclusion: string | null,
-  attempt: number,
-  limit: number,
-  waitSeconds: number,
-): string {
-  return `peer-session-apply finished for your change with ${
-    conclusion ?? "unknown"
-  }; retry ${attempt}/${limit} in ${waitSeconds}s.`;
-}
-
-function buildApplyRetryDispatchMessage(
-  conclusion: string | null,
-  attempt: number,
-  limit: number,
-): string {
-  return `peer-session-apply finished for your change with ${
-    conclusion ?? "unknown"
-  }; starting retry ${attempt}/${limit}.`;
-}
-
-function buildApplyRetryStartWaitMessage(attempt: number, limit: number): string {
-  return `Retry ${attempt}/${limit} was queued; waiting for peer-session-apply to start.`;
-}
-
-function buildApplyRetryExhaustedMessage(conclusion: string | null, limit: number): string {
-  if (limit === 0) {
-    return `peer-session-apply finished for your change with ${conclusion ?? "unknown"}`;
-  }
-  return `peer-session-apply finished for your change with ${
-    conclusion ?? "unknown"
-  } after ${limit} retries.`;
-}
-
-function buildApplyRetryStartTimeoutMessage(attempt: number, limit: number): string {
-  return `Retry ${attempt}/${limit} did not start peer-session-apply in time.`;
-}
-
-export function resolveDn42TargetPrefix(commonVarsText: string | null | undefined): string {
-  if (!commonVarsText) {
-    return DEFAULT_DN42_TARGET_PREFIX;
-  }
+async function buildWorkflowFailureDetails(
+  github: GitHubClient,
+  run: Pick<GitHubWorkflowRun, "id" | "html_url" | "conclusion">,
+  fallbackStage: OperationFailureDetails["stage"],
+): Promise<OperationFailureDetails> {
+  const details: OperationFailureDetails = {
+    stage: fallbackStage,
+    conclusion: run.conclusion,
+    run_url: run.html_url,
+  };
 
   try {
-    const value = parseDocument(commonVarsText).toJS();
-    if (value && typeof value === "object" && !Array.isArray(value)) {
-      const prefix = (value as Record<string, unknown>).dn42_prefix;
-      if (typeof prefix === "string" && prefix.trim().length > 0) {
-        return prefix;
+    const { jobs } = await github.listWorkflowRunJobs(run.id);
+    const failingJob = pickFailingJob(jobs);
+    if (failingJob) {
+      details.stage = stageFromJobName(failingJob.name);
+      details.step = pickFailingStepName(failingJob) ?? failingJob.name;
+      try {
+        const annotations = await github.listCheckRunAnnotations(failingJob.id);
+        const firstFailureAnnotation =
+          annotations.find((a) => a.annotation_level === "failure") ?? annotations[0];
+        if (firstFailureAnnotation) {
+          const title = firstFailureAnnotation.title?.trim();
+          const message = firstFailureAnnotation.message?.trim();
+          details.annotation = [title, message].filter(Boolean).join(": ") || null;
+        }
+      } catch (error) {
+        console.warn("failed to read check-run annotations", error);
       }
     }
-  } catch {
-    return DEFAULT_DN42_TARGET_PREFIX;
+  } catch (error) {
+    console.warn("failed to read workflow jobs", error);
   }
 
-  return DEFAULT_DN42_TARGET_PREFIX;
+  return details;
 }
 
-function dn42TargetName(asn: string, prefix: string): string {
-  return `${prefix}${asn.slice(-4)}`;
-}
-
-export function buildApplyWorkflowDispatchInputs(
-  operation: Pick<OperationRecord, "asn" | "node">,
-  dn42TargetPrefix = DEFAULT_DN42_TARGET_PREFIX,
-): Record<string, string> {
-  return {
-    deploy_host: operation.node,
-    peer_targets: JSON.stringify([dn42TargetName(operation.asn, dn42TargetPrefix)]),
-  };
-}
-
-async function dispatchApplyWorkflow(
-  env: Env,
-  github: GitHubClient,
-  operation: Pick<OperationRecord, "asn" | "node">,
-): Promise<void> {
-  const commonVarsFile = await github.getFile(COMMON_VARS_PATH, env.GITHUB_BASE_BRANCH);
-  const dn42TargetPrefix = resolveDn42TargetPrefix(commonVarsFile.text ?? null);
-
-  await github.dispatchWorkflow(APPLY_WORKFLOW_ID, {
-    ref: env.GITHUB_BASE_BRANCH,
-    inputs: buildApplyWorkflowDispatchInputs(operation, dn42TargetPrefix),
-  });
+function failureMessageFromDetails(details: OperationFailureDetails): string {
+  const stage =
+    details.stage === "preflight"
+      ? "Preflight"
+      : details.stage === "checks"
+      ? "peer-session-check"
+      : details.stage === "merge"
+      ? "Merge"
+      : "peer-session-apply";
+  const parts = [`${stage} failed with ${details.conclusion ?? "unknown"}`];
+  if (details.step) parts.push(`(step: ${details.step})`);
+  if (details.annotation) parts.push(`— ${details.annotation}`);
+  return parts.join(" ");
 }
 
 function selectApplyWorkflowRun(
   runs: GitHubWorkflowRun[],
-  operation: Pick<OperationRecord, "last_apply_retry_at">,
-  pr: {
-    merge_commit_sha: string | null;
-    head: { sha: string };
-  },
-): ApplyRunSelection {
-  const retryQueuedAt = parseTimestamp(operation.last_apply_retry_at);
-  if (Number.isFinite(retryQueuedAt)) {
-    const retryRun = runs.find((candidate) => parseTimestamp(candidate.created_at) >= retryQueuedAt);
-    if (retryRun) {
-      return {
-        run: retryRun,
-        awaitingRetryRun: false,
-      };
-    }
-    return {
-      run: undefined,
-      awaitingRetryRun: true,
-    };
-  }
-
-  return {
-    run: runs.find(
-      (candidate) =>
-        candidate.head_sha === pr.merge_commit_sha || candidate.head_sha === pr.head.sha,
-    ),
-    awaitingRetryRun: false,
-  };
-}
-
-export function decideApplyFailureRetry(
-  operation: Pick<OperationRecord, "apply_retry_count">,
-  run: Pick<GitHubWorkflowRun, "conclusion" | "updated_at" | "created_at">,
-  config: {
-    retryLimit: number;
-    retryIntervalMs: number;
-  },
-  now = Date.now(),
-): ApplyRetryDecision {
-  const retryCount = applyRetryCount(operation);
-  if (retryCount >= config.retryLimit) {
-    return {
-      action: "fail",
-      message: buildApplyRetryExhaustedMessage(run.conclusion, config.retryLimit),
-    };
-  }
-
-  const nextAttempt = retryCount + 1;
-  const retryAfter = firstFiniteTimestamp(run.updated_at, run.created_at);
-  if (Number.isFinite(retryAfter)) {
-    const waitMs = retryAfter + config.retryIntervalMs - now;
-    if (waitMs > 0) {
-      return {
-        action: "wait",
-        message: buildApplyRetryWaitMessage(
-          run.conclusion,
-          nextAttempt,
-          config.retryLimit,
-          Math.max(1, Math.ceil(waitMs / 1000)),
-        ),
-      };
-    }
-  }
-
-  return {
-    action: "dispatch",
-    message: buildApplyRetryDispatchMessage(run.conclusion, nextAttempt, config.retryLimit),
-    attempt: nextAttempt,
-  };
+  pr: { head: { sha: string } },
+): GitHubWorkflowRun | undefined {
+  return runs.find((candidate) => candidate.head_sha === pr.head.sha);
 }
 
 function buildNoChangeOperation(
@@ -775,19 +649,18 @@ function buildNoChangeOperation(
     pull_request_url: null,
     workflow_run_url: null,
     message: "Your session already matches our repo, so we did not open a pull request.",
+    failure_details: null,
     created_at: now,
     updated_at: now,
-    apply_retry_count: 0,
-    last_apply_retry_at: null,
     session_snapshot: sessionSnapshot,
   };
 }
 
-export function decidePreMergeCheckGate(
+export function decideCheckGate(
   operation: Pick<OperationRecord, "created_at">,
   validationRun: ValidationWorkflowRun | undefined,
   now = Date.now(),
-): PreMergeCheckGateDecision {
+): PreMergeGateDecision {
   if (!validationRun) {
     const createdAt = Date.parse(operation.created_at);
     if (Number.isFinite(createdAt) && now - createdAt > CHECK_WORKFLOW_GRACE_MS) {
@@ -821,13 +694,57 @@ export function decidePreMergeCheckGate(
   }
 
   return {
+    state: "applying",
+    message: buildOperationMessage("applying"),
+    shouldAttemptMerge: false,
+  };
+}
+
+export function decideApplyGate(
+  operation: Pick<OperationRecord, "created_at">,
+  applyRun: ValidationWorkflowRun | undefined,
+  now = Date.now(),
+): PreMergeGateDecision {
+  if (!applyRun) {
+    const createdAt = Date.parse(operation.created_at);
+    if (Number.isFinite(createdAt) && now - createdAt > CHECK_WORKFLOW_GRACE_MS + APPLY_WORKFLOW_GRACE_MS) {
+      return {
+        state: "failed",
+        message: "peer-session-apply did not start for your pull request.",
+        shouldAttemptMerge: false,
+      };
+    }
+    return {
+      state: "applying",
+      message: "Checks passed; waiting for peer-session-apply to start.",
+      shouldAttemptMerge: false,
+    };
+  }
+
+  if (applyRun.status !== "completed") {
+    return {
+      state: "applying",
+      message: buildOperationMessage("applying"),
+      shouldAttemptMerge: false,
+    };
+  }
+
+  if (!["success", "neutral", "skipped"].includes(applyRun.conclusion ?? "")) {
+    return {
+      state: "failed",
+      message: `peer-session-apply finished with ${applyRun.conclusion ?? "unknown"}`,
+      shouldAttemptMerge: false,
+    };
+  }
+
+  return {
     state: "pending_merge",
     message: buildOperationMessage("pending_merge"),
     shouldAttemptMerge: true,
   };
 }
 
-export function decideNodeLockGate(hasNodeLock: boolean): PreMergeCheckGateDecision {
+export function decideNodeLockGate(hasNodeLock: boolean): PreMergeGateDecision {
   if (hasNodeLock) {
     return {
       state: "pending_merge",
@@ -861,7 +778,7 @@ async function claimNodeLockForMerge(
     }
 
     if (
-      (ownerOperation.state === "merged" || ownerOperation.state === "applying") &&
+      (ownerOperation.state === "pending_merge" || ownerOperation.state === "applying") &&
       ownerOperation.pr_number
     ) {
       const refreshedOwner = await refreshOperation(env, github, ownerOperation, {
@@ -898,13 +815,16 @@ async function refreshOperation(
   let nextState: OperationState = operation.state;
   let workflowRunUrl = operation.workflow_run_url ?? null;
   let message = operation.message ?? buildOperationMessage(operation.state);
-  let nextApplyRetryCount = applyRetryCount(operation);
-  let lastApplyRetryAt = operation.last_apply_retry_at ?? null;
+  let failureDetails: OperationFailureDetails | null = operation.failure_details ?? null;
 
-  if (!pr.merged && pr.state !== "open") {
+  if (pr.merged) {
+    nextState = "completed";
+    message = buildOperationMessage(nextState);
+    failureDetails = null;
+  } else if (pr.state !== "open") {
     nextState = "failed";
     message = "Your pull request was closed before merge.";
-  } else if (!pr.merged) {
+  } else {
     const validationRuns = await github.listWorkflowRuns(CHECK_WORKFLOW_ID, {
       event: "pull_request",
       perPage: 20,
@@ -912,129 +832,67 @@ async function refreshOperation(
     const validationRun = validationRuns.workflow_runs.find(
       (candidate) => candidate.head_sha === pr.head.sha,
     );
-    const gate = decidePreMergeCheckGate(operation, validationRun);
+    const checkGate = decideCheckGate(operation, validationRun);
+    nextState = checkGate.state;
+    message = checkGate.message;
 
-    nextState = gate.state;
-    message = gate.message;
-
-    if (gate.shouldAttemptMerge) {
-      if (!allowMergeAttempt) {
-        nextState = "pending_merge";
-        message = buildOperationMessage(nextState);
-      } else {
-        const nodeLockGate = decideNodeLockGate(
-          await claimNodeLockForMerge(env, github, operation),
-        );
-        nextState = nodeLockGate.state;
-        message = nodeLockGate.message;
-
-        if (nodeLockGate.shouldAttemptMerge) {
-          try {
-            await github.mergePullRequest(operation.pr_number, pr.head.sha);
-            nextState = "merged";
-            message = buildOperationMessage(nextState);
-          } catch (error) {
-            await releaseNodeOperationLock(env, operation.node, operation.id);
-            nextState = "pending_merge";
-            message = `${buildOperationMessage(nextState)} Merge attempt failed: ${
-              error instanceof Error ? error.message : "unknown error"
-            }`;
-          }
-        }
-      }
+    if (checkGate.state === "failed" && validationRun) {
+      failureDetails = await buildWorkflowFailureDetails(github, validationRun, "checks");
+      message = failureMessageFromDetails(failureDetails);
+      workflowRunUrl = validationRun.html_url;
+    } else if (checkGate.state === "failed") {
+      failureDetails = { stage: "checks", step: "start timeout" };
     }
-  } else {
-    const retryLimit = configuredApplyRetryLimit(env);
-    const retryIntervalMs = configuredApplyRetryIntervalMs(env);
-    const runs = await github.listWorkflowRuns(APPLY_WORKFLOW_ID, {
-      branch: env.GITHUB_BASE_BRANCH,
-      perPage: 50,
-    });
-    const selection = selectApplyWorkflowRun(runs.workflow_runs, operation, pr);
-    const run = selection.run;
 
-    if (!run) {
-      if (selection.awaitingRetryRun) {
-        const queuedAt = parseTimestamp(lastApplyRetryAt);
-        if (Number.isFinite(queuedAt) && Date.now() - queuedAt > APPLY_WORKFLOW_GRACE_MS) {
-          if (nextApplyRetryCount >= retryLimit) {
-            nextState = "failed";
-            message = buildApplyRetryStartTimeoutMessage(nextApplyRetryCount, retryLimit);
-          } else {
-            const nextAttempt = nextApplyRetryCount + 1;
-            const retryQueuedNow = nowIso();
+    if (checkGate.state === "applying") {
+      const applyRuns = await github.listWorkflowRuns(APPLY_WORKFLOW_ID, {
+        event: "pull_request",
+        perPage: 20,
+      });
+      const applyRun = selectApplyWorkflowRun(applyRuns.workflow_runs, pr);
+      const applyGate = decideApplyGate(operation, applyRun);
+      nextState = applyGate.state;
+      message = applyGate.message;
+      if (applyRun) {
+        workflowRunUrl = applyRun.html_url;
+      }
+      if (applyGate.state === "failed" && applyRun) {
+        failureDetails = await buildWorkflowFailureDetails(github, applyRun, "apply");
+        message = failureMessageFromDetails(failureDetails);
+      } else if (applyGate.state === "failed") {
+        failureDetails = { stage: "apply", step: "start timeout" };
+      }
+
+      if (applyGate.shouldAttemptMerge) {
+        if (!allowMergeAttempt) {
+          nextState = "pending_merge";
+          message = buildOperationMessage(nextState);
+        } else {
+          const nodeLockGate = decideNodeLockGate(
+            await claimNodeLockForMerge(env, github, operation),
+          );
+          nextState = nodeLockGate.state;
+          message = nodeLockGate.message;
+
+          if (nodeLockGate.shouldAttemptMerge) {
             try {
-              await dispatchApplyWorkflow(env, github, operation);
-              nextApplyRetryCount = nextAttempt;
-              lastApplyRetryAt = retryQueuedNow;
-              nextState = "merged";
-              workflowRunUrl = null;
-              message = `Retry ${nextAttempt}/${retryLimit} was queued after the previous retry did not start.`;
+              await github.mergePullRequest(operation.pr_number, pr.head.sha);
+              nextState = "completed";
+              message = buildOperationMessage(nextState);
+              failureDetails = null;
             } catch (error) {
-              nextApplyRetryCount = nextAttempt;
-              lastApplyRetryAt = retryQueuedNow;
-              nextState = "merged";
-              workflowRunUrl = null;
-              message = `Retry ${nextAttempt}/${retryLimit} dispatch failed: ${
+              await releaseNodeOperationLock(env, operation.node, operation.id);
+              nextState = "pending_merge";
+              message = `${buildOperationMessage(nextState)} Merge attempt failed: ${
                 error instanceof Error ? error.message : "unknown error"
               }`;
+              failureDetails = {
+                stage: "merge",
+                step: "github merge",
+                conclusion: "merge_failed",
+                annotation: error instanceof Error ? error.message : "unknown error",
+              };
             }
-          }
-        } else {
-          nextState = "merged";
-          message = buildApplyRetryStartWaitMessage(nextApplyRetryCount, retryLimit);
-        }
-      } else {
-        const mergedAt = pr.merged_at ? Date.parse(pr.merged_at) : NaN;
-        if (Number.isFinite(mergedAt) && Date.now() - mergedAt > APPLY_WORKFLOW_GRACE_MS) {
-          nextState = "failed";
-          message = "peer-session-apply did not start for your merged commit.";
-        } else {
-          nextState = "merged";
-          message = buildOperationMessage(nextState);
-        }
-      }
-    } else {
-      workflowRunUrl = run.html_url;
-      if (run.status !== "completed") {
-        nextState = "applying";
-        message = buildOperationMessage(nextState);
-      } else if (run.conclusion === "success") {
-        nextState = "completed";
-        message = buildOperationMessage(nextState);
-      } else {
-        const retryDecision = decideApplyFailureRetry(
-          operation,
-          run,
-          {
-            retryLimit,
-            retryIntervalMs,
-          },
-          Date.now(),
-        );
-        if (retryDecision.action === "fail") {
-          nextState = "failed";
-          message = retryDecision.message;
-        } else if (retryDecision.action === "wait") {
-          nextState = "merged";
-          message = retryDecision.message;
-        } else {
-          const retryQueuedNow = nowIso();
-          try {
-            await dispatchApplyWorkflow(env, github, operation);
-            nextApplyRetryCount = retryDecision.attempt;
-            lastApplyRetryAt = retryQueuedNow;
-            nextState = "merged";
-            workflowRunUrl = null;
-            message = retryDecision.message;
-          } catch (error) {
-            nextApplyRetryCount = retryDecision.attempt;
-            lastApplyRetryAt = retryQueuedNow;
-            nextState = "merged";
-            workflowRunUrl = null;
-            message = `${retryDecision.message} Dispatch failed: ${
-              error instanceof Error ? error.message : "unknown error"
-            }`;
           }
         }
       }
@@ -1046,9 +904,8 @@ async function refreshOperation(
     state: nextState,
     workflow_run_url: workflowRunUrl,
     message,
+    failure_details: nextState === "failed" ? failureDetails : null,
     updated_at: nowIso(),
-    apply_retry_count: nextApplyRetryCount,
-    last_apply_retry_at: lastApplyRetryAt,
   };
   await putOperation(env, updated);
   if (isTerminalOperationState(updated.state)) {
@@ -1177,6 +1034,50 @@ async function handleMutation(
     );
   }
 
+  const reusableOperation = await findReusableFailedOperation(
+    env,
+    github,
+    operations,
+    authSession.asn,
+    nodeName,
+  );
+
+  if (reusableOperation) {
+    const branchFile = await github.getFile(peerPath, reusableOperation.branch);
+    if (!branchFile.exists || !branchFile.sha) {
+      throw new HttpError(
+        `reusable branch ${reusableOperation.branch} is missing ${peerPath}`,
+        502,
+      );
+    }
+
+    await github.upsertFile({
+      path: peerPath,
+      branch: reusableOperation.branch,
+      sha: branchFile.sha,
+      content: mutation.content,
+      message: `feat: autopeer ${kind} AS${authSession.asn} on ${nodeName} (retry)`,
+    });
+
+    const refreshedPr = reusableOperation.pr_number
+      ? await github.getPullRequest(reusableOperation.pr_number)
+      : null;
+
+    const updated: OperationRecord = {
+      ...reusableOperation,
+      kind,
+      state: "pending_checks",
+      message: buildOperationMessage("pending_checks"),
+      failure_details: null,
+      workflow_run_url: null,
+      pull_request_url: refreshedPr?.html_url ?? reusableOperation.pull_request_url ?? null,
+      session_snapshot: mutation.sessionSnapshot,
+      updated_at: nowIso(),
+    };
+    await putOperation(env, updated);
+    return jsonWithCors(request, updated, 202);
+  }
+
   const operation: OperationRecord = {
     id: crypto.randomUUID(),
     asn: authSession.asn,
@@ -1189,10 +1090,9 @@ async function handleMutation(
     pull_request_url: null,
     workflow_run_url: null,
     message: buildOperationMessage("pending_pull_request"),
+    failure_details: null,
     created_at: nowIso(),
     updated_at: nowIso(),
-    apply_retry_count: 0,
-    last_apply_retry_at: null,
     session_snapshot: mutation.sessionSnapshot,
   };
   operation.branch = branchName(operation);
@@ -1230,6 +1130,35 @@ async function handleMutation(
 
   await putOperation(env, operation);
   return jsonWithCors(request, operation, 202);
+}
+
+async function findReusableFailedOperation(
+  env: Env,
+  github: GitHubClient,
+  operations: OperationRecord[],
+  asn: string,
+  node: string,
+): Promise<OperationRecord | null> {
+  const candidates = operations
+    .filter((candidate) => candidate.asn === asn && candidate.node === node)
+    .filter((candidate) => candidate.state === "failed" && candidate.pr_number && candidate.branch)
+    .sort(
+      (a, b) =>
+        Date.parse(b.updated_at || b.created_at) - Date.parse(a.updated_at || a.created_at),
+    );
+
+  for (const candidate of candidates) {
+    if (!candidate.pr_number) continue;
+    try {
+      const pr = await github.getPullRequest(candidate.pr_number);
+      if (!pr.merged && pr.state === "open") {
+        return candidate;
+      }
+    } catch (error) {
+      console.warn("failed to inspect candidate PR for reuse", error);
+    }
+  }
+  return null;
 }
 
 async function router(request: Request, env: Env): Promise<Response> {

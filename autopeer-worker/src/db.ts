@@ -57,18 +57,12 @@ function mapOperationRow(row: Record<string, unknown>): OperationRecord {
     pull_request_url: row.pull_request_url === null ? null : String(row.pull_request_url),
     workflow_run_url: row.workflow_run_url === null ? null : String(row.workflow_run_url),
     message: row.message === null ? null : String(row.message),
+    failure_details:
+      row.failure_details === null || row.failure_details === undefined
+        ? null
+        : (JSON.parse(String(row.failure_details)) as OperationRecord["failure_details"]),
     created_at: String(row.created_at),
     updated_at: String(row.updated_at),
-    apply_retry_count:
-      typeof row.apply_retry_count === "number"
-        ? row.apply_retry_count
-        : typeof row.apply_retry_count === "string"
-          ? Number(row.apply_retry_count)
-          : 0,
-    last_apply_retry_at:
-      row.last_apply_retry_at === null || row.last_apply_retry_at === undefined
-        ? null
-        : String(row.last_apply_retry_at),
     session_snapshot:
       row.session_snapshot === null
         ? null
@@ -332,8 +326,8 @@ export async function getAuthSession(env: Env, token: string): Promise<SessionRe
 export async function putOperation(env: Env, record: OperationRecord): Promise<void> {
   await env.DB.prepare(
     `INSERT OR REPLACE INTO operations
-      (id, asn, node, kind, state, branch, session_snapshot, pr_number, pr_node_id, pull_request_url, workflow_run_url, message, created_at, updated_at, apply_retry_count, last_apply_retry_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      (id, asn, node, kind, state, branch, session_snapshot, pr_number, pr_node_id, pull_request_url, workflow_run_url, message, failure_details, created_at, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
   )
     .bind(
       record.id,
@@ -348,17 +342,16 @@ export async function putOperation(env: Env, record: OperationRecord): Promise<v
       record.pull_request_url ?? null,
       record.workflow_run_url ?? null,
       record.message ?? null,
+      record.failure_details ? JSON.stringify(record.failure_details) : null,
       record.created_at,
       record.updated_at,
-      record.apply_retry_count ?? 0,
-      record.last_apply_retry_at ?? null,
     )
     .run();
 }
 
 export async function getOperation(env: Env, id: string): Promise<OperationRecord | null> {
   const row = await env.DB.prepare(
-    `SELECT id, asn, node, kind, state, branch, session_snapshot, pr_number, pr_node_id, pull_request_url, workflow_run_url, message, created_at, updated_at, apply_retry_count, last_apply_retry_at
+    `SELECT id, asn, node, kind, state, branch, session_snapshot, pr_number, pr_node_id, pull_request_url, workflow_run_url, message, failure_details, created_at, updated_at
       FROM operations WHERE id = ?`,
   )
     .bind(id)
@@ -369,7 +362,7 @@ export async function getOperation(env: Env, id: string): Promise<OperationRecor
 
 export async function listOperationsForAsn(env: Env, asn: string): Promise<OperationRecord[]> {
   const result = await env.DB.prepare(
-    `SELECT id, asn, node, kind, state, branch, session_snapshot, pr_number, pr_node_id, pull_request_url, workflow_run_url, message, created_at, updated_at, apply_retry_count, last_apply_retry_at
+    `SELECT id, asn, node, kind, state, branch, session_snapshot, pr_number, pr_node_id, pull_request_url, workflow_run_url, message, failure_details, created_at, updated_at
       FROM operations WHERE asn = ? ORDER BY updated_at DESC`,
   )
     .bind(asn)

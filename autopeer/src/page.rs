@@ -316,14 +316,19 @@ fn operation_stage_index(operation: &OperationStatus) -> usize {
     match operation.state {
         OperationState::PendingPullRequest => 0,
         OperationState::PendingChecks => 1,
-        OperationState::PendingMerge => 2,
-        OperationState::Merged | OperationState::Applying => {
-            3
-        }
+        OperationState::Applying => 2,
+        OperationState::PendingMerge => 3,
         OperationState::Completed => 4,
-        OperationState::Failed | OperationState::Conflict => {
-            2
-        }
+        OperationState::Failed | OperationState::Conflict => operation
+            .failure_details
+            .as_ref()
+            .map(|d| match d.stage {
+                common::auto_peer::OperationFailureStage::Checks => 1,
+                common::auto_peer::OperationFailureStage::Preflight
+                | common::auto_peer::OperationFailureStage::Apply => 2,
+                common::auto_peer::OperationFailureStage::Merge => 3,
+            })
+            .unwrap_or(2),
     }
 }
 
@@ -381,8 +386,8 @@ fn render_operation_progress(i18n: &I18n, operation: &OperationStatus) -> Html {
     let labels = [
         i18n.t("operation.progress.branch"),
         i18n.t("operation.progress.checks"),
-        i18n.t("operation.progress.merge"),
         i18n.t("operation.progress.apply"),
+        i18n.t("operation.progress.merge"),
         i18n.t("operation.progress.done"),
     ];
     let active_index = operation_stage_index(operation);
@@ -1709,6 +1714,26 @@ pub fn auto_peer_page() -> Html {
                                         }
                                     </div>
                                     {render_operation_progress(&i18n, operation_status)}
+                                    if let Some(details) = &operation_status.failure_details {
+                                        <div class="autopeer-failure-details">
+                                            <p class="autopeer-failure-stage">
+                                                <strong>{i18n.t("operation.failure.stage")}{": "}</strong>
+                                                {details.stage.label()}
+                                                if let Some(step) = &details.step {
+                                                    {format!(" — {}", step)}
+                                                }
+                                            </p>
+                                            if let Some(conclusion) = &details.conclusion {
+                                                <p class="text-secondary">
+                                                    <strong>{i18n.t("operation.failure.conclusion")}{": "}</strong>
+                                                    {conclusion}
+                                                </p>
+                                            }
+                                            if let Some(annotation) = &details.annotation {
+                                                <pre class="autopeer-failure-annotation">{annotation}</pre>
+                                            }
+                                        </div>
+                                    }
                                     <div class="autopeer-links">
                                         if let Some(pr_url) = &operation_status.pull_request_url {
                                             <a href={pr_url.clone()} target="_blank" rel="noreferrer">{i18n.t("action.open_pr")}</a>
