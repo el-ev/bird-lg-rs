@@ -138,8 +138,12 @@ export async function loadMaintainersForAsn(env: Env, asn: string): Promise<Main
 export function methodsFromMaintainers(
   maintainers: MaintainerRecord[],
   oidcMethods: AuthMethod[],
+  options: {
+    registryEmailEnabled?: boolean;
+  } = {},
 ): AuthMethod[] {
   const methods: AuthMethod[] = [];
+  const { registryEmailEnabled = true } = options;
   const sshFingerprints = [
     ...new Set(maintainers.flatMap((mnt) => mnt.ssh_fingerprints)),
   ];
@@ -175,7 +179,7 @@ export function methodsFromMaintainers(
     });
   }
 
-  if (emailTargets.length > 0) {
+  if (registryEmailEnabled && emailTargets.length > 0) {
     methods.push({
       kind: "registry_email",
       label: "Registry Email",

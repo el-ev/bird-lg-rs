@@ -16,8 +16,7 @@ use yew::prelude::*;
 use crate::{
     config::{AUTOPEER_BASE_PATH, matches_autopeer_path},
     controller::{
-        default_pgp_key, selected_registry_email_target, sync_create_draft,
-        use_autopeer_controller,
+        default_pgp_key, selected_registry_email_target, sync_create_draft, use_autopeer_controller,
     },
     store::{AutoPeerStep, PeerConfigStage, SessionDraft, SessionDraftField},
 };
@@ -1129,6 +1128,7 @@ pub fn auto_peer_page() -> Html {
                                                 editing_node.set(None);
                                                 let mut next = (*draft).clone();
                                                 next.node = node_value.name.clone();
+                                                next.peering_strategy = PeeringStrategy::FullTable;
                                                 draft.set(next);
                                                 config_stage.set(PeerConfigStage::SessionDetails);
                                             }

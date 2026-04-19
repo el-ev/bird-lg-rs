@@ -2,8 +2,7 @@ use std::collections::BTreeSet;
 
 use common::auto_peer::{
     AuthMethod, AuthMethodKind, AuthSessionResponse, CreateSessionRequest, NodeView,
-    OperationStatus, RegistryEmailTarget, SessionListResponse, SessionView,
-    UpdateSessionRequest,
+    OperationStatus, RegistryEmailTarget, SessionListResponse, SessionView, UpdateSessionRequest,
 };
 use gloo_timers::future::TimeoutFuture;
 use wasm_bindgen_futures::spawn_local;
@@ -77,7 +76,10 @@ pub(crate) fn selected_registry_email_target<'a>(
 ) -> Option<&'a RegistryEmailTarget> {
     let selected = selected_maintainer.trim();
     if !selected.is_empty() {
-        method.email_targets.iter().find(|target| target.maintainer == selected)
+        method
+            .email_targets
+            .iter()
+            .find(|target| target.maintainer == selected)
     } else {
         method.email_targets.first()
     }
@@ -1101,7 +1103,9 @@ pub fn use_autopeer_controller(
                 return;
             };
             if method.kind != AuthMethodKind::RegistryEmail {
-                error.set(Some("Registry email auth is not active right now.".to_string()));
+                error.set(Some(
+                    "Registry email auth is not active right now.".to_string(),
+                ));
                 return;
             }
 
@@ -1175,10 +1179,11 @@ pub fn use_autopeer_controller(
                     return;
                 }
             }
-            if method.kind == AuthMethodKind::RegistryEmail
-                && registry_email_code.trim().is_empty()
+            if method.kind == AuthMethodKind::RegistryEmail && registry_email_code.trim().is_empty()
             {
-                error.set(Some("Enter the one-time auth code from your email.".to_string()));
+                error.set(Some(
+                    "Enter the one-time auth code from your email.".to_string(),
+                ));
                 return;
             }
 
@@ -1189,9 +1194,7 @@ pub fn use_autopeer_controller(
                 AuthMethodKind::RegistryPgp => {
                     "Checking your PGP signature against the DN42 registry..."
                 }
-                AuthMethodKind::RegistryEmail => {
-                    "Checking your registry email auth code..."
-                }
+                AuthMethodKind::RegistryEmail => "Checking your registry email auth code...",
                 AuthMethodKind::Oidc => "Redirecting you to your OIDC provider...",
                 AuthMethodKind::HostImpersonation => "Preparing your host ASN session...",
             };
