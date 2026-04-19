@@ -447,7 +447,16 @@ function authSessionResponseForEnv(env: Env, session: SessionRecord): AuthSessio
   };
 }
 
-function resolveEffectiveMaintainer(
+function availableMaintainerNames(maintainers: MaintainerRecord[]): string[] {
+  return [...new Set(maintainers.map((maintainer) => maintainer.name))];
+}
+
+function availableMaintainerSuffix(maintainers: MaintainerRecord[]): string {
+  const names = availableMaintainerNames(maintainers);
+  return names.length === 0 ? "" : ` Available mntners: ${names.join(", ")}.`;
+}
+
+export function resolveEffectiveMaintainer(
   maintainers: MaintainerRecord[],
   requestedMaintainer?: string | null,
 ): string {
@@ -460,7 +469,9 @@ function resolveEffectiveMaintainer(
     const matched = maintainers.find((maintainer) => maintainer.name.toUpperCase() === requested);
     if (!matched) {
       throw new HttpError(
-        `${requested} is not present in aut-num -> mnt-by for this ASN`,
+        `${requested} is not present in aut-num -> mnt-by for this ASN.${availableMaintainerSuffix(
+          maintainers,
+        )}`,
         400,
       );
     }
@@ -472,7 +483,9 @@ function resolveEffectiveMaintainer(
   }
 
   throw new HttpError(
-    "effective_mnt is required when your target ASN has multiple maintainers",
+    `effective_mnt is required when your target ASN has multiple maintainers.${availableMaintainerSuffix(
+      maintainers,
+    )}`,
     400,
   );
 }

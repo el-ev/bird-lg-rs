@@ -601,6 +601,7 @@ pub fn auto_peer_page() -> Html {
         retire_confirmation,
         operation,
         error,
+        support_error,
         ongoing_tasks,
         impersonate_asn,
         impersonate_mnt,
@@ -1080,8 +1081,8 @@ pub fn auto_peer_page() -> Html {
                 .map(|session| session.asn.clone())
                 .unwrap_or_else(|| (*asn).clone());
             let draft_is_valid = draft.to_spec().is_ok();
-            let peer6_kind = detect_peer6_address_kind(&draft.peer6);
             let live_validation = session_details_live_validation(&draft, &touched_fields);
+            let peer6_kind = detect_peer6_address_kind(&draft.peer6);
             let node_inventory_ipv6 = selected_node
                 .as_ref()
                 .and_then(|node| node.peering.as_ref())
@@ -1149,10 +1150,10 @@ pub fn auto_peer_page() -> Html {
                 }
             };
 
-            let on_peer6_change = {
             let toggle_item_class =
                 |invalid: bool| classes!("autopeer-toggle-item", invalid.then_some("is-invalid"));
 
+            let on_peer6_change = {
                 let draft = draft.clone();
                 Callback::from(move |value: String| {
                     update_draft_state(&draft, |next| {
@@ -1184,10 +1185,10 @@ pub fn auto_peer_page() -> Html {
 
             let on_toggle_mp_bgp = {
                 let draft = draft.clone();
-                Callback::from(move |_: ()| {
                 let touched_fields = touched_fields.clone();
-                    update_draft_state(&draft, |next| {
+                Callback::from(move |_: ()| {
                     mark_toggle_group_touched(&touched_fields, SessionDraftToggleGroup::Bgp);
+                    update_draft_state(&draft, |next| {
                         next.mp_bgp = !next.mp_bgp;
                         if !next.mp_bgp {
                             next.extended_next_hop = false;
@@ -1198,10 +1199,10 @@ pub fn auto_peer_page() -> Html {
 
             let on_toggle_extended_next_hop = {
                 let draft = draft.clone();
-                Callback::from(move |_| {
                 let touched_fields = touched_fields.clone();
-                    update_draft_state(&draft, |next| {
+                Callback::from(move |_| {
                     mark_toggle_group_touched(&touched_fields, SessionDraftToggleGroup::Bgp);
+                    update_draft_state(&draft, |next| {
                         next.extended_next_hop = !next.extended_next_hop;
                         if next.extended_next_hop {
                             next.mp_bgp = true;
@@ -1497,8 +1498,8 @@ pub fn auto_peer_page() -> Html {
                                     </span>
                                 </ShellLine>
                             }
-                        </div>
                             {render_live_validation_message(live_validation.tunnel_message.as_deref())}
+                        </div>
 
                         <div class={classes!(
                             "autopeer-form-section",
@@ -1532,8 +1533,8 @@ pub fn auto_peer_page() -> Html {
                                     </span>
                                 </span>
                             </ShellLine>
-                        </div>
                             {render_live_validation_message(live_validation.families_message.as_deref())}
+                        </div>
 
                         <div class={classes!(
                             "autopeer-form-section",
@@ -1567,8 +1568,8 @@ pub fn auto_peer_page() -> Html {
                                     </span>
                                 </span>
                             </ShellLine>
-                        </div>
                             {render_live_validation_message(live_validation.bgp_message.as_deref())}
+                        </div>
 
                         <div class="autopeer-form-section">
                             <span class="autopeer-section-label">{i18n.t("stage2.section.policy")}</span>
@@ -1870,6 +1871,7 @@ pub fn auto_peer_page() -> Html {
                                                 disabled={loading}
                                             />
                                         </ShellLine>
+                                        {render_error(&i18n, &support_error)}
                                         <div class="autopeer-inline-actions">
                                             <ShellButton
                                                 text={i18n.t("action.impersonate_this_asn")}
@@ -2050,8 +2052,6 @@ mod tests {
     }
 
     #[test]
-    fn rejects_raw_challenge_text_in_ssh_signature_field() {
-    #[test]
     fn live_validation_flags_ipv4_only_without_peer4_after_toggle_interaction() {
         let draft = SessionDraft {
             endpoint: "peer.example.net:21023".into(),
@@ -2106,6 +2106,8 @@ mod tests {
         assert_eq!(validation, SessionDraftLiveValidation::default());
     }
 
+    #[test]
+    fn rejects_raw_challenge_text_in_ssh_signature_field() {
         assert_eq!(
             validate_ssh_signature_input(
                 "dn42-autopeer challenge\nasn: 4242421024\nchallenge_id: example\nissued_at: 2026-04-18T12:42:04.075Z"

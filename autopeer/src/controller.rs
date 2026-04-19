@@ -531,6 +531,7 @@ pub struct AutoPeerController {
     pub retire_confirmation: UseStateHandle<bool>,
     pub operation: UseStateHandle<Option<OperationStatus>>,
     pub error: UseStateHandle<Option<String>>,
+    pub support_error: UseStateHandle<Option<String>>,
     pub ongoing_tasks: UseReducerHandle<OngoingTasks>,
     pub impersonate_asn: UseStateHandle<String>,
     pub impersonate_mnt: UseStateHandle<String>,
@@ -601,6 +602,7 @@ pub fn use_autopeer_controller(
     let retire_confirmation = use_state(|| false);
     let operation = use_state(|| None::<OperationStatus>);
     let error = use_state(|| None::<String>);
+    let support_error = use_state(|| None::<String>);
     let ongoing_tasks = use_reducer(OngoingTasks::default);
 
     let impersonate_asn = use_state(String::new);
@@ -893,12 +895,20 @@ pub fn use_autopeer_controller(
 
     let on_impersonate_asn_change = {
         let impersonate_asn = impersonate_asn.clone();
-        Callback::from(move |value: String| impersonate_asn.set(value))
+        let support_error = support_error.clone();
+        Callback::from(move |value: String| {
+            support_error.set(None);
+            impersonate_asn.set(value);
+        })
     };
 
     let on_impersonate_mnt_change = {
         let impersonate_mnt = impersonate_mnt.clone();
-        Callback::from(move |value: String| impersonate_mnt.set(value))
+        let support_error = support_error.clone();
+        Callback::from(move |value: String| {
+            support_error.set(None);
+            impersonate_mnt.set(value);
+        })
     };
 
     let on_selected_email_maintainer_change = {
@@ -1291,6 +1301,7 @@ pub fn use_autopeer_controller(
         let session_handles = session_handles.clone();
         let operation = operation.clone();
         let error = error.clone();
+        let support_error = support_error.clone();
         let ongoing_tasks = ongoing_tasks.clone();
         let impersonate_asn = impersonate_asn.clone();
         let impersonate_mnt = impersonate_mnt.clone();
@@ -1303,6 +1314,7 @@ pub fn use_autopeer_controller(
             clear_session_state(&session_handles);
             operation.set(None);
             error.set(None);
+            support_error.set(None);
             clear_all_loading(&ongoing_tasks);
             auth_handles.step.set(AutoPeerStep::EnterAsn);
             clear_impersonation_inputs(&impersonate_asn, &impersonate_mnt);
@@ -1317,6 +1329,7 @@ pub fn use_autopeer_controller(
         let impersonate_mnt = impersonate_mnt.clone();
         let operation = operation.clone();
         let error = error.clone();
+        let support_error = support_error.clone();
         let ongoing_tasks = ongoing_tasks.clone();
         let session_handles = session_handles.clone();
         let auth_handles = auth_handles.clone();
@@ -1330,22 +1343,25 @@ pub fn use_autopeer_controller(
                     .clone()
                     .filter(|session| session.can_impersonate)
             }) else {
-                error.set(Some("error.host_auth_first".to_string()));
+                error.set(None);
+                support_error.set(Some("error.host_auth_first".to_string()));
                 return;
             };
 
             let target_asn = impersonate_asn.trim().to_string();
             if target_asn.is_empty() {
-                error.set(Some("error.enter_impersonate_asn".to_string()));
+                error.set(None);
+                support_error.set(Some("error.enter_impersonate_asn".to_string()));
                 return;
             }
 
             let task_id = start_loading(&ongoing_tasks, "loading.authing_asn");
             error.set(None);
+            support_error.set(None);
             operation.set(None);
 
             let impersonate_mnt_value = (*impersonate_mnt).clone();
-            let error = error.clone();
+            let support_error = support_error.clone();
             let ongoing_tasks = ongoing_tasks.clone();
             let session_handles = session_handles.clone();
             let auth_handles = auth_handles.clone();
@@ -1365,11 +1381,11 @@ pub fn use_autopeer_controller(
                             session,
                             &session_handles,
                             &auth_handles,
-                            &error,
+                            &support_error,
                         )
                         .await;
                     }
-                    Err(message) => error.set(Some(message)),
+                    Err(message) => support_error.set(Some(message)),
                 }
 
                 clear_loading(&ongoing_tasks, task_id);
@@ -1385,6 +1401,7 @@ pub fn use_autopeer_controller(
         let impersonate_asn = impersonate_asn.clone();
         let impersonate_mnt = impersonate_mnt.clone();
         let error = error.clone();
+        let support_error = support_error.clone();
         let ongoing_tasks = ongoing_tasks.clone();
 
         Callback::from(move |_| {
@@ -1392,18 +1409,20 @@ pub fn use_autopeer_controller(
                 return;
             };
             let Some(host_session_value) = (*host_session).clone() else {
-                error.set(Some("error.no_host_session".to_string()));
+                error.set(None);
+                support_error.set(Some("error.no_host_session".to_string()));
                 return;
             };
 
             let task_id = start_loading(&ongoing_tasks, "loading.restore_host");
             error.set(None);
+            support_error.set(None);
 
             let auth_session = auth_session.clone();
             let session_handles = session_handles.clone();
             let impersonate_asn = impersonate_asn.clone();
             let impersonate_mnt = impersonate_mnt.clone();
-            let error = error.clone();
+            let support_error = support_error.clone();
             let ongoing_tasks = ongoing_tasks.clone();
 
             spawn_local(async move {
@@ -1412,11 +1431,11 @@ pub fn use_autopeer_controller(
                         auth_session.set(Some(host_session_value.clone()));
                         apply_session_list_and_reset(response, &session_handles);
                         clear_impersonation_inputs(&impersonate_asn, &impersonate_mnt);
-                        error.set(None);
+                        support_error.set(None);
                     }
                     Err(message) => {
                         session_handles.asn.set(host_session_value.asn.clone());
-                        error.set(Some(message));
+                        support_error.set(Some(message));
                     }
                 }
 
@@ -1595,6 +1614,7 @@ pub fn use_autopeer_controller(
         retire_confirmation,
         operation,
         error,
+        support_error,
         ongoing_tasks,
         impersonate_asn,
         impersonate_mnt,

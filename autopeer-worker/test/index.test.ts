@@ -5,6 +5,7 @@ import {
   decideApplyGate,
   decideCheckGate,
   decideNodeLockGate,
+  resolveEffectiveMaintainer,
 } from "../src/index";
 
 describe("peer-session-check gate", () => {
@@ -171,6 +172,36 @@ describe("ASN lookup error classification", () => {
     expect(error.status).toBe(400);
     expect(error.message).toBe(
       "AS4242421024 exists in DN42, but it does not publish maintainer auth we can use yet.",
+    );
+  });
+});
+
+describe("host impersonation maintainer resolution", () => {
+  const maintainer = (name: string) => ({
+    name,
+    auth_lines: [],
+    ssh_public_keys: [],
+    ssh_fingerprints: [],
+    pgp_fingerprints: [],
+    contact_emails: [],
+  });
+
+  it("lists available mntners when effective_mnt is missing for a multi-mntner ASN", () => {
+    expect(() =>
+      resolveEffectiveMaintainer([maintainer("ROUTEDBITS-MNT"), maintainer("IRIS-MNT")]),
+    ).toThrowError(
+      "effective_mnt is required when your target ASN has multiple maintainers. Available mntners: ROUTEDBITS-MNT, IRIS-MNT.",
+    );
+  });
+
+  it("lists available mntners when the requested maintainer is not present", () => {
+    expect(() =>
+      resolveEffectiveMaintainer(
+        [maintainer("ROUTEDBITS-MNT"), maintainer("IRIS-MNT")],
+        "OTHER-MNT",
+      ),
+    ).toThrowError(
+      "OTHER-MNT is not present in aut-num -> mnt-by for this ASN. Available mntners: ROUTEDBITS-MNT, IRIS-MNT.",
     );
   });
 });
