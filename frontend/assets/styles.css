@@ -1382,6 +1382,34 @@ details[open] .summary-header {
     border-color: color-mix(in srgb, var(--accent) 35%, var(--border));
 }
 
+.autopeer-failure-details {
+    margin-top: 12px;
+    padding: 10px 12px;
+    border-radius: var(--radius-sm, 6px);
+    background: color-mix(in srgb, var(--accent) 6%, transparent);
+    min-width: 0;
+}
+
+.autopeer-failure-stage {
+    margin: 0 0 4px;
+    overflow-wrap: anywhere;
+    word-break: break-word;
+}
+
+.autopeer-failure-annotation {
+    margin: 8px 0 0;
+    padding: 8px 10px;
+    max-width: 100%;
+    border-radius: var(--radius-sm, 6px);
+    background: var(--bg-secondary);
+    color: var(--text-secondary);
+    font-size: 0.78rem;
+    line-height: 1.45;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+    word-break: break-word;
+}
+
 .autopeer-status-pill {
     display: inline-flex;
     align-items: center;
