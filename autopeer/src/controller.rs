@@ -17,7 +17,7 @@ use crate::{
     },
 };
 
-const MISSING_AUTOPEER_URL_ERROR: &str = "autopeer_url is not configured";
+const MISSING_AUTOPEER_URL_ERROR: &str = "error.autopeer_url_missing";
 
 #[derive(Clone)]
 struct SessionHandles {
@@ -54,21 +54,15 @@ struct AuthFlowHandles {
 pub(crate) fn validate_ssh_signature_input(signature: &str) -> Result<(), &'static str> {
     let trimmed = signature.trim();
     if trimmed.is_empty() {
-        return Err(
-            "Paste the full detached SSH signature block from the command above, including the BEGIN/END lines.",
-        );
+        return Err("error.ssh.empty_or_missing_blocks");
     }
     if !trimmed.contains("-----BEGIN SSH SIGNATURE-----")
         || !trimmed.contains("-----END SSH SIGNATURE-----")
     {
         if trimmed.contains("dn42-autopeer challenge") {
-            return Err(
-                "Paste the detached SSH signature block from the command above, not the unsigned challenge text.",
-            );
+            return Err("error.ssh.unsigned_challenge");
         }
-        return Err(
-            "Paste the full detached SSH signature block from the command above, including the BEGIN/END lines.",
-        );
+        return Err("error.ssh.empty_or_missing_blocks");
     }
     Ok(())
 }
@@ -309,12 +303,12 @@ fn clear_location_hash() {
 
 fn redirect_to(url: &str) -> Result<(), String> {
     let Some(window) = web_sys::window() else {
-        return Err("Browser window is unavailable".to_string());
+        return Err("error.browser_unavailable".to_string());
     };
     window
         .location()
         .set_href(url)
-        .map_err(|_| "Failed to open the OIDC login redirect".to_string())
+        .map_err(|_| "error.oidc_redirect_failed".to_string())
 }
 
 fn session_for_node<'a>(node_name: &str, sessions: &'a [SessionView]) -> Option<&'a SessionView> {
@@ -636,7 +630,7 @@ pub fn use_autopeer_controller(
                             start_loading(
                                 &loading,
                                 &loading_message,
-                                "Finishing your email login and loading your sessions...",
+                                "loading.email_login",
                             );
                             finish_redirected_auth_session(
                                 &api_url,
@@ -655,7 +649,7 @@ pub fn use_autopeer_controller(
                             start_loading(
                                 &loading,
                                 &loading_message,
-                                "Finishing your OIDC login and loading your sessions...",
+                                "loading.oidc_login",
                             );
                             finish_redirected_auth_session(
                                 &api_url,
@@ -764,7 +758,7 @@ pub fn use_autopeer_controller(
             start_loading(
                 &loading,
                 &loading_message,
-                "Fetching your current sessions from our repo...",
+                "loading.fetch_sessions",
             );
 
             let error = error.clone();
@@ -822,7 +816,7 @@ pub fn use_autopeer_controller(
                         start_loading(
                             &loading,
                             &loading_message,
-                            "Refreshing your session state from our repo...",
+                            "loading.refresh_sessions",
                         );
                         match service::list_sessions(&api_base, &auth_session.session_token).await {
                             Ok(response) => {
@@ -902,14 +896,14 @@ pub fn use_autopeer_controller(
 
             let asn_value = asn.trim().to_string();
             if asn_value.is_empty() {
-                error.set(Some("ASN is required".to_string()));
+                error.set(Some("error.asn_required".to_string()));
                 return;
             }
 
             start_loading(
                 &loading,
                 &loading_message,
-                "Fetching your DN42 registry authentication methods...",
+                "loading.fetch_methods",
             );
             error.set(None);
             operation.set(None);
@@ -971,14 +965,14 @@ pub fn use_autopeer_controller(
                 return;
             };
             let Some(provider) = method.provider.clone() else {
-                error.set(Some("OIDC provider is missing".to_string()));
+                error.set(Some("error.oidc_provider_missing".to_string()));
                 return;
             };
 
             start_loading(
                 &loading,
                 &loading_message,
-                "Redirecting you to your OIDC provider...",
+                "loading.redirect_oidc",
             );
             error.set(None);
 
@@ -1029,14 +1023,14 @@ pub fn use_autopeer_controller(
 
             let asn_value = asn.trim().to_string();
             if asn_value.is_empty() {
-                error.set(Some("ASN is required".to_string()));
+                error.set(Some("error.asn_required".to_string()));
                 return;
             }
 
             start_loading(
                 &loading,
                 &loading_message,
-                "Fetching a fresh DN42 registry challenge for you...",
+                "loading.fetch_challenge",
             );
             error.set(None);
 
@@ -1067,7 +1061,7 @@ pub fn use_autopeer_controller(
                                 auth_handles.step.set(AutoPeerStep::VerifyMethod);
                             }
                             None => error.set(Some(
-                                "That authentication method is no longer available for your ASN."
+                                "error.method_no_longer_available"
                                     .to_string(),
                             )),
                         }
@@ -1103,16 +1097,16 @@ pub fn use_autopeer_controller(
                 return;
             };
             let Some(challenge_id) = (*challenge_id).clone() else {
-                error.set(Some("Missing challenge_id".to_string()));
+                error.set(Some("error.missing_challenge_id".to_string()));
                 return;
             };
             let Some(method) = (*selected_method).clone() else {
-                error.set(Some("Choose an authentication method first.".to_string()));
+                error.set(Some("error.choose_method_first".to_string()));
                 return;
             };
             if method.kind != AuthMethodKind::RegistryEmail {
                 error.set(Some(
-                    "Registry email auth is not active right now.".to_string(),
+                    "error.email_auth_inactive".to_string(),
                 ));
                 return;
             }
@@ -1121,7 +1115,7 @@ pub fn use_autopeer_controller(
                 selected_registry_email_target(&method, selected_email_maintainer.as_str());
             let Some(target) = selected_target else {
                 error.set(Some(
-                    "Choose a maintainer with registry email contacts first.".to_string(),
+                    "error.email_choose_maintainer".to_string(),
                 ));
                 return;
             };
@@ -1129,7 +1123,7 @@ pub fn use_autopeer_controller(
             start_loading(
                 &loading,
                 &loading_message,
-                "Sending a sign-in link and one-time code to your registry email contacts...",
+                "loading.send_email",
             );
             error.set(None);
 
@@ -1174,11 +1168,11 @@ pub fn use_autopeer_controller(
                 return;
             };
             let Some(challenge_id) = (*challenge_id).clone() else {
-                error.set(Some("Missing challenge_id".to_string()));
+                error.set(Some("error.missing_challenge_id".to_string()));
                 return;
             };
             let Some(method) = (*selected_method).clone() else {
-                error.set(Some("Choose an authentication method first.".to_string()));
+                error.set(Some("error.choose_method_first".to_string()));
                 return;
             };
             if method.kind == AuthMethodKind::RegistrySsh
@@ -1190,21 +1184,21 @@ pub fn use_autopeer_controller(
             if method.kind == AuthMethodKind::RegistryEmail && registry_email_code.trim().is_empty()
             {
                 error.set(Some(
-                    "Enter the one-time auth code from your email.".to_string(),
+                    "error.enter_email_code".to_string(),
                 ));
                 return;
             }
 
             let loading_text = match method.kind {
                 AuthMethodKind::RegistrySsh => {
-                    "Checking your SSH signature against the DN42 registry..."
+                    "loading.check_ssh"
                 }
                 AuthMethodKind::RegistryPgp => {
-                    "Checking your PGP signature against the DN42 registry..."
+                    "loading.check_pgp"
                 }
-                AuthMethodKind::RegistryEmail => "Checking your registry email auth code...",
-                AuthMethodKind::Oidc => "Redirecting you to your OIDC provider...",
-                AuthMethodKind::HostImpersonation => "Preparing your host ASN session...",
+                AuthMethodKind::RegistryEmail => "loading.check_email",
+                AuthMethodKind::Oidc => "loading.redirect_oidc",
+                AuthMethodKind::HostImpersonation => "loading.host_session_prep",
             };
             start_loading(&loading, &loading_message, loading_text);
             error.set(None);
@@ -1223,7 +1217,7 @@ pub fn use_autopeer_controller(
                 if method.kind == AuthMethodKind::Oidc {
                     let Some(provider) = method.provider.clone() else {
                         clear_loading(&loading, &loading_message);
-                        error.set(Some("OIDC provider is missing".to_string()));
+                        error.set(Some("error.oidc_provider_missing".to_string()));
                         return;
                     };
 
@@ -1268,7 +1262,7 @@ pub fn use_autopeer_controller(
                     AuthMethodKind::HostImpersonation => {
                         clear_loading(&loading, &loading_message);
                         error.set(Some(
-                            "Impersonation starts after you authenticate one of our configured host ASNs."
+                            "error.impersonate_after_host"
                                 .to_string(),
                         ));
                         return;
@@ -1347,7 +1341,7 @@ pub fn use_autopeer_controller(
                     .filter(|session| session.can_impersonate)
             }) else {
                 error.set(Some(
-                    "Authenticate one of our configured host ASNs before you impersonate another ASN."
+                    "error.host_auth_first"
                         .to_string(),
                 ));
                 return;
@@ -1355,14 +1349,14 @@ pub fn use_autopeer_controller(
 
             let target_asn = impersonate_asn.trim().to_string();
             if target_asn.is_empty() {
-                error.set(Some("Enter the ASN you want to impersonate".to_string()));
+                error.set(Some("error.enter_impersonate_asn".to_string()));
                 return;
             }
 
             start_loading(
                 &loading,
                 &loading_message,
-                "Authenticating that ASN against the DN42 registry for you...",
+                "loading.authing_asn",
             );
             error.set(None);
             operation.set(None);
@@ -1418,7 +1412,7 @@ pub fn use_autopeer_controller(
             };
             let Some(host_session_value) = (*host_session).clone() else {
                 error.set(Some(
-                    "No host ASN session is available right now".to_string(),
+                    "error.no_host_session".to_string(),
                 ));
                 return;
             };
@@ -1426,7 +1420,7 @@ pub fn use_autopeer_controller(
             start_loading(
                 &loading,
                 &loading_message,
-                "Restoring your host ASN session from our repo...",
+                "loading.restore_host",
             );
             error.set(None);
 
@@ -1481,14 +1475,14 @@ pub fn use_autopeer_controller(
                 return;
             };
             let Some(auth_session) = (*auth_session).clone() else {
-                error.set(Some("Authenticate before you continue".to_string()));
+                error.set(Some("error.authenticate_first".to_string()));
                 return;
             };
 
             let draft_value = (*draft).clone();
             if editing_node.is_none() && draft_value.node.trim().is_empty() {
                 error.set(Some(
-                    "Choose one of our nodes before you open a PR".to_string(),
+                    "error.choose_node_inline".to_string(),
                 ));
                 return;
             }
@@ -1504,9 +1498,9 @@ pub fn use_autopeer_controller(
                 &loading,
                 &loading_message,
                 if editing_node.is_some() {
-                    "Updating your peering config in our repo and opening a pull request..."
+                    "loading.update_pr"
                 } else {
-                    "Creating your peering config in our repo and opening a pull request..."
+                    "loading.create_pr"
                 },
             );
             error.set(None);
@@ -1575,14 +1569,14 @@ pub fn use_autopeer_controller(
                 return;
             };
             let Some(auth_session) = (*auth_session).clone() else {
-                error.set(Some("Authenticate before you continue".to_string()));
+                error.set(Some("error.authenticate_first".to_string()));
                 return;
             };
             let selected_node = selected_session_node_name((*editing_node).as_deref(), &draft)
                 .and_then(|node| session_for_node(&node, &sessions).map(|_| node));
             let Some(node) = selected_node else {
                 error.set(Some(
-                    "Choose one of your managed sessions before you retire it".to_string(),
+                    "error.choose_managed_to_retire".to_string(),
                 ));
                 return;
             };
@@ -1599,7 +1593,7 @@ pub fn use_autopeer_controller(
             start_loading(
                 &loading,
                 &loading_message,
-                "Retiring your session in our repo and opening a pull request...",
+                "loading.retire_pr",
             );
             error.set(None);
 
@@ -1731,9 +1725,7 @@ mod tests {
             validate_ssh_signature_input(
                 "dn42-autopeer challenge\nasn: 4242421024\nchallenge_id: example\nissued_at: 2026-04-18T12:42:04.075Z"
             ),
-            Err(
-                "Paste the detached SSH signature block from the command above, not the unsigned challenge text."
-            ),
+            Err("error.ssh.unsigned_challenge"),
         );
     }
 
