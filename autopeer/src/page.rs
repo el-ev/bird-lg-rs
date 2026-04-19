@@ -2,7 +2,8 @@ use std::collections::BTreeSet;
 
 use common::{
     auto_peer::{
-        ALL_PEERING_STRATEGIES, AuthMethodKind, NodeView, OperationState, OperationStatus, PeeringStrategy, SessionState, SessionView
+        ALL_PEERING_STRATEGIES, AuthMethodKind, NodeView, OperationState, OperationStatus,
+        PeeringStrategy, SessionState, SessionView,
     },
     models::PeeringInfo,
 };
@@ -14,8 +15,8 @@ use yew::prelude::*;
 
 use crate::{
     controller::{
-        OngoingTask, default_pgp_key, selected_registry_email_target, sync_create_draft,
-        use_autopeer_controller,
+        AutoPeerController, OngoingTask, default_pgp_key, selected_registry_email_target,
+        sync_create_draft, use_autopeer_controller,
     },
     i18n::{I18n, use_i18n},
     store::{AutoPeerStep, PeerConfigStage, SessionDraft, SessionDraftField},
@@ -159,7 +160,6 @@ fn render_ongoing_tasks(i18n: &I18n, tasks: &[OngoingTask]) -> Html {
     }
 }
 
-
 fn looking_glass_href_from_parts(protocol: &str, host: &str) -> String {
     if let Some(rest) = host.strip_prefix("autopeer.") {
         format!("{protocol}//network.{rest}/")
@@ -287,11 +287,7 @@ fn autopeer_node_endpoint_port(asn: &str) -> String {
     format!("2{suffix}")
 }
 
-fn render_inventory_peering_review(
-    i18n: &I18n,
-    node: Option<&NodeView>,
-    active_asn: &str,
-) -> Html {
+fn render_inventory_peering_review(i18n: &I18n, node: Option<&NodeView>, active_asn: &str) -> Html {
     let Some(node) = node else {
         return Html::default();
     };
@@ -449,58 +445,57 @@ pub fn auto_peer_page() -> Html {
     let i18n = use_i18n();
     let default_autopeer_home_href = autopeer_home_href();
     let default_looking_glass_href = looking_glass_href();
-    let controller =
-        use_autopeer_controller(default_autopeer_home_href, default_looking_glass_href);
-    let autopeer_site_href = controller.autopeer_site_href.clone();
-    let looking_glass_site_href = controller.looking_glass_site_href.clone();
-    let oidc_methods = controller.oidc_methods.clone();
-    let step = controller.step.clone();
-    let asn = controller.asn.clone();
-    let challenge_text = controller.challenge_text.clone();
-    let methods = controller.methods.clone();
-    let selected_method = controller.selected_method.clone();
-    let auth_session = controller.auth_session.clone();
-    let host_session = controller.host_session.clone();
-    let nodes = controller.nodes.clone();
-    let sessions = controller.sessions.clone();
-    let draft = controller.draft.clone();
-    let touched_fields = controller.touched_fields.clone();
-    let editing_node = controller.editing_node.clone();
-    let config_stage = controller.config_stage.clone();
-    let retire_confirmation = controller.retire_confirmation.clone();
-    let operation = controller.operation.clone();
-    let error = controller.error.clone();
-    let ongoing_tasks = controller.ongoing_tasks.clone();
+    let AutoPeerController {
+        autopeer_site_href,
+        looking_glass_site_href,
+        oidc_methods,
+        step,
+        asn,
+        challenge_text,
+        methods,
+        selected_method,
+        auth_session,
+        host_session,
+        nodes,
+        sessions,
+        draft,
+        touched_fields,
+        editing_node,
+        config_stage,
+        retire_confirmation,
+        operation,
+        error,
+        ongoing_tasks,
+        impersonate_asn,
+        impersonate_mnt,
+        ssh_signature,
+        selected_pgp_key,
+        pgp_public_key,
+        pgp_signed_message,
+        selected_email_maintainer,
+        registry_email_code,
+        registry_email_sent_to,
+        on_asn_change,
+        on_submit_asn,
+        on_asn_keydown,
+        on_enter_oidc,
+        on_select_method,
+        on_select_method_back,
+        on_verify_back,
+        on_verify,
+        on_selected_email_maintainer_change,
+        on_registry_email_code_change,
+        on_send_registry_email,
+        on_refresh,
+        on_logout,
+        on_impersonate_asn_change,
+        on_impersonate_mnt_change,
+        on_impersonate,
+        on_return_to_host,
+        on_submit_session,
+        on_retire_selected_session,
+    } = use_autopeer_controller(default_autopeer_home_href, default_looking_glass_href);
     let loading = !ongoing_tasks.is_empty();
-    let impersonate_asn = controller.impersonate_asn.clone();
-    let impersonate_mnt = controller.impersonate_mnt.clone();
-    let ssh_signature = controller.ssh_signature.clone();
-    let selected_pgp_key = controller.selected_pgp_key.clone();
-    let pgp_public_key = controller.pgp_public_key.clone();
-    let pgp_signed_message = controller.pgp_signed_message.clone();
-    let selected_email_maintainer = controller.selected_email_maintainer.clone();
-    let registry_email_code = controller.registry_email_code.clone();
-    let registry_email_sent_to = controller.registry_email_sent_to.clone();
-    let on_asn_change = controller.on_asn_change.clone();
-    let on_submit_asn = controller.on_submit_asn.clone();
-    let on_asn_keydown = controller.on_asn_keydown.clone();
-    let on_enter_oidc = controller.on_enter_oidc.clone();
-    let on_select_method = controller.on_select_method.clone();
-    let on_select_method_back = controller.on_select_method_back.clone();
-    let on_verify_back = controller.on_verify_back.clone();
-    let on_verify = controller.on_verify.clone();
-    let on_selected_email_maintainer_change =
-        controller.on_selected_email_maintainer_change.clone();
-    let on_registry_email_code_change = controller.on_registry_email_code_change.clone();
-    let on_send_registry_email = controller.on_send_registry_email.clone();
-    let on_refresh = controller.on_refresh.clone();
-    let on_logout = controller.on_logout.clone();
-    let on_impersonate_asn_change = controller.on_impersonate_asn_change.clone();
-    let on_impersonate_mnt_change = controller.on_impersonate_mnt_change.clone();
-    let on_impersonate = controller.on_impersonate.clone();
-    let on_return_to_host = controller.on_return_to_host.clone();
-    let on_submit_session = controller.on_submit_session.clone();
-    let on_retire_selected_session = controller.on_retire_selected_session.clone();
 
     let content = match &*step {
         AutoPeerStep::LoadingConfig => html! {
@@ -961,10 +956,13 @@ pub fn auto_peer_page() -> Html {
             let own6_placeholder = match peer6_kind {
                 Some(Peer6AddressKind::LinkLocal) => {
                     node_inventory_link_local_ipv6.clone().unwrap_or_else(|| {
-                        i18n.t("stage2.field.own6_link_local.placeholder").to_string()
+                        i18n.t("stage2.field.own6_link_local.placeholder")
+                            .to_string()
                     })
                 }
-                _ => i18n.t("stage2.field.own6_link_local.placeholder").to_string(),
+                _ => i18n
+                    .t("stage2.field.own6_link_local.placeholder")
+                    .to_string(),
             };
 
             let on_cancel_edit = {
@@ -994,9 +992,12 @@ pub fn auto_peer_page() -> Html {
                 Callback::from(move |_: FocusEvent| mark_field_touched(&touched_fields, field))
             };
 
+            let field_is_invalid = |field: SessionDraftField| {
+                touched_fields.contains(field_key(field)) && draft.field_error(field).is_some()
+            };
+
             let input_class = |field: SessionDraftField| {
-                let key = field_key(field);
-                if touched_fields.contains(key) && draft.field_error(field).is_some() {
+                if field_is_invalid(field) {
                     classes!("shell-input--invalid")
                 } else {
                     Classes::new()
@@ -1004,8 +1005,7 @@ pub fn auto_peer_page() -> Html {
             };
 
             let input_frame_class = |field: SessionDraftField| {
-                let key = field_key(field);
-                if touched_fields.contains(key) && draft.field_error(field).is_some() {
+                if field_is_invalid(field) {
                     classes!("shell-input-frame--invalid")
                 } else {
                     Classes::new()
@@ -1785,9 +1785,8 @@ mod tests {
     use common::auto_peer::{AuthMethod, AuthMethodKind};
 
     use super::{
-        Peer6AddressKind, autopeer_node_endpoint_port,
-        detect_peer6_address_kind, displayed_peer_config_stage,
-        retire_button_text,
+        Peer6AddressKind, autopeer_node_endpoint_port, detect_peer6_address_kind,
+        displayed_peer_config_stage, retire_button_text,
     };
     use crate::{
         controller::{configured_href, filter_supported_methods, validate_ssh_signature_input},

@@ -104,6 +104,21 @@ fn normalize_url(value: Option<String>) -> Option<String> {
         .filter(|url| !url.is_empty())
 }
 
+fn api_url(api_base: &str, path: &str) -> String {
+    format!(
+        "{}/{}",
+        api_base.trim_end_matches('/'),
+        path.trim_start_matches('/')
+    )
+}
+
+fn optional_effective_mnt(effective_mnt: Option<&str>) -> Option<String> {
+    effective_mnt
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(str::to_string)
+}
+
 pub async fn load_runtime_config() -> Result<RuntimeConfig, String> {
     let response = Request::get(CONFIG_PATH)
         .send()
@@ -133,7 +148,7 @@ pub async fn load_runtime_config() -> Result<RuntimeConfig, String> {
 }
 
 pub async fn start_auth(api_base: &str, asn: &str) -> Result<AuthStartResponse, String> {
-    let url = format!("{}/v1/auth/start", api_base.trim_end_matches('/'));
+    let url = api_url(api_base, "/v1/auth/start");
     send_json(
         "POST",
         &url,
@@ -150,10 +165,7 @@ pub async fn verify_registry_ssh(
     challenge_id: &str,
     signature: &str,
 ) -> Result<AuthSessionResponse, String> {
-    let url = format!(
-        "{}/v1/auth/verify/registry-ssh",
-        api_base.trim_end_matches('/')
-    );
+    let url = api_url(api_base, "/v1/auth/verify/registry-ssh");
     send_json(
         "POST",
         &url,
@@ -172,10 +184,7 @@ pub async fn verify_registry_pgp(
     public_key: &str,
     signed_message: &str,
 ) -> Result<AuthSessionResponse, String> {
-    let url = format!(
-        "{}/v1/auth/verify/registry-pgp",
-        api_base.trim_end_matches('/')
-    );
+    let url = api_url(api_base, "/v1/auth/verify/registry-pgp");
     send_json(
         "POST",
         &url,
@@ -194,20 +203,14 @@ pub async fn send_registry_email(
     challenge_id: &str,
     effective_mnt: Option<&str>,
 ) -> Result<RegistryEmailSendResponse, String> {
-    let url = format!(
-        "{}/v1/auth/verify/registry-email/send",
-        api_base.trim_end_matches('/')
-    );
+    let url = api_url(api_base, "/v1/auth/verify/registry-email/send");
     send_json(
         "POST",
         &url,
         None,
         &RegistryEmailSendRequest {
             challenge_id: challenge_id.to_string(),
-            effective_mnt: effective_mnt
-                .map(str::trim)
-                .filter(|value| !value.is_empty())
-                .map(str::to_string),
+            effective_mnt: optional_effective_mnt(effective_mnt),
         },
     )
     .await
@@ -218,10 +221,7 @@ pub async fn verify_registry_email(
     challenge_id: &str,
     code: &str,
 ) -> Result<AuthSessionResponse, String> {
-    let url = format!(
-        "{}/v1/auth/verify/registry-email",
-        api_base.trim_end_matches('/')
-    );
+    let url = api_url(api_base, "/v1/auth/verify/registry-email");
     send_json(
         "POST",
         &url,
@@ -238,10 +238,7 @@ pub async fn complete_registry_email(
     api_base: &str,
     token: &str,
 ) -> Result<AuthSessionResponse, String> {
-    let url = format!(
-        "{}/v1/auth/verify/registry-email/complete",
-        api_base.trim_end_matches('/')
-    );
+    let url = api_url(api_base, "/v1/auth/verify/registry-email/complete");
     send_json(
         "POST",
         &url,
@@ -258,11 +255,7 @@ pub async fn start_oidc(
     provider: &str,
     challenge_id: Option<&str>,
 ) -> Result<OidcStartResponse, String> {
-    let url = format!(
-        "{}/v1/auth/oidc/{}/start",
-        api_base.trim_end_matches('/'),
-        provider
-    );
+    let url = api_url(api_base, &format!("/v1/auth/oidc/{provider}/start"));
     send_json(
         "POST",
         &url,
@@ -275,7 +268,7 @@ pub async fn start_oidc(
 }
 
 pub async fn complete_oidc(api_base: &str, state: &str) -> Result<AuthSessionResponse, String> {
-    let url = format!("{}/v1/auth/oidc/complete", api_base.trim_end_matches('/'));
+    let url = api_url(api_base, "/v1/auth/oidc/complete");
     send_json(
         "POST",
         &url,
@@ -293,17 +286,14 @@ pub async fn impersonate_asn(
     asn: &str,
     effective_mnt: Option<&str>,
 ) -> Result<AuthSessionResponse, String> {
-    let url = format!("{}/v1/auth/impersonate", api_base.trim_end_matches('/'));
+    let url = api_url(api_base, "/v1/auth/impersonate");
     send_json(
         "POST",
         &url,
         Some(session_token),
         &HostImpersonationRequest {
             asn: asn.to_string(),
-            effective_mnt: effective_mnt
-                .map(str::trim)
-                .filter(|value| !value.is_empty())
-                .map(str::to_string),
+            effective_mnt: optional_effective_mnt(effective_mnt),
         },
     )
     .await
@@ -313,7 +303,7 @@ pub async fn list_sessions(
     api_base: &str,
     session_token: &str,
 ) -> Result<SessionListResponse, String> {
-    let url = format!("{}/v1/sessions", api_base.trim_end_matches('/'));
+    let url = api_url(api_base, "/v1/sessions");
     send_get(&url, Some(session_token)).await
 }
 
@@ -322,7 +312,7 @@ pub async fn create_session(
     session_token: &str,
     request: &CreateSessionRequest,
 ) -> Result<OperationStatus, String> {
-    let url = format!("{}/v1/sessions", api_base.trim_end_matches('/'));
+    let url = api_url(api_base, "/v1/sessions");
     send_json("POST", &url, Some(session_token), request).await
 }
 
@@ -333,12 +323,7 @@ pub async fn update_session(
     asn: &str,
     request: &UpdateSessionRequest,
 ) -> Result<OperationStatus, String> {
-    let url = format!(
-        "{}/v1/sessions/{}/{}",
-        api_base.trim_end_matches('/'),
-        node,
-        asn
-    );
+    let url = api_url(api_base, &format!("/v1/sessions/{node}/{asn}"));
     send_json("PATCH", &url, Some(session_token), request).await
 }
 
@@ -348,12 +333,7 @@ pub async fn delete_session(
     node: &str,
     asn: &str,
 ) -> Result<OperationStatus, String> {
-    let url = format!(
-        "{}/v1/sessions/{}/{}",
-        api_base.trim_end_matches('/'),
-        node,
-        asn
-    );
+    let url = api_url(api_base, &format!("/v1/sessions/{node}/{asn}"));
     send_delete(&url, session_token).await
 }
 
@@ -362,10 +342,6 @@ pub async fn get_operation(
     session_token: &str,
     operation_id: &str,
 ) -> Result<OperationStatus, String> {
-    let url = format!(
-        "{}/v1/operations/{}",
-        api_base.trim_end_matches('/'),
-        operation_id
-    );
+    let url = api_url(api_base, &format!("/v1/operations/{operation_id}"));
     send_get(&url, Some(session_token)).await
 }

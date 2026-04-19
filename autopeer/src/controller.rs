@@ -1,6 +1,8 @@
-use std::collections::BTreeSet;
-use std::rc::Rc;
-use std::sync::atomic::{AtomicU64, Ordering};
+use std::{
+    collections::BTreeSet,
+    rc::Rc,
+    sync::atomic::{AtomicU64, Ordering},
+};
 
 use common::auto_peer::{
     AuthMethod, AuthMethodKind, AuthSessionResponse, CreateSessionRequest, NodeView,
@@ -192,18 +194,20 @@ fn reset_session_selection(handles: &SessionHandles) {
     handles.config_stage.set(PeerConfigStage::SelectNode);
 }
 
-fn reset_loaded_sessions(handles: &SessionHandles) {
+fn clear_loaded_session_data(handles: &SessionHandles) {
     handles.nodes.set(Vec::new());
     handles.sessions.set(Vec::new());
     handles.draft.set(SessionDraft::default());
+}
+
+fn reset_loaded_sessions(handles: &SessionHandles) {
+    clear_loaded_session_data(handles);
     reset_session_selection(handles);
 }
 
 fn clear_session_state(handles: &SessionHandles) {
     handles.asn.set(String::new());
-    handles.nodes.set(Vec::new());
-    handles.sessions.set(Vec::new());
-    handles.draft.set(SessionDraft::default());
+    clear_loaded_session_data(handles);
     reset_session_selection(handles);
 }
 
@@ -269,18 +273,29 @@ fn clear_impersonation_inputs(
 }
 
 fn apply_session_list(response: SessionListResponse, handles: &SessionHandles) {
-    handles.asn.set(response.asn.clone());
-    handles.nodes.set(response.nodes.clone());
-    handles.sessions.set(response.sessions.clone());
+    let SessionListResponse {
+        asn,
+        nodes,
+        sessions,
+        ..
+    } = response;
+    let next_draft = handles
+        .editing_node
+        .is_none()
+        .then(|| sync_create_draft(&nodes, &sessions, &handles.draft));
 
-    if handles.editing_node.is_none() {
-        let next = sync_create_draft(
-            &response.nodes,
-            &response.sessions,
-            &handles.draft,
-        );
+    handles.asn.set(asn);
+    handles.nodes.set(nodes);
+    handles.sessions.set(sessions);
+
+    if let Some(next) = next_draft {
         handles.draft.set(next);
     }
+}
+
+fn apply_session_list_and_reset(response: SessionListResponse, handles: &SessionHandles) {
+    apply_session_list(response, handles);
+    reset_session_selection(handles);
 }
 
 fn is_stale_session_error(message: &str) -> bool {
@@ -386,14 +401,7 @@ async fn activate_authenticated_session(
                 &auth_handles.host_session,
                 session,
             );
-            apply_session_list(response, session_handles);
-            let next_draft = sync_create_draft(
-                &session_handles.nodes,
-                &session_handles.sessions,
-                &session_handles.draft,
-            );
-            session_handles.draft.set(next_draft);
-            reset_session_selection(session_handles);
+            apply_session_list_and_reset(response, session_handles);
             error.set(None);
             auth_handles.step.set(AutoPeerStep::ManageSessions);
         }
@@ -1068,10 +1076,7 @@ pub fn use_autopeer_controller(
                                 set_selected_auth_method(&auth_flow_handles, method);
                                 auth_handles.step.set(AutoPeerStep::VerifyMethod);
                             }
-                            None => error.set(Some(
-                                "error.method_no_longer_available"
-                                    .to_string(),
-                            )),
+                            None => error.set(Some("error.method_no_longer_available".to_string())),
                         }
                     }
                     Err(message) => error.set(Some(message)),
@@ -1112,18 +1117,14 @@ pub fn use_autopeer_controller(
                 return;
             };
             if method.kind != AuthMethodKind::RegistryEmail {
-                error.set(Some(
-                    "error.email_auth_inactive".to_string(),
-                ));
+                error.set(Some("error.email_auth_inactive".to_string()));
                 return;
             }
 
             let selected_target =
                 selected_registry_email_target(&method, selected_email_maintainer.as_str());
             let Some(target) = selected_target else {
-                error.set(Some(
-                    "error.email_choose_maintainer".to_string(),
-                ));
+                error.set(Some("error.email_choose_maintainer".to_string()));
                 return;
             };
 
@@ -1184,19 +1185,13 @@ pub fn use_autopeer_controller(
             }
             if method.kind == AuthMethodKind::RegistryEmail && registry_email_code.trim().is_empty()
             {
-                error.set(Some(
-                    "error.enter_email_code".to_string(),
-                ));
+                error.set(Some("error.enter_email_code".to_string()));
                 return;
             }
 
             let loading_text = match method.kind {
-                AuthMethodKind::RegistrySsh => {
-                    "loading.check_ssh"
-                }
-                AuthMethodKind::RegistryPgp => {
-                    "loading.check_pgp"
-                }
+                AuthMethodKind::RegistrySsh => "loading.check_ssh",
+                AuthMethodKind::RegistryPgp => "loading.check_pgp",
                 AuthMethodKind::RegistryEmail => "loading.check_email",
                 AuthMethodKind::Oidc => "loading.redirect_oidc",
                 AuthMethodKind::HostImpersonation => "loading.host_session_prep",
@@ -1261,10 +1256,7 @@ pub fn use_autopeer_controller(
                     AuthMethodKind::Oidc => unreachable!(),
                     AuthMethodKind::HostImpersonation => {
                         clear_loading(&ongoing_tasks, task_id);
-                        error.set(Some(
-                            "error.impersonate_after_host"
-                                .to_string(),
-                        ));
+                        error.set(Some("error.impersonate_after_host".to_string()));
                         return;
                     }
                 };
@@ -1338,10 +1330,7 @@ pub fn use_autopeer_controller(
                     .clone()
                     .filter(|session| session.can_impersonate)
             }) else {
-                error.set(Some(
-                    "error.host_auth_first"
-                        .to_string(),
-                ));
+                error.set(Some("error.host_auth_first".to_string()));
                 return;
             };
 
@@ -1403,9 +1392,7 @@ pub fn use_autopeer_controller(
                 return;
             };
             let Some(host_session_value) = (*host_session).clone() else {
-                error.set(Some(
-                    "error.no_host_session".to_string(),
-                ));
+                error.set(Some("error.no_host_session".to_string()));
                 return;
             };
 
@@ -1423,14 +1410,7 @@ pub fn use_autopeer_controller(
                 match service::list_sessions(&api_base, &host_session_value.session_token).await {
                     Ok(response) => {
                         auth_session.set(Some(host_session_value.clone()));
-                        apply_session_list(response, &session_handles);
-                        let next_draft = sync_create_draft(
-                            &session_handles.nodes,
-                            &session_handles.sessions,
-                            &session_handles.draft,
-                        );
-                        session_handles.draft.set(next_draft);
-                        reset_session_selection(&session_handles);
+                        apply_session_list_and_reset(response, &session_handles);
                         clear_impersonation_inputs(&impersonate_asn, &impersonate_mnt);
                         error.set(None);
                     }
@@ -1466,9 +1446,7 @@ pub fn use_autopeer_controller(
 
             let draft_value = (*draft).clone();
             if editing_node.is_none() && draft_value.node.trim().is_empty() {
-                error.set(Some(
-                    "error.choose_node_inline".to_string(),
-                ));
+                error.set(Some("error.choose_node_inline".to_string()));
                 return;
             }
             let spec = match draft_value.to_spec() {
@@ -1503,9 +1481,7 @@ pub fn use_autopeer_controller(
                         &auth_session.session_token,
                         &node,
                         &session_asn,
-                        &UpdateSessionRequest {
-                            session: spec,
-                        },
+                        &UpdateSessionRequest { session: spec },
                     )
                     .await
                 } else {
@@ -1543,7 +1519,7 @@ pub fn use_autopeer_controller(
         let error = error.clone();
         let ongoing_tasks = ongoing_tasks.clone();
         let poll_operation = poll_operation.clone();
-        let config_stage = config_stage.clone();
+        let session_handles = session_handles.clone();
         let retire_confirmation = retire_confirmation.clone();
 
         Callback::from(move |_| {
@@ -1557,9 +1533,7 @@ pub fn use_autopeer_controller(
             let selected_node = selected_session_node_name((*editing_node).as_deref(), &draft)
                 .and_then(|node| session_for_node(&node, &sessions).map(|_| node));
             let Some(node) = selected_node else {
-                error.set(Some(
-                    "error.choose_managed_to_retire".to_string(),
-                ));
+                error.set(Some("error.choose_managed_to_retire".to_string()));
                 return;
             };
             if !*retire_confirmation {
@@ -1569,8 +1543,7 @@ pub fn use_autopeer_controller(
             }
 
             retire_confirmation.set(false);
-            editing_node.set(None);
-            config_stage.set(PeerConfigStage::SelectNode);
+            reset_session_selection(&session_handles);
 
             let task_id = start_loading(&ongoing_tasks, "loading.retire_pr");
             error.set(None);
