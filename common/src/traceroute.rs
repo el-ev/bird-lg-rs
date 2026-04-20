@@ -1,8 +1,9 @@
 use std::net::IpAddr;
 
 use serde::{Deserialize, Serialize};
+use utoipa::ToSchema;
 
-#[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq)]
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, ToSchema)]
 pub enum HopRange {
     Single(u32),
     Range(u32, u32),
@@ -31,7 +32,7 @@ impl std::fmt::Display for HopRange {
     }
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, ToSchema)]
 pub struct TracerouteHop {
     pub hop: HopRange,
     pub address: Option<String>,

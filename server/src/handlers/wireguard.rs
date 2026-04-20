@@ -6,6 +6,18 @@ use futures_util::StreamExt;
 
 use crate::{config::Config, services::api::get_wireguard, state::AppState};
 
+#[utoipa::path(
+    get,
+    path = "/api/wireguard",
+    tag = "network",
+    responses(
+        (
+            status = 200,
+            description = "Latest WireGuard snapshot as AppResponse::WireGuard or AppResponse::Error",
+            body = common::api::AppResponse
+        )
+    )
+)]
 pub async fn get_wireguard_snapshot(
     Extension(config): Extension<Arc<Config>>,
     Extension(state): Extension<AppState>,

@@ -10,6 +10,18 @@ use common::api::AppResponse;
 
 use crate::{config::Config, state::AppState};
 
+#[utoipa::path(
+    get,
+    path = "/api/info",
+    tag = "network",
+    responses(
+        (
+            status = 200,
+            description = "Network metadata as AppResponse::NetworkInfo or AppResponse::Error",
+            body = common::api::AppResponse
+        )
+    )
+)]
 pub async fn get_network_info(
     Extension(config): Extension<Arc<Config>>,
     Extension(state): Extension<AppState>,
@@ -24,6 +36,26 @@ pub async fn get_network_info(
     }
 }
 
+#[utoipa::path(
+    get,
+    path = "/api/info/port/{port}",
+    tag = "network",
+    params(
+        ("port" = u16, Path, description = "Port to append to each peering endpoint")
+    ),
+    responses(
+        (
+            status = 200,
+            description = "Network metadata with peer endpoints rewritten to include the requested port",
+            body = common::api::AppResponse
+        ),
+        (
+            status = 400,
+            description = "Port is outside the supported 20000-29999 range",
+            body = common::api::AppResponse
+        )
+    )
+)]
 pub async fn get_network_info_with_port(
     Path(port): Path<u16>,
     Extension(config): Extension<Arc<Config>>,
@@ -56,6 +88,27 @@ pub async fn get_network_info_with_port(
     }
 }
 
+#[utoipa::path(
+    get,
+    path = "/api/peering/{node_name}",
+    tag = "network",
+    params(
+        ("node_name" = String, Path, description = "Node name")
+    ),
+    responses(
+        (
+            status = 200,
+            description = "Peering metadata for the requested node",
+            body = common::models::PeeringInfo
+        ),
+        (
+            status = 404,
+            description = "Node not found or peering data is unavailable",
+            body = String,
+            content_type = "text/plain"
+        )
+    )
+)]
 pub async fn get_node_peering(
     Path(node_name): Path<String>,
     Extension(state): Extension<AppState>,

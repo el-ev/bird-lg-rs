@@ -1,5 +1,6 @@
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
+use utoipa::ToSchema;
 
 use crate::{
     models::{NetworkInfo, NodeProtocol, NodeStatusDiff, NodeWireGuard},
@@ -45,7 +46,7 @@ pub enum AppRequest {
     },
 }
 
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, ToSchema)]
 #[serde(tag = "t")]
 pub enum AppResponse {
     #[serde(rename = "pr")]

@@ -2,8 +2,9 @@ use std::collections::HashMap;
 
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
+use utoipa::ToSchema;
 
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, ToSchema)]
 pub struct Protocol {
     pub name: String,
     pub proto: String,
@@ -13,7 +14,7 @@ pub struct Protocol {
     pub info: String,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, ToSchema)]
 pub struct PeeringInfo {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub ipv4: Option<String>,
@@ -29,7 +30,7 @@ pub struct PeeringInfo {
     pub comment: Option<String>,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, ToSchema)]
 pub struct NodeProtocol {
     pub name: String,
     pub protocols: Vec<Protocol>,
@@ -37,7 +38,7 @@ pub struct NodeProtocol {
     pub error: Option<String>,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, ToSchema)]
 pub struct NetworkInfo {
     pub name: String,
     pub asn: String,
@@ -53,7 +54,7 @@ pub struct NetworkInfo {
     pub peering: HashMap<String, PeeringInfo>,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, ToSchema)]
 pub struct WireGuardPeer {
     pub name: String,
     // pub public_key: String,
@@ -63,7 +64,7 @@ pub struct WireGuardPeer {
     pub transfer_tx: String,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, ToSchema)]
 pub struct NodeWireGuard {
     pub name: String,
     pub peers: Vec<WireGuardPeer>,
@@ -71,7 +72,7 @@ pub struct NodeWireGuard {
     pub error: Option<String>,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, ToSchema)]
 #[serde(tag = "o")]
 pub enum DiffOp {
     #[serde(rename = "e")]
@@ -84,7 +85,7 @@ pub enum DiffOp {
     Replace { i: Vec<Protocol> },
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, ToSchema)]
 pub struct NodeStatusDiff {
     pub n: String,
     pub d: Vec<DiffOp>,

@@ -1,6 +1,7 @@
 mod cli;
 mod config;
 mod diff;
+mod docs;
 mod handlers;
 mod services;
 mod state;
@@ -17,10 +18,13 @@ use axum::{
 };
 use tokio::net::TcpListener;
 use tower_http::cors::CorsLayer;
+use utoipa::OpenApi;
+use utoipa_swagger_ui::SwaggerUi;
 
 use crate::{
     cli::Cli,
     config::Config,
+    docs::ApiDoc,
     handlers::{info, ping, protocol, route, status, traceroute, wireguard, ws},
     services::poller,
     state::AppState,
@@ -64,6 +68,7 @@ async fn main() -> anyhow::Result<()> {
         .route("/api/peering/{node_name}", get(info::get_node_peering))
         .route("/api/wireguard", get(wireguard::get_wireguard_snapshot))
         .route("/api/ws", get(ws::ws_handler))
+        .merge(SwaggerUi::new("/swagger-ui").url("/api-docs/openapi.json", ApiDoc::openapi()))
         .layer(CorsLayer::permissive())
         .layer(middleware::from_fn(track_request))
         .layer(Extension(state))

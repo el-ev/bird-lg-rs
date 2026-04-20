@@ -17,6 +17,25 @@ pub struct RouteLookupQuery {
     pub all: bool,
 }
 
+#[utoipa::path(
+    get,
+    path = "/api/routes/{node_name}",
+    tag = "tools",
+    params(
+        ("node_name" = String, Path, description = "Node name"),
+        ("request_id" = String, Query, description = "Client-supplied request identifier"),
+        ("target" = String, Query, description = "Route or prefix to look up"),
+        ("all" = Option<bool>, Query, description = "Return all matching routes when true")
+    ),
+    responses(
+        (
+            status = 200,
+            description = "Server-Sent Events stream. Each event data field is a JSON-serialized AppResponse route-lookup message.",
+            content_type = "text/event-stream",
+            body = String
+        )
+    )
+)]
 pub async fn get_route(
     Path(node_name): Path<String>,
     Query(params): Query<RouteLookupQuery>,
