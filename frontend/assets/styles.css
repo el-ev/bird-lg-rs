@@ -118,6 +118,46 @@ hr {
     flex-wrap: wrap;
 }
 
+.autopeer-page-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: var(--spacing-md);
+    flex-wrap: wrap;
+    margin-bottom: var(--spacing-md);
+    position: sticky;
+    top: 0;
+    padding: 16px 0 8px;
+    background: var(--bg);
+    border-bottom: 1px solid var(--border-light);
+    z-index: 10;
+}
+
+.autopeer-page-header .title {
+    margin: 0;
+    padding: 0;
+    position: static;
+    background: transparent;
+    border-bottom: 0;
+}
+
+.autopeer-language-control {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    min-height: 32px;
+    color: var(--text-secondary);
+    font-size: 0.85rem;
+}
+
+.autopeer-language-label {
+    white-space: nowrap;
+}
+
+.autopeer-language-control .shell-select {
+    min-width: 6.5rem;
+}
+
 .autopeer-title-nav {
     color: inherit;
     text-decoration: underline dotted;
@@ -158,6 +198,17 @@ hr {
 .route-dropdown__toggle:focus-visible {
     outline: 1px dashed var(--text-secondary);
     outline-offset: 2px;
+}
+
+@media (max-width: 720px) {
+    .autopeer-page-header {
+        align-items: stretch;
+    }
+
+    .autopeer-language-control {
+        justify-content: space-between;
+        width: 100%;
+    }
 }
 
 .route-dropdown__menu,
@@ -1594,16 +1645,23 @@ details[open] .summary-header {
         align-items: center;
     }
 
-    .autopeer .shell-line > :is(.shell-input-frame--inline, .shell-select, .autopeer-toggle-row) {
+    .autopeer .shell-line > :is(.shell-select, .autopeer-toggle-row) {
         flex: 1 1 100%;
         min-width: 0;
         max-width: 100%;
     }
 
-    .autopeer .shell-input-frame--inline,
+    .autopeer .shell-input-frame--inline {
+        flex: 0 1 auto;
+        min-width: 0;
+        max-width: 100%;
+        width: auto;
+    }
+
     .autopeer .shell-input--inline {
         min-width: 0;
-        width: 100%;
+        width: calc(var(--shell-input-ch, 1) * 1ch);
+        max-width: 100%;
     }
 
     .autopeer .autopeer-toggle-row {
