@@ -1,16 +1,13 @@
 use std::collections::BTreeMap;
 
+use common::models::PeeringInfo;
 use serde::{Deserialize, Serialize};
-
-use crate::models::PeeringInfo;
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize, PartialEq, Eq)]
 pub struct UiMessage {
     pub key: String,
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub params: BTreeMap<String, String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub fallback: Option<String>,
 }
 
 impl UiMessage {
@@ -22,11 +19,9 @@ impl UiMessage {
     }
 
     pub fn raw(value: impl Into<String>) -> Self {
-        let value = value.into();
         Self {
-            key: value.clone(),
+            key: value.into(),
             params: BTreeMap::new(),
-            fallback: Some(value),
         }
     }
 
@@ -356,8 +351,6 @@ pub struct SessionView {
 #[derive(Clone, Debug, Default, Serialize, Deserialize, PartialEq, Eq)]
 pub struct SessionListResponse {
     pub asn: String,
-    pub effective_mnt: String,
-    pub auth_method: AuthMethod,
     #[serde(default)]
     pub nodes: Vec<NodeView>,
     #[serde(default)]

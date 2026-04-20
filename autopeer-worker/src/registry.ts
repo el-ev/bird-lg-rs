@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 
 import type { AuthMethod, MaintainerRecord, RegistryEmailTarget } from "./types";
-import { fromBase64, joinPath, readSecret, uiKey } from "./utils";
+import { fromBase64, joinPath, readSecret, uiMessage } from "./utils";
 
 interface GiteaContentResponse {
   content?: string;
@@ -160,8 +160,8 @@ export function methodsFromMaintainers(
   if (maintainers.some((mnt) => mnt.ssh_public_keys.length > 0)) {
     methods.push({
       kind: "registry_ssh",
-      label: uiKey("auth_method.registry_ssh.label"),
-      description: uiKey("auth_method.registry_ssh.description"),
+      label: uiMessage("auth_method.registry_ssh.label"),
+      description: uiMessage("auth_method.registry_ssh.description"),
       ssh_fingerprints: sshFingerprints,
       pgp_fingerprints: [],
       email_targets: [],
@@ -171,8 +171,8 @@ export function methodsFromMaintainers(
   if (pgpFingerprints.length > 0) {
     methods.push({
       kind: "registry_pgp",
-      label: uiKey("auth_method.registry_pgp.label"),
-      description: uiKey("auth_method.registry_pgp.description", {
+      label: uiMessage("auth_method.registry_pgp.label"),
+      description: uiMessage("auth_method.registry_pgp.description", {
         fingerprints: pgpFingerprints.join(", "),
       }),
       ssh_fingerprints: [],
@@ -184,8 +184,8 @@ export function methodsFromMaintainers(
   if (registryEmailEnabled && emailTargets.length > 0) {
     methods.push({
       kind: "registry_email",
-      label: uiKey("auth_method.registry_email.label"),
-      description: uiKey(
+      label: uiMessage("auth_method.registry_email.label"),
+      description: uiMessage(
         emailTargets.length === 1
           ? "auth_method.registry_email.description_single"
           : "auth_method.registry_email.description",

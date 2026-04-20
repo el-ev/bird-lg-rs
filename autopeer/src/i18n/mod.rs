@@ -1,5 +1,6 @@
-use common::auto_peer::UiMessage;
 use yew::prelude::*;
+
+use crate::models::UiMessage;
 
 mod en;
 mod zh;
@@ -103,7 +104,6 @@ impl I18n {
             .locale
             .lookup(&message.key)
             .map(str::to_string)
-            .or_else(|| message.fallback.clone())
             .unwrap_or_else(|| message.key.clone());
 
         render_template(
@@ -260,13 +260,9 @@ mod tests {
     }
 
     #[test]
-    fn falls_back_to_message_fallback_when_key_missing() {
+    fn falls_back_to_message_key_when_translation_is_missing() {
         let i18n = I18n::test_default();
-        let message = UiMessage {
-            key: "missing.message".to_string(),
-            params: Default::default(),
-            fallback: Some("Raw fallback".to_string()),
-        };
+        let message = UiMessage::raw("Raw fallback");
         assert_eq!(i18n.translate_message(&message), "Raw fallback");
     }
 }

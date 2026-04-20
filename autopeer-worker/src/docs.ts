@@ -67,7 +67,7 @@ function bearerSecurity(): JsonObject[] {
 }
 
 function apiServerUrl(request: Request, env: Env): string {
-  return readOptionalEnvString(env, "AUTOPEER_URL") ?? new URL(request.url).origin;
+  return readOptionalEnvString(env, "AUTOPEER_API_URL") ?? new URL(request.url).origin;
 }
 
 const components = {
@@ -89,7 +89,6 @@ const components = {
           type: "object",
           additionalProperties: { type: "string" },
         },
-        fallback: nullable({ type: "string" }),
       },
     },
     ApiError: {
@@ -143,9 +142,9 @@ const components = {
     },
     RuntimeConfigResponse: {
       type: "object",
-      required: ["autopeer_url", "autopeer_site_url", "oidc_methods"],
+      required: ["autopeer_api_url", "autopeer_site_url", "oidc_methods"],
       properties: {
-        autopeer_url: { type: "string", format: "uri" },
+        autopeer_api_url: { type: "string", format: "uri" },
         autopeer_site_url: { type: "string", format: "uri" },
         looking_glass_url: { type: "string", format: "uri" },
         oidc_methods: {
@@ -366,11 +365,9 @@ const components = {
     },
     SessionListResponse: {
       type: "object",
-      required: ["asn", "effective_mnt", "auth_method", "nodes", "sessions"],
+      required: ["asn", "nodes", "sessions"],
       properties: {
         asn: { type: "string" },
-        effective_mnt: { type: "string" },
-        auth_method: ref("AuthMethod"),
         nodes: {
           type: "array",
           items: ref("NodeView"),
@@ -733,7 +730,7 @@ export function openApiSpec(request: Request, env: Env): JsonObject {
     servers: [
       {
         url: apiServerUrl(request, env),
-        description: "Configured API base URL",
+        description: "Configured AutoPeer API base URL",
       },
     ],
     tags: [

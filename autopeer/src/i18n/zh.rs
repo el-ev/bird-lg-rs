@@ -619,8 +619,8 @@ pub(super) const TABLE: &[(&str, &str)] = &[
         "Failed to open the OIDC login redirect",
     ),
     (
-        "error.runtime.config.autopeer_url.missing",
-        "autopeer_url is not configured",
+        "error.runtime.config.autopeer_api_url.missing",
+        "autopeer_api_url is not configured",
     ),
     (
         "error.auth.ssh.empty_or_missing_blocks",

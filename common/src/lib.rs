@@ -1,5 +1,4 @@
 pub mod api;
-pub mod auto_peer;
 pub mod diff;
 pub mod humanize;
 pub mod models;

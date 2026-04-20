@@ -3,36 +3,23 @@ import type { ApiError, AutopeerEnvConfig, UiMessage } from "./types";
 const ASN_PATTERN = /^424242\d+$/;
 export const UNSUPPORTED_ASN_RANGE_MESSAGE = "error.auth.asn.unsupported";
 
-function looksLikeMessageKey(value: string): boolean {
+export function isUiMessageKey(value: string): boolean {
   return /^[a-z0-9_.-]+$/u.test(value) && value.includes(".");
 }
 
-export function uiMessage(
-  key: string,
-  params?: Record<string, string>,
-  fallback?: string | null,
-): UiMessage {
+export function uiMessage(key: string, params?: Record<string, string>): UiMessage {
   const normalizedParams = params && Object.keys(params).length > 0 ? params : undefined;
   return {
     key,
     ...(normalizedParams ? { params: normalizedParams } : {}),
-    ...(fallback ? { fallback } : {}),
   };
-}
-
-export function uiKey(key: string, params?: Record<string, string>): UiMessage {
-  return uiMessage(key, params);
-}
-
-export function uiRaw(value: string): UiMessage {
-  return uiMessage(value, undefined, value);
 }
 
 export function toUiMessage(message: string | UiMessage): UiMessage {
   if (typeof message !== "string") {
     return message;
   }
-  return looksLikeMessageKey(message) ? uiKey(message) : uiRaw(message);
+  return uiMessage(message);
 }
 
 export class HttpError extends Error {
@@ -43,7 +30,7 @@ export class HttpError extends Error {
     readonly status: number,
   ) {
     const ui = toUiMessage(message);
-    super(ui.fallback ?? ui.key);
+    super(ui.key);
     this.uiMessage = ui;
   }
 }

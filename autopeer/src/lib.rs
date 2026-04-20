@@ -1,4 +1,5 @@
 mod app;
+mod models;
 mod controller;
 mod i18n;
 mod page;

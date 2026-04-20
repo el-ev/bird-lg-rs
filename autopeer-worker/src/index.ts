@@ -84,6 +84,7 @@ import {
   buildCorsHeaders,
   errorWithCors,
   HttpError,
+  isUiMessageKey,
   isTerminalOperationState,
   jsonWithCors,
   normalizeSupportedAutopeerAsn,
@@ -100,8 +101,7 @@ import {
   stripOperatorHints,
   timingSafeEqual,
   toUiMessage,
-  uiKey,
-  uiRaw,
+  uiMessage,
 } from "./utils";
 import { OPENAPI_PATH, SWAGGER_PATH, openApiSpec, swaggerUiHtml } from "./docs";
 
@@ -203,11 +203,11 @@ export function classifyMaintainerLookupError(asn: string, error: unknown): Http
   );
 
   if (message === `Registry path not found: data/aut-num/AS${asn}`) {
-    return new HttpError(uiKey("error.auth.asn.not_found", { asn }), 400);
+    return new HttpError(uiMessage("error.auth.asn.not_found", { asn }), 400);
   }
 
   if (message === `AS${asn} does not expose any mnt-by records in the registry`) {
-    return new HttpError(uiKey("error.auth.asn.no_supported_auth", { asn }), 400);
+    return new HttpError(uiMessage("error.auth.asn.no_supported_auth", { asn }), 400);
   }
 
   return new HttpError(message, 502);
@@ -296,7 +296,7 @@ function externalSiteBaseUrl(env: Env, request: Request): URL {
 function runtimeConfigResponse(request: Request, env: Env) {
   const origin = new URL(request.url).origin;
   return {
-    autopeer_url: configuredUrl(env.AUTOPEER_URL) ?? origin,
+    autopeer_api_url: configuredUrl(env.AUTOPEER_API_URL) ?? origin,
     autopeer_site_url: configuredUrl(env.AUTOPEER_SITE_URL) ?? origin,
     looking_glass_url: configuredUrl(env.LOOKING_GLASS_URL),
     oidc_methods: oidcMethodsFromProviders(configuredOidcProviders(env)),
@@ -361,7 +361,7 @@ function resolveRegistryEmailTarget(
   const targets = registryEmailTargetsForChallenge(challenge);
   if (targets.length === 0) {
     throw new HttpError(
-      uiKey("error.auth.registry_email.contacts.missing", { asn: challenge.asn }),
+      uiMessage("error.auth.registry_email.contacts.missing", { asn: challenge.asn }),
       400,
     );
   }
@@ -371,7 +371,7 @@ function resolveRegistryEmailTarget(
     const matched = targets.find((target) => target.maintainer.toUpperCase() === requested);
     if (!matched) {
       throw new HttpError(
-        uiKey("error.auth.registry_email.target.missing", { requested }),
+        uiMessage("error.auth.registry_email.target.missing", { requested }),
         400,
       );
     }
@@ -383,7 +383,7 @@ function resolveRegistryEmailTarget(
   }
 
   throw new HttpError(
-    uiKey("error.auth.registry_email.target.required"),
+    uiMessage("error.auth.registry_email.target.required"),
     400,
   );
 }
@@ -453,7 +453,7 @@ export function resolveEffectiveMaintainer(
     const matched = maintainers.find((maintainer) => maintainer.name.toUpperCase() === requested);
     if (!matched) {
       throw new HttpError(
-        uiKey("error.auth.impersonation.maintainer.missing", {
+        uiMessage("error.auth.impersonation.maintainer.missing", {
           requested,
           available,
         }),
@@ -468,7 +468,7 @@ export function resolveEffectiveMaintainer(
   }
 
   throw new HttpError(
-    uiKey("error.auth.impersonation.maintainer.required", { available }),
+    uiMessage("error.auth.impersonation.maintainer.required", { available }),
     400,
   );
 }
@@ -517,19 +517,19 @@ async function loadRepoState(env: Env, github: GitHubClient) {
 function buildOperationMessage(state: OperationState): UiMessage {
   switch (state) {
     case "pending_pull_request":
-      return uiKey("operation.message.pending_pull_request");
+      return uiMessage("operation.message.pending_pull_request");
     case "pending_checks":
-      return uiKey("operation.message.pending_checks");
+      return uiMessage("operation.message.pending_checks");
     case "applying":
-      return uiKey("operation.message.applying");
+      return uiMessage("operation.message.applying");
     case "pending_merge":
-      return uiKey("operation.message.pending_merge");
+      return uiMessage("operation.message.pending_merge");
     case "completed":
-      return uiKey("operation.message.completed");
+      return uiMessage("operation.message.completed");
     case "failed":
-      return uiKey("operation.message.failed");
+      return uiMessage("operation.message.failed");
     case "conflict":
-      return uiKey("operation.message.conflict");
+      return uiMessage("operation.message.conflict");
   }
 }
 
@@ -612,7 +612,7 @@ function failureMessageFromDetails(details: OperationFailureDetails): UiMessage 
   const parts = [`${stage} failed with ${details.conclusion ?? "unknown"}`];
   if (details.step) parts.push(`(step: ${details.step})`);
   if (details.annotation) parts.push(`— ${details.annotation}`);
-  return uiRaw(parts.join(" "));
+  return uiMessage(parts.join(" "));
 }
 
 function buildNoChangeOperation(
@@ -633,7 +633,7 @@ function buildNoChangeOperation(
     pr_node_id: null,
     pull_request_url: null,
     workflow_run_url: null,
-    message: uiKey("operation.message.no_change"),
+    message: uiMessage("operation.message.no_change"),
     failure_details: null,
     created_at: now,
     updated_at: now,
@@ -651,13 +651,13 @@ export function decideCheckGate(
     if (Number.isFinite(createdAt) && now - createdAt > CHECK_WORKFLOW_GRACE_MS) {
       return {
         state: "failed",
-        message: uiKey("operation.message.check_not_started"),
+        message: uiMessage("operation.message.check_not_started"),
         shouldAttemptMerge: false,
       };
     }
     return {
       state: "pending_checks",
-      message: uiKey("operation.message.check_wait_start"),
+      message: uiMessage("operation.message.check_wait_start"),
       shouldAttemptMerge: false,
     };
   }
@@ -673,7 +673,7 @@ export function decideCheckGate(
   if (!["success", "neutral", "skipped"].includes(validationRun.conclusion ?? "")) {
     return {
       state: "failed",
-      message: uiKey("operation.message.check_failed", {
+      message: uiMessage("operation.message.check_failed", {
         conclusion: validationRun.conclusion ?? "unknown",
       }),
       shouldAttemptMerge: false,
@@ -697,13 +697,13 @@ export function decideApplyGate(
     if (Number.isFinite(createdAt) && now - createdAt > CHECK_WORKFLOW_GRACE_MS + APPLY_WORKFLOW_GRACE_MS) {
       return {
         state: "failed",
-        message: uiKey("operation.message.apply_not_started"),
+        message: uiMessage("operation.message.apply_not_started"),
         shouldAttemptMerge: false,
       };
     }
     return {
       state: "applying",
-      message: uiKey("operation.message.apply_wait_start"),
+      message: uiMessage("operation.message.apply_wait_start"),
       shouldAttemptMerge: false,
     };
   }
@@ -719,7 +719,7 @@ export function decideApplyGate(
   if (!["success", "neutral", "skipped"].includes(applyRun.conclusion ?? "")) {
     return {
       state: "failed",
-      message: uiKey("operation.message.apply_failed", {
+      message: uiMessage("operation.message.apply_failed", {
         conclusion: applyRun.conclusion ?? "unknown",
       }),
       shouldAttemptMerge: false,
@@ -744,7 +744,7 @@ export function decideNodeLockGate(hasNodeLock: boolean): PreMergeGateDecision {
 
   return {
     state: "pending_merge",
-    message: uiKey("operation.message.wait_node_lock"),
+    message: uiMessage("operation.message.wait_node_lock"),
     shouldAttemptMerge: false,
   };
 }
@@ -812,7 +812,7 @@ async function refreshOperation(
     failureDetails = null;
   } else if (pr.state !== "open") {
     nextState = "failed";
-    message = uiKey("operation.message.pull_request_closed");
+    message = uiMessage("operation.message.pull_request_closed");
   } else {
     const validationRuns = await github.listWorkflowRuns(CHECK_WORKFLOW_ID, {
       event: "pull_request",
@@ -874,7 +874,7 @@ async function refreshOperation(
             } catch (error) {
               await releaseNodeOperationLock(env, operation.node, operation.id);
               nextState = "pending_merge";
-              message = uiKey("operation.message.merge_failed", {
+              message = uiMessage("operation.message.merge_failed", {
                 error: error instanceof Error ? error.message : "unknown error",
               });
               failureDetails = {
@@ -922,8 +922,6 @@ async function listSessionsResponse(
   const sessions = listSessionsForAsn(session.asn, peerFiles, hosts, operations);
   return jsonWithCors(request, {
     asn: session.asn,
-    effective_mnt: session.effective_mnt,
-    auth_method: session.auth_method,
     nodes: buildNodeViews(hosts),
     sessions,
   });
@@ -1232,8 +1230,8 @@ async function router(request: Request, env: Env): Promise<Response> {
       effective_mnt: effectiveMnt,
       auth_method: {
         kind: "host_impersonation",
-        label: uiKey("auth_method.host_impersonation.label"),
-        description: uiKey("auth_method.host_impersonation.description", {
+        label: uiMessage("auth_method.host_impersonation.label"),
+        description: uiMessage("auth_method.host_impersonation.description", {
           mnt: effectiveMnt,
           host_asn: impersonatorSession.asn,
         }),
@@ -1413,7 +1411,7 @@ async function router(request: Request, env: Env): Promise<Response> {
 
     const provider = oidcProviderByName(configuredOidcProviders(env), providerName);
     if (!provider) {
-      throw new HttpError(uiKey("error.auth.oidc.provider.unknown", { provider: providerName }), 404);
+      throw new HttpError(uiMessage("error.auth.oidc.provider.unknown", { provider: providerName }), 404);
     }
 
     const discovery = await fetchOidcDiscovery(provider);
@@ -1441,7 +1439,7 @@ async function router(request: Request, env: Env): Promise<Response> {
     const error = url.searchParams.get("error");
     if (error) {
       const description = url.searchParams.get("error_description");
-      const message = uiKey("error.auth.oidc.provider.rejected", {
+      const message = uiMessage("error.auth.oidc.provider.rejected", {
         error,
         description: description ?? "",
       });
@@ -1458,7 +1456,7 @@ async function router(request: Request, env: Env): Promise<Response> {
       return siteRedirectResponse(
         env,
         request,
-        fragmentMessage("oidc_error", uiKey("error.auth.oidc.callback.params.missing")),
+        fragmentMessage("oidc_error", uiMessage("error.auth.oidc.callback.params.missing")),
       );
     }
 
@@ -1467,7 +1465,7 @@ async function router(request: Request, env: Env): Promise<Response> {
       return siteRedirectResponse(
         env,
         request,
-        fragmentMessage("oidc_error", uiKey("error.auth.oidc.provider.unknown", { provider: providerName })),
+        fragmentMessage("oidc_error", uiMessage("error.auth.oidc.provider.unknown", { provider: providerName })),
       );
     }
 
@@ -1476,7 +1474,7 @@ async function router(request: Request, env: Env): Promise<Response> {
       return siteRedirectResponse(
         env,
         request,
-        fragmentMessage("oidc_error", uiKey("error.auth.oidc.state.missing")),
+        fragmentMessage("oidc_error", uiMessage("error.auth.oidc.state.missing")),
       );
     }
 
@@ -1493,7 +1491,7 @@ async function router(request: Request, env: Env): Promise<Response> {
       return siteRedirectResponse(
         env,
         request,
-        fragmentMessage("oidc_error", uiKey("error.auth.oidc.state.expired")),
+        fragmentMessage("oidc_error", uiMessage("error.auth.oidc.state.expired")),
       );
     }
 
@@ -1505,7 +1503,7 @@ async function router(request: Request, env: Env): Promise<Response> {
         return siteRedirectResponse(
           env,
           request,
-          fragmentMessage("oidc_error", uiKey("error.auth.challenge.expired")),
+          fragmentMessage("oidc_error", uiMessage("error.auth.challenge.expired")),
         );
       }
     }
@@ -1537,7 +1535,7 @@ async function router(request: Request, env: Env): Promise<Response> {
       if (challenge) {
         if (tokenAsn !== challenge.asn) {
           throw new HttpError(
-            uiKey("error.auth.oidc.identity.asn_mismatch", {
+            uiMessage("error.auth.oidc.identity.asn_mismatch", {
               token_asn: tokenAsn,
               requested_asn: challenge.asn,
             }),
@@ -1594,7 +1592,7 @@ async function router(request: Request, env: Env): Promise<Response> {
       return siteRedirectResponse(
         env,
         request,
-        fragmentMessage("email_error", uiKey("error.auth.registry_email.callback.params.missing")),
+        fragmentMessage("email_error", uiMessage("error.auth.registry_email.callback.params.missing")),
       );
     }
 
@@ -1603,7 +1601,7 @@ async function router(request: Request, env: Env): Promise<Response> {
       return siteRedirectResponse(
         env,
         request,
-        fragmentMessage("email_error", uiKey("error.auth.registry_email.state.missing")),
+        fragmentMessage("email_error", uiMessage("error.auth.registry_email.state.missing")),
       );
     }
 
@@ -1620,7 +1618,7 @@ async function router(request: Request, env: Env): Promise<Response> {
       return siteRedirectResponse(
         env,
         request,
-        fragmentMessage("email_error", uiKey("error.auth.registry_email.state.expired")),
+        fragmentMessage("email_error", uiMessage("error.auth.registry_email.state.expired")),
       );
     }
 
@@ -1737,15 +1735,15 @@ export default {
     } catch (error) {
       const rawMessage = error instanceof Error ? error.message : "internal error";
       if (error instanceof HttpError) {
-        const publicMessage = error.uiMessage.fallback
-          ? uiRaw(stripOperatorHints(error.uiMessage.fallback))
-          : error.uiMessage;
+        const publicMessage = isUiMessageKey(error.uiMessage.key)
+          ? error.uiMessage
+          : uiMessage(stripOperatorHints(error.uiMessage.key));
         return errorWithCors(request, publicMessage, error.status);
       }
 
       console.error("autopeer-worker request failed", error);
 
-      return errorWithCors(request, uiRaw(stripOperatorHints(rawMessage)), 500);
+      return errorWithCors(request, uiMessage(stripOperatorHints(rawMessage)), 500);
     }
   },
 } satisfies ExportedHandler<Env>;

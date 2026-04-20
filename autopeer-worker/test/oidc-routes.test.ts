@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { UNSUPPORTED_ASN_RANGE_MESSAGE } from "../src/utils";
-import { uiKey, uiRaw } from "../src/utils";
+import { uiMessage } from "../src/utils";
 import type {
   OidcAuthRequestRecord,
   OidcProviderConfig,
@@ -78,7 +78,7 @@ function makeEnv(overrides: Partial<Env> = {}): Env {
     DN42_REGISTRY_BASE_URL: "https://git.dn42.dev",
     OIDC_PROVIDERS: JSON.stringify([provider]),
     HOST_ASNS: "4242421023",
-    AUTOPEER_URL: "https://api.autopeer.example",
+    AUTOPEER_API_URL: "https://api.autopeer.example",
     AUTOPEER_SITE_URL: "https://autopeer.example",
     LOOKING_GLASS_URL: "https://lg.example",
     ...overrides,
@@ -144,8 +144,8 @@ function sessionRecord(overrides: Partial<SessionRecord> = {}): SessionRecord {
     effective_mnt: "IRIS-MNT",
     auth_method: {
       kind: "oidc",
-      label: uiRaw("Kioubit"),
-      description: uiKey("auth_method.oidc.session_description", {
+      label: uiMessage("Kioubit"),
+      description: uiMessage("auth_method.oidc.session_description", {
         provider: "Kioubit",
         mnt: "IRIS-MNT",
       }),
@@ -259,7 +259,7 @@ describe("OIDC worker routes", () => {
     const error = JSON.parse(
       new URLSearchParams(location.hash.slice(1)).get("oidc_error")!,
     );
-    expect(error).toEqual(uiKey(UNSUPPORTED_ASN_RANGE_MESSAGE));
+    expect(error).toEqual(uiMessage(UNSUPPORTED_ASN_RANGE_MESSAGE));
     expect(dbMocks.deleteOidcAuthRequest).toHaveBeenCalledWith(expect.anything(), "state-1");
   });
 

@@ -1,12 +1,6 @@
 use std::collections::BTreeSet;
 
-use common::{
-    auto_peer::{
-        ALL_PEERING_STRATEGIES, AuthMethodKind, NodeView, OperationFailureStage, OperationKind,
-        OperationState, OperationStatus, PeeringStrategy, SessionState, UiMessage,
-    },
-    models::PeeringInfo,
-};
+use common::models::PeeringInfo;
 use ui_components::shell::{
     ShellButton, ShellInput, ShellLine, ShellPrompt, ShellSelect, ShellToggle,
 };
@@ -14,6 +8,10 @@ use web_sys::{HtmlSelectElement, HtmlTextAreaElement};
 use yew::prelude::*;
 
 use crate::{
+    models::{
+        ALL_PEERING_STRATEGIES, AuthMethodKind, NodeView, OperationFailureStage, OperationKind,
+        OperationState, OperationStatus, PeeringStrategy, SessionState, UiMessage,
+    },
     controller::{
         AutoPeerController, OngoingTask, default_pgp_key, selected_registry_email_target,
         sync_create_draft, use_autopeer_controller,
@@ -533,10 +531,9 @@ fn operation_stage_index(operation: &OperationStatus) -> usize {
             .failure_details
             .as_ref()
             .map(|d| match d.stage {
-                common::auto_peer::OperationFailureStage::Checks => 1,
-                common::auto_peer::OperationFailureStage::Preflight
-                | common::auto_peer::OperationFailureStage::Apply => 2,
-                common::auto_peer::OperationFailureStage::Merge => 3,
+                OperationFailureStage::Checks => 1,
+                OperationFailureStage::Preflight | OperationFailureStage::Apply => 2,
+                OperationFailureStage::Merge => 3,
             })
             .unwrap_or(2),
     }
@@ -603,7 +600,7 @@ fn render_operation_progress(i18n: &I18n, operation: &OperationStatus) -> Html {
     let active_index = operation_stage_index(operation);
     let failed = matches!(
         operation.state,
-        common::auto_peer::OperationState::Failed | common::auto_peer::OperationState::Conflict
+        OperationState::Failed | OperationState::Conflict
     );
 
     html! {
@@ -2074,14 +2071,13 @@ pub fn auto_peer_page() -> Html {
 mod tests {
     use std::collections::BTreeSet;
 
-    use common::auto_peer::{AuthMethod, AuthMethodKind, PeeringStrategy, UiMessage};
-
     use super::{
         Peer6AddressKind, SessionDraftLiveValidation, SessionDraftToggleGroup,
         autopeer_node_endpoint_port, detect_peer6_address_kind, displayed_peer_config_stage,
         retire_button_text, session_details_live_validation, toggle_group_key,
     };
     use crate::{
+        models::{AuthMethod, AuthMethodKind, PeeringStrategy, UiMessage},
         controller::{configured_href, filter_supported_methods, validate_ssh_signature_input},
         store::{PeerConfigStage, SessionDraft},
     };

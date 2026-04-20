@@ -15,7 +15,7 @@ import {
   addSeconds,
   nowIso,
   requireNonEmptyString,
-  uiKey,
+  uiMessage,
 } from "./utils";
 
 const CHALLENGE_TTL_SECONDS = 15 * 60;
@@ -232,8 +232,8 @@ export function createRegistryEmailSession(
 ): SessionRecord {
   return buildSessionRecord(challenge.asn, effectiveMnt, {
     kind: "registry_email",
-    label: uiKey("auth_method.registry_email.label"),
-    description: uiKey("auth_method.registry_email.session_description", {
+    label: uiMessage("auth_method.registry_email.label"),
+    description: uiMessage("auth_method.registry_email.session_description", {
       mnt: effectiveMnt,
     }),
   });
@@ -264,8 +264,8 @@ export async function verifyRegistrySshChallenge(
 
   return buildSessionRecord(challenge.asn, maintainer.name, {
     kind: "registry_ssh",
-    label: uiKey("auth_method.registry_ssh.label"),
-    description: uiKey("auth_method.registry_ssh.session_description", {
+    label: uiMessage("auth_method.registry_ssh.label"),
+    description: uiMessage("auth_method.registry_ssh.session_description", {
       mnt: maintainer.name,
     }),
   });
@@ -286,7 +286,7 @@ export async function verifyRegistryPgpChallenge(
   const maintainer = matchingMaintainerByFingerprint(challenge.maintainers, fingerprint);
   if (!maintainer) {
     throw new HttpError(
-      uiKey("error.auth.pgp.unrecognized_key", { fingerprint }),
+      uiMessage("error.auth.pgp.unrecognized_key", { fingerprint }),
       400,
     );
   }
@@ -315,8 +315,8 @@ export async function verifyRegistryPgpChallenge(
 
   return buildSessionRecord(challenge.asn, maintainer.name, {
     kind: "registry_pgp",
-    label: uiKey("auth_method.registry_pgp.label"),
-    description: uiKey("auth_method.registry_pgp.session_description", {
+    label: uiMessage("auth_method.registry_pgp.label"),
+    description: uiMessage("auth_method.registry_pgp.session_description", {
       mnt: maintainer.name,
     }),
   });

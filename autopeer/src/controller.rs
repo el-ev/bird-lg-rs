@@ -4,15 +4,16 @@ use std::{
     sync::atomic::{AtomicU64, Ordering},
 };
 
-use common::auto_peer::{
-    AuthMethod, AuthMethodKind, AuthSessionResponse, CreateSessionRequest, NodeView,
-    OperationStatus, RegistryEmailTarget, SessionListResponse, SessionView, UiMessage,
-    UpdateSessionRequest,
-};
 use gloo_timers::future::TimeoutFuture;
 use wasm_bindgen_futures::spawn_local;
 use web_sys::UrlSearchParams;
 use yew::prelude::*;
+
+use crate::models::{
+    AuthMethod, AuthMethodKind, AuthSessionResponse, CreateSessionRequest, NodeView,
+    OperationStatus, RegistryEmailTarget, SessionListResponse, SessionView, UiMessage,
+    UpdateSessionRequest,
+};
 
 static NEXT_ONGOING_TASK_ID: AtomicU64 = AtomicU64::new(1);
 
@@ -69,7 +70,7 @@ use crate::{
     },
 };
 
-const MISSING_AUTOPEER_URL_ERROR: &str = "error.runtime.config.autopeer_url.missing";
+const MISSING_AUTOPEER_API_URL_ERROR: &str = "error.runtime.config.autopeer_api_url.missing";
 
 #[derive(Clone)]
 struct SessionHandles {
@@ -303,9 +304,9 @@ fn is_stale_session_error(message: &UiMessage) -> bool {
     message.is_key("error.auth.session.unknown")
         || message.is_key("error.auth.session.expired")
         || message.is_key("error.auth.session.token.missing")
-        || message.fallback.as_deref() == Some("unknown auth session")
-        || message.fallback.as_deref() == Some("auth session has expired")
-        || message.fallback.as_deref() == Some("missing bearer session token")
+        || message.key == "unknown auth session"
+        || message.key == "auth session has expired"
+        || message.key == "missing bearer session token"
 }
 
 fn require_api_base(
@@ -320,7 +321,7 @@ fn require_api_base(
         .map(str::to_string);
 
     if value.is_none() {
-        error.set(Some(UiMessage::key(MISSING_AUTOPEER_URL_ERROR)));
+        error.set(Some(UiMessage::key(MISSING_AUTOPEER_API_URL_ERROR)));
     }
 
     value
@@ -659,7 +660,7 @@ pub fn use_autopeer_controller(
             spawn_local(async move {
                 match service::load_runtime_config().await {
                     Ok(config) => {
-                        let api_url = config.autopeer_url.unwrap_or_default();
+                        let api_url = config.autopeer_api_url.unwrap_or_default();
                         autopeer_site_href.set(configured_href(
                             config.autopeer_site_url.as_deref(),
                             (*autopeer_site_href).as_str(),
@@ -1682,11 +1683,12 @@ pub fn use_autopeer_controller(
 
 #[cfg(test)]
 mod tests {
-    use common::auto_peer::{AuthMethod, AuthMethodKind, UiMessage};
-
-    use crate::controller::{
-        configured_href, filter_supported_methods, matching_auth_method,
-        validate_ssh_signature_input,
+    use crate::{
+        models::{AuthMethod, AuthMethodKind, UiMessage},
+        controller::{
+            configured_href, filter_supported_methods, matching_auth_method,
+            validate_ssh_signature_input,
+        },
     };
 
     #[test]

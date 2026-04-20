@@ -6,13 +6,13 @@ import {
   mutatePeerFile,
   validateSessionSpec,
 } from "../src/network";
-import { uiRaw } from "../src/utils";
+import { uiMessage } from "../src/utils";
 import type { AuthMethod, OperationRecord, PeerSessionSpec } from "../src/types";
 
 const authMethod: AuthMethod = {
   kind: "registry_ssh",
-  label: uiRaw("Registry SSH Signature"),
-  description: uiRaw("Test auth"),
+  label: uiMessage("Registry SSH Signature"),
+  description: uiMessage("Test auth"),
 };
 
 describe("network inventory parsing", () => {
@@ -426,8 +426,8 @@ describe("network peer mutations", () => {
       effectiveMnt: "EXAMPLE-MNT",
       authMethod: {
         kind: "registry_ssh",
-        label: uiRaw("Registry SSH Signature"),
-        description: uiRaw("Migrated into autopeer"),
+        label: uiMessage("Registry SSH Signature"),
+        description: uiMessage("Migrated into autopeer"),
         provider: "migration",
       },
       kind: "migrate",
@@ -469,8 +469,8 @@ describe("network peer mutations", () => {
       effectiveMnt: "EXAMPLE-MNT",
       authMethod: {
         kind: "registry_ssh",
-        label: uiRaw("Registry SSH Signature"),
-        description: uiRaw("Migrated into autopeer"),
+        label: uiMessage("Registry SSH Signature"),
+        description: uiMessage("Migrated into autopeer"),
         provider: "migration",
       },
       kind: "migrate",
@@ -587,7 +587,7 @@ describe("session listing", () => {
         pr_node_id: "node",
         pull_request_url: "https://example.invalid/pr/1",
         workflow_run_url: null,
-        message: uiRaw("Waiting for checks"),
+        message: uiMessage("Waiting for checks"),
         created_at: "2026-04-18T00:00:00Z",
         updated_at: "2026-04-18T00:00:00Z",
         session_snapshot: null,

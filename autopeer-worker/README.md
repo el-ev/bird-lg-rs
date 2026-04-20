@@ -50,6 +50,9 @@ Non-secret vars:
 - `OIDC_PROVIDERS`
 - `HOST_ASNS`
   - comma-separated ASN list allowed to impersonate other ASNs after authenticating through the normal flow
+- `AUTOPEER_API_URL`
+- `AUTOPEER_SITE_URL`
+- `LOOKING_GLASS_URL`
 
 Secrets you must provide:
 

@@ -1,7 +1,8 @@
 use std::net::{Ipv4Addr, Ipv6Addr};
 
-use common::auto_peer::{AuthSessionResponse, PeerSessionSpec, PeeringStrategy};
 use serde::{Deserialize, Serialize};
+
+use crate::models::{AuthSessionResponse, PeerSessionSpec, PeeringStrategy};
 
 const AUTOPEER_SESSION_STORAGE_KEY: &str = "bird-lg-rs.autopeer.sessions";
 const TUNNEL_ADDRESS_REQUIRED_ERROR: &str = "validation.tunnel.required";
@@ -517,12 +518,11 @@ fn optional_u16(value: &str, error_key: &str) -> Result<Option<u16>, String> {
 
 #[cfg(test)]
 mod tests {
-    use common::auto_peer::{
+    use super::{PersistedSessions, SessionDraft, SessionDraftField};
+    use crate::models::{
         AuthMethod, AuthMethodKind, AuthSessionResponse, PeerSessionSpec, PeeringStrategy,
         UiMessage,
     };
-
-    use super::{PersistedSessions, SessionDraft, SessionDraftField};
 
     const VALID_WG_KEY: &str = "sLbzTRr2gfLFb24NPzDOpy8j09Y6zI+a7NkeVMdVSR8=";
 

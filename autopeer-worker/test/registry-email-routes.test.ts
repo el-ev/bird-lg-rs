@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { uiKey, uiRaw } from "../src/utils";
+import { uiMessage } from "../src/utils";
 import type {
   ChallengeRecord,
   RegistryEmailAuthRequestRecord,
@@ -62,7 +62,7 @@ function makeEnv(overrides: Partial<Env> & { RESEND_API_KEY?: string } = {}): En
     DN42_REGISTRY_BASE_URL: "https://git.dn42.dev",
     OIDC_PROVIDERS: "[]",
     HOST_ASNS: "4242421023",
-    AUTOPEER_URL: "https://api.autopeer.example",
+    AUTOPEER_API_URL: "https://api.autopeer.example",
     AUTOPEER_SITE_URL: "https://autopeer.example",
     LOOKING_GLASS_URL: "https://lg.example",
     RESEND_API_KEY: "test-resend-key",
@@ -106,8 +106,8 @@ function challengeRecord(): ChallengeRecord {
     methods: [
       {
         kind: "registry_email",
-        label: uiKey("auth_method.registry_email.label"),
-        description: uiRaw("Email auth"),
+        label: uiMessage("auth_method.registry_email.label"),
+        description: uiMessage("Email auth"),
         email_targets: [
           {
             maintainer: "EXAMPLE-MNT",
@@ -166,8 +166,8 @@ function sessionRecord(overrides: Partial<SessionRecord> = {}): SessionRecord {
     effective_mnt: "EXAMPLE-MNT",
     auth_method: {
       kind: "registry_email",
-      label: uiKey("auth_method.registry_email.label"),
-      description: uiKey("auth_method.registry_email.session_description", {
+      label: uiMessage("auth_method.registry_email.label"),
+      description: uiMessage("auth_method.registry_email.session_description", {
         mnt: "EXAMPLE-MNT",
       }),
     },
@@ -224,7 +224,7 @@ describe("registry email worker routes", () => {
 
     expect(response.status).toBe(503);
     await expect(response.json()).resolves.toEqual({
-      error: uiKey("error.auth.registry_email.unavailable"),
+      error: uiMessage("error.auth.registry_email.unavailable"),
     });
     expect(mailerMocks.sendRegistryEmailAuthMessage).not.toHaveBeenCalled();
     expect(dbMocks.putRegistryEmailAuthRequest).not.toHaveBeenCalled();
@@ -279,7 +279,7 @@ describe("registry email worker routes", () => {
 
     expect(response.status).toBe(400);
     await expect(response.json()).resolves.toEqual({
-      error: uiKey("error.auth.challenge.used"),
+      error: uiMessage("error.auth.challenge.used"),
     });
     expect(dbMocks.putAuthSession).not.toHaveBeenCalled();
   });
@@ -310,7 +310,7 @@ describe("registry email worker routes", () => {
 
     expect(secondResponse.status).toBe(404);
     await expect(secondResponse.json()).resolves.toEqual({
-      error: uiKey("error.auth.registry_email.state.missing"),
+      error: uiMessage("error.auth.registry_email.state.missing"),
     });
   });
 

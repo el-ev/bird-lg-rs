@@ -11,7 +11,7 @@ import type {
   OidcTokenResponse,
   SessionRecord,
 } from "./types";
-import { HttpError, addSeconds, nowIso, readNamedSecret, uiKey, uiRaw } from "./utils";
+import { HttpError, addSeconds, nowIso, readNamedSecret, uiMessage } from "./utils";
 
 const OIDC_AUTH_TTL_SECONDS = 15 * 60;
 const DEFAULT_OIDC_SCOPES = ["openid", "profile", "email"];
@@ -22,10 +22,10 @@ export function oidcMethodsFromProviders(providers: OidcProviderConfig[]): AuthM
   return providers.map((provider) => ({
     kind: "oidc",
     provider: provider.name,
-    label: uiRaw(provider.label),
+    label: uiMessage(provider.label),
     description: provider.description
-      ? uiRaw(provider.description)
-      : uiKey("auth_method.oidc.description", { provider: provider.label }),
+      ? uiMessage(provider.description)
+      : uiMessage("auth_method.oidc.description", { provider: provider.label }),
   }));
 }
 
@@ -182,13 +182,11 @@ function buildOidcSession(
     auth_method: {
       kind: "oidc",
       provider: provider.name,
-      label: uiRaw(provider.label),
-      description: provider.description
-        ? uiRaw(provider.description)
-        : uiKey("auth_method.oidc.session_description", {
-            provider: provider.label,
-            mnt: effectiveMnt,
-          }),
+      label: uiMessage(provider.label),
+      description: uiMessage("auth_method.oidc.session_description", {
+        provider: provider.label,
+        mnt: effectiveMnt,
+      }),
     },
     created_at: createdAt,
     expires_at: addSeconds(createdAt, 6 * 60 * 60),

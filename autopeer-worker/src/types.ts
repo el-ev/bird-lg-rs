@@ -8,7 +8,6 @@ export type AuthMethodKind =
 export interface UiMessage {
   key: string;
   params?: Record<string, string>;
-  fallback?: string | null;
 }
 
 export interface RegistryEmailTarget {
@@ -162,8 +161,6 @@ export interface SessionView {
 
 export interface SessionListResponse {
   asn: string;
-  effective_mnt: string;
-  auth_method: AuthMethod;
   nodes: NodeView[];
   sessions: SessionView[];
 }

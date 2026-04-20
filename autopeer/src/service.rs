@@ -1,19 +1,20 @@
-use common::auto_peer::{
+use reqwasm::http::{Request, Response};
+use serde::{Deserialize, Serialize, de::DeserializeOwned};
+
+use crate::models::{
     AuthMethod, AuthSessionResponse, AuthStartRequest, AuthStartResponse, CreateSessionRequest,
     HostImpersonationRequest, OidcCompleteRequest, OidcStartRequest, OidcStartResponse,
     OperationStatus, RegistryEmailCompleteRequest, RegistryEmailSendRequest,
     RegistryEmailSendResponse, RegistryEmailVerifyRequest, RegistryPgpVerifyRequest,
     RegistrySshVerifyRequest, SessionListResponse, UiMessage, UpdateSessionRequest,
 };
-use reqwasm::http::{Request, Response};
-use serde::{Deserialize, Serialize, de::DeserializeOwned};
 
 const CONFIG_PATH: &str = "/config.json";
 
 #[derive(Clone, Debug, Default, Deserialize, PartialEq, Eq)]
 pub struct RuntimeConfig {
     #[serde(default)]
-    pub autopeer_url: Option<String>,
+    pub autopeer_api_url: Option<String>,
     #[serde(default)]
     pub autopeer_site_url: Option<String>,
     #[serde(default)]
@@ -140,7 +141,7 @@ pub async fn load_runtime_config() -> Result<RuntimeConfig, UiMessage> {
 
     match response.json::<RuntimeConfig>().await {
         Ok(config) => Ok(RuntimeConfig {
-            autopeer_url: normalize_url(config.autopeer_url),
+            autopeer_api_url: normalize_url(config.autopeer_api_url),
             autopeer_site_url: normalize_url(config.autopeer_site_url),
             looking_glass_url: normalize_url(config.looking_glass_url),
             oidc_methods: config.oidc_methods,

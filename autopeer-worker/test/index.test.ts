@@ -7,7 +7,7 @@ import {
   decideNodeLockGate,
   resolveEffectiveMaintainer,
 } from "../src/index";
-import { uiKey } from "../src/utils";
+import { uiMessage } from "../src/utils";
 
 describe("peer-session-check gate", () => {
   it("waits when the validation workflow has not started yet", () => {
@@ -19,7 +19,7 @@ describe("peer-session-check gate", () => {
       ),
     ).toEqual({
       state: "pending_checks",
-      message: uiKey("operation.message.check_wait_start"),
+      message: uiMessage("operation.message.check_wait_start"),
       shouldAttemptMerge: false,
     });
   });
@@ -33,7 +33,7 @@ describe("peer-session-check gate", () => {
       ),
     ).toEqual({
       state: "failed",
-      message: uiKey("operation.message.check_not_started"),
+      message: uiMessage("operation.message.check_not_started"),
       shouldAttemptMerge: false,
     });
   });
@@ -46,7 +46,7 @@ describe("peer-session-check gate", () => {
       ),
     ).toEqual({
       state: "pending_checks",
-      message: uiKey("operation.message.pending_checks"),
+      message: uiMessage("operation.message.pending_checks"),
       shouldAttemptMerge: false,
     });
   });
@@ -59,7 +59,7 @@ describe("peer-session-check gate", () => {
       ),
     ).toEqual({
       state: "applying",
-      message: uiKey("operation.message.applying"),
+      message: uiMessage("operation.message.applying"),
       shouldAttemptMerge: false,
     });
   });
@@ -72,7 +72,7 @@ describe("peer-session-check gate", () => {
       ),
     ).toEqual({
       state: "failed",
-      message: uiKey("operation.message.check_failed", { conclusion: "failure" }),
+      message: uiMessage("operation.message.check_failed", { conclusion: "failure" }),
       shouldAttemptMerge: false,
     });
   });
@@ -88,7 +88,7 @@ describe("peer-session-apply gate (PR mode)", () => {
       ),
     ).toEqual({
       state: "applying",
-      message: uiKey("operation.message.apply_wait_start"),
+      message: uiMessage("operation.message.apply_wait_start"),
       shouldAttemptMerge: false,
     });
   });
@@ -101,7 +101,7 @@ describe("peer-session-apply gate (PR mode)", () => {
       ),
     ).toEqual({
       state: "applying",
-      message: uiKey("operation.message.applying"),
+      message: uiMessage("operation.message.applying"),
       shouldAttemptMerge: false,
     });
   });
@@ -114,7 +114,7 @@ describe("peer-session-apply gate (PR mode)", () => {
       ),
     ).toEqual({
       state: "pending_merge",
-      message: uiKey("operation.message.pending_merge"),
+      message: uiMessage("operation.message.pending_merge"),
       shouldAttemptMerge: true,
     });
   });
@@ -127,7 +127,7 @@ describe("peer-session-apply gate (PR mode)", () => {
       ),
     ).toEqual({
       state: "failed",
-      message: uiKey("operation.message.apply_failed", { conclusion: "failure" }),
+      message: uiMessage("operation.message.apply_failed", { conclusion: "failure" }),
       shouldAttemptMerge: false,
     });
   });
@@ -137,7 +137,7 @@ describe("node merge lock gate", () => {
   it("waits while another change still owns the node lock", () => {
     expect(decideNodeLockGate(false)).toEqual({
       state: "pending_merge",
-      message: uiKey("operation.message.wait_node_lock"),
+      message: uiMessage("operation.message.wait_node_lock"),
       shouldAttemptMerge: false,
     });
   });
@@ -145,7 +145,7 @@ describe("node merge lock gate", () => {
   it("allows merge once the node lock is free", () => {
     expect(decideNodeLockGate(true)).toEqual({
       state: "pending_merge",
-      message: uiKey("operation.message.pending_merge"),
+      message: uiMessage("operation.message.pending_merge"),
       shouldAttemptMerge: true,
     });
   });
@@ -159,7 +159,7 @@ describe("ASN lookup error classification", () => {
     );
 
     expect(error.status).toBe(400);
-    expect(error.uiMessage).toEqual(uiKey("error.auth.asn.not_found", { asn: "4242429999" }));
+    expect(error.uiMessage).toEqual(uiMessage("error.auth.asn.not_found", { asn: "4242429999" }));
   });
 
   it("keeps non-missing registry issues out of the invalid-ASN bucket", () => {
@@ -170,7 +170,7 @@ describe("ASN lookup error classification", () => {
 
     expect(error.status).toBe(400);
     expect(error.uiMessage).toEqual(
-      uiKey("error.auth.asn.no_supported_auth", { asn: "4242421024" }),
+      uiMessage("error.auth.asn.no_supported_auth", { asn: "4242421024" }),
     );
   });
 });

@@ -14,7 +14,7 @@ function makeEnv(overrides: Partial<Env> = {}): Env {
     DN42_REGISTRY_BASE_URL: "https://git.dn42.dev",
     OIDC_PROVIDERS: "[]",
     HOST_ASNS: "4242421023",
-    AUTOPEER_URL: "https://api.autopeer.example",
+    AUTOPEER_API_URL: "https://api.autopeer.example",
     AUTOPEER_SITE_URL: "https://autopeer.example",
     LOOKING_GLASS_URL: "https://lg.example",
     ...overrides,
