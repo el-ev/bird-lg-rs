@@ -1,3 +1,4 @@
+use unicode_width::UnicodeWidthStr;
 use web_sys::{HtmlInputElement, HtmlTextAreaElement};
 use yew::prelude::*;
 
@@ -151,8 +152,8 @@ pub fn shell_input(props: &ShellInputProps) -> Html {
 }
 
 fn inline_input_width(props: &ShellInputProps) -> usize {
-    let value_width = props.value.chars().count();
-    let placeholder_width = props.placeholder.chars().count();
+    let value_width = display_width(props.value.as_str());
+    let placeholder_width = display_width(props.placeholder.as_str());
     if value_width > 0 {
         value_width
     } else {
@@ -165,19 +166,47 @@ fn read_cursor_position(input: &HtmlInputElement) -> usize {
         .selection_start()
         .ok()
         .flatten()
-        .map(|pos| pos as usize)
+        .map(|pos| cursor_col_for_utf16_position(&input.value(), pos as usize))
         .unwrap_or_else(|| cursor_col_for_value(&input.value()))
 }
 
 fn cursor_col_for_value(value: &str) -> usize {
-    value.chars().count()
+    display_width(value)
+}
+
+fn cursor_col_for_utf16_position(value: &str, utf16_pos: usize) -> usize {
+    let byte_pos = byte_index_for_utf16_position(value, utf16_pos);
+    display_width(&value[..byte_pos])
+}
+
+fn byte_index_for_utf16_position(value: &str, utf16_pos: usize) -> usize {
+    let mut consumed_utf16 = 0;
+
+    for (byte_pos, ch) in value.char_indices() {
+        let next_utf16 = consumed_utf16 + ch.len_utf16();
+        if utf16_pos < next_utf16 {
+            return byte_pos;
+        }
+        if utf16_pos == next_utf16 {
+            return byte_pos + ch.len_utf8();
+        }
+        consumed_utf16 = next_utf16;
+    }
+
+    value.len()
+}
+
+fn display_width(value: &str) -> usize {
+    UnicodeWidthStr::width(value)
 }
 
 #[cfg(test)]
 mod tests {
     use yew::{AttrValue, Callback, Classes};
 
-    use super::{ShellInputProps, cursor_col_for_value, inline_input_width};
+    use super::{
+        ShellInputProps, cursor_col_for_utf16_position, cursor_col_for_value, inline_input_width,
+    };
 
     fn build_props(value: &str, placeholder: &str) -> ShellInputProps {
         ShellInputProps {
@@ -201,6 +230,12 @@ mod tests {
     }
 
     #[test]
+    fn inline_input_width_uses_display_width_for_wide_placeholders() {
+        let props = build_props("", "中文");
+        assert_eq!(inline_input_width(&props), 4);
+    }
+
+    #[test]
     fn inline_input_width_tracks_value_even_when_placeholder_is_longer() {
         let props = build_props("20454", "the default port, e.g. 20454");
         assert_eq!(inline_input_width(&props), 5);
@@ -213,8 +248,18 @@ mod tests {
     }
 
     #[test]
-    fn cursor_col_counts_characters() {
+    fn cursor_col_counts_display_columns() {
         assert_eq!(cursor_col_for_value("dn42"), 4);
         assert_eq!(cursor_col_for_value("fd00::1"), 7);
+        assert_eq!(cursor_col_for_value("中文"), 4);
+        assert_eq!(cursor_col_for_value("a中"), 3);
+    }
+
+    #[test]
+    fn cursor_col_maps_utf16_positions_to_display_columns() {
+        assert_eq!(cursor_col_for_utf16_position("a中b", 0), 0);
+        assert_eq!(cursor_col_for_utf16_position("a中b", 1), 1);
+        assert_eq!(cursor_col_for_utf16_position("a中b", 2), 3);
+        assert_eq!(cursor_col_for_utf16_position("a中b", 3), 4);
     }
 }
