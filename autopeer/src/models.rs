@@ -47,18 +47,6 @@ pub enum AuthMethodKind {
     HostImpersonation,
 }
 
-impl AuthMethodKind {
-    pub fn label(&self) -> &'static str {
-        match self {
-            Self::RegistrySsh => "Registry SSH Signature",
-            Self::RegistryPgp => "Registry PGP Signature",
-            Self::RegistryEmail => "Registry Email",
-            Self::Oidc => "Third-Party Login",
-            Self::HostImpersonation => "Host ASN Impersonation",
-        }
-    }
-}
-
 #[derive(Clone, Debug, Default, Serialize, Deserialize, PartialEq, Eq)]
 pub struct RegistryEmailTarget {
     pub maintainer: String,
@@ -187,22 +175,6 @@ pub struct NodeView {
     pub autopeer: Option<bool>,
 }
 
-impl NodeView {
-    pub fn summary(&self) -> String {
-        let mut parts = vec![self.name.clone()];
-
-        if let Some(region) = &self.region {
-            parts.push(region.clone());
-        }
-        if let Some(country) = &self.country {
-            parts.push(country.clone());
-        }
-        parts.push(self.ip_support.clone());
-
-        parts.join(" / ")
-    }
-}
-
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 #[derive(Default)]
@@ -212,17 +184,6 @@ pub enum SessionState {
     Manual,
     PendingPr,
     Conflict,
-}
-
-impl SessionState {
-    pub fn label(&self) -> &'static str {
-        match self {
-            Self::Managed => "Managed",
-            Self::Manual => "Manual",
-            Self::PendingPr => "Pending PR",
-            Self::Conflict => "Conflict",
-        }
-    }
 }
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize, PartialEq, Eq)]
@@ -256,26 +217,6 @@ impl PeeringStrategy {
             Self::Transit => "transit",
             Self::Peer => "peer",
             Self::Downstream => "downstream",
-        }
-    }
-
-    pub const fn label(self) -> &'static str {
-        match self {
-            Self::FullTable => "Full Table",
-            Self::Transit => "Transit",
-            Self::Peer => "Peer",
-            Self::Downstream => "Downstream",
-        }
-    }
-
-    pub const fn description(self) -> &'static str {
-        match self {
-            Self::FullTable => "Receive all valid routes and export all valid routes.",
-            Self::Transit => "Receive all valid routes and export only our own exact prefixes.",
-            Self::Peer => {
-                "Receive only direct routes and export our own exact prefixes plus downstream routes."
-            }
-            Self::Downstream => "Receive only direct routes and export all valid routes.",
         }
     }
 
@@ -379,17 +320,6 @@ pub enum OperationKind {
     Migrate,
 }
 
-impl OperationKind {
-    pub fn label(&self) -> &'static str {
-        match self {
-            Self::Create => "Create",
-            Self::Update => "Update",
-            Self::Delete => "Delete",
-            Self::Migrate => "Migrate",
-        }
-    }
-}
-
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 #[derive(Default)]
@@ -405,18 +335,6 @@ pub enum OperationState {
 }
 
 impl OperationState {
-    pub fn label(&self) -> &'static str {
-        match self {
-            Self::PendingPullRequest => "Preparing PR",
-            Self::PendingChecks => "Waiting For CI",
-            Self::Applying => "Applying On Node",
-            Self::PendingMerge => "Waiting For Merge",
-            Self::Completed => "Completed",
-            Self::Failed => "Failed",
-            Self::Conflict => "Conflict",
-        }
-    }
-
     pub fn is_terminal(&self) -> bool {
         matches!(self, Self::Completed | Self::Failed | Self::Conflict)
     }
@@ -429,17 +347,6 @@ pub enum OperationFailureStage {
     Preflight,
     Apply,
     Merge,
-}
-
-impl OperationFailureStage {
-    pub fn label(&self) -> &'static str {
-        match self {
-            Self::Checks => "CI checks",
-            Self::Preflight => "Node preflight",
-            Self::Apply => "Node apply",
-            Self::Merge => "Merge",
-        }
-    }
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
