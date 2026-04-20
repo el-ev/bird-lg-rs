@@ -790,7 +790,8 @@ details[open] .summary-header {
 
 .shell-toggle {
     display: inline-flex;
-    align-items: center;
+    flex-direction: row-reverse;
+    align-items: baseline;
     gap: 0.5rem;
     padding: 0.14rem 0.52rem 0.14rem 0.18rem;
     border: 1px solid color-mix(in srgb, var(--border) 90%, var(--shell-prompt) 10%);
@@ -805,6 +806,7 @@ details[open] .summary-header {
     -webkit-user-select: none;
     appearance: none;
     -webkit-appearance: none;
+    vertical-align: baseline;
     transition: background-color 0.18s, border-color 0.18s, color 0.18s, box-shadow 0.18s;
 
     &:hover {
@@ -826,6 +828,7 @@ details[open] .summary-header {
 }
 
 .shell-toggle__switch {
+    align-self: center;
     position: relative;
     flex: 0 0 auto;
     width: 1.9rem;
@@ -1623,12 +1626,14 @@ details[open] .summary-header {
 .autopeer-toggle-row {
     display: inline-flex;
     gap: var(--spacing-md);
-    align-items: center;
+    align-items: baseline;
     flex-wrap: wrap;
+    vertical-align: baseline;
 }
 
 .autopeer-toggle-item {
     display: inline-flex;
+    align-items: baseline;
 }
 
 .autopeer-toggle-item.is-invalid .shell-toggle {

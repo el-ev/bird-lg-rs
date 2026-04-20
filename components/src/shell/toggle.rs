@@ -22,9 +22,6 @@ pub fn shell_toggle(props: &ShellToggleProps) -> Html {
             role="switch"
             aria-checked={if props.active { "true" } else { "false" }}
         >
-            <span class="shell-toggle__switch" aria-hidden="true">
-                <span class="shell-toggle__thumb" />
-            </span>
             <span class="shell-toggle__copy">
                 <span class="shell-toggle__label">
                     {
@@ -38,6 +35,9 @@ pub fn shell_toggle(props: &ShellToggleProps) -> Html {
                 <span class="shell-toggle__state">
                     {if props.active { "on" } else { "off" }}
                 </span>
+            </span>
+            <span class="shell-toggle__switch" aria-hidden="true">
+                <span class="shell-toggle__thumb" />
             </span>
         </button>
     }
