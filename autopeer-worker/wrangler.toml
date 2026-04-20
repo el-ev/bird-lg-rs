@@ -15,7 +15,7 @@ head_sampling_rate = 1
 [assets]
 directory = "./public"
 not_found_handling = "single-page-application"
-run_worker_first = ["/v1/*", "/health", "/config.json", "/oidc/*", "/auth/*"]
+run_worker_first = ["/v1/*", "/health", "/config.json", "/oidc/*", "/auth/*", "/openapi.json", "/swagger", "/swagger/"]
 
 [vars]
 GITHUB_OWNER = "OwO-Intranet-Services"
