@@ -14,3 +14,4 @@ autopeer/dist/
 autopeer-worker/public/
 .secret/
 package-lock.json
+target-sandbox/
