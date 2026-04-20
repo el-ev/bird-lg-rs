@@ -191,10 +191,18 @@ fn session_details_live_validation(
     } else {
         None
     };
-    let peer6_messages = if peer6_focused || link_local_own6_collision || show_generic_tunnel_required {
+    let peer6_messages = if link_local_own6_collision || show_generic_tunnel_required {
         Vec::new()
-    } else if peer6_blank && peer6_requirement_touched {
-        peer6_error.clone().into_iter().collect()
+    } else if peer6_blank {
+        if peer6_focused && !peer6_touched {
+            Vec::new()
+        } else if peer6_requirement_touched {
+            peer6_error.clone().into_iter().collect()
+        } else {
+            Vec::new()
+        }
+    } else if peer6_focused {
+        Vec::new()
     } else if !peer6_blank && peer6_touched {
         peer6_error.clone().into_iter().collect()
     } else {
@@ -1479,7 +1487,11 @@ pub fn auto_peer_page() -> Html {
 
             let on_peer6_change = {
                 let draft = draft.clone();
+                let touched_fields = touched_fields.clone();
                 Callback::from(move |value: String| {
+                    if value.trim().is_empty() {
+                        mark_field_touched(&touched_fields, SessionDraftField::Peer6);
+                    }
                     update_draft_state(&draft, |next| next.peer6 = value)
                 })
             };
@@ -2839,6 +2851,30 @@ mod tests {
         assert!(!validation.highlight_ipv6);
         assert!(!validation.highlight_mp_bgp);
         assert!(!validation.highlight_extended_next_hop);
+    }
+
+    #[test]
+    fn live_validation_shows_missing_peer6_message_while_focused_after_clear() {
+        let draft = SessionDraft {
+            endpoint: "peer.example.net:21023".into(),
+            wg_public_key: "Cbefg96Owv1Xk/jrUExO3i5OeUSlsdirv4ONenEnNXc=".into(),
+            peer4: "172.20.193.67".into(),
+            ipv6: false,
+            extended_next_hop: false,
+            mp_bgp_transport: Some(MpBgpTransport::Ipv6),
+            peering_strategy: PeeringStrategy::FullTable,
+            ..SessionDraft::default()
+        };
+        let touched = BTreeSet::from([field_key(SessionDraftField::Peer6).to_string()]);
+
+        let validation =
+            session_details_live_validation(&draft, &touched, Some(SessionDraftField::Peer6), None);
+
+        assert_eq!(
+            validation.peer6_messages,
+            vec!["validation.peer6.required_mp_bgp".to_string()]
+        );
+        assert!(!validation.highlight_peer6);
     }
 
     #[test]
