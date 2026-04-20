@@ -547,6 +547,7 @@ details[open] .summary-header {
 .shell-line,
 .shell-select,
 .shell-button,
+.shell-text-toggle,
 .shell-toggle {
     font-family: var(--font-mono);
 }
@@ -740,6 +741,37 @@ details[open] .summary-header {
     margin-left: 0;
     border-color: transparent;
     color: var(--shell-prompt);
+}
+
+.shell-text-toggle {
+    display: inline;
+    margin: 0;
+    padding: 0;
+    border: none;
+    background: transparent;
+    color: var(--muted);
+    font: inherit;
+    line-height: inherit;
+    text-decoration: line-through;
+    cursor: pointer;
+    vertical-align: baseline;
+    white-space: nowrap;
+    appearance: none;
+    -webkit-appearance: none;
+}
+
+.shell-text-toggle:hover {
+    color: var(--text-secondary);
+}
+
+.shell-text-toggle.active {
+    color: var(--text);
+    text-decoration: none;
+}
+
+.shell-text-toggle:focus-visible {
+    outline: 1px dotted var(--text);
+    outline-offset: 2px;
 }
 
 .refresh-button {

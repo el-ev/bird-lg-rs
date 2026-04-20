@@ -3,7 +3,7 @@ use std::net::IpAddr;
 use common::models::NodeProtocol;
 use ipnet::IpNet;
 use ui_components::shell::{
-    ShellButton, ShellForm, ShellInput, ShellPrompt, ShellSelect, ShellToggle,
+    ShellButton, ShellForm, ShellInput, ShellPlainToggle, ShellPrompt, ShellSelect,
 };
 use wasm_bindgen_futures::spawn_local;
 use web_sys::HtmlInputElement;
@@ -116,7 +116,7 @@ pub fn route_lookup() -> Html {
                     placeholder="<ip>[/<mask>]"
                 />
                 <span>{ " " }</span>
-                <ShellToggle
+                <ShellPlainToggle
                     active={*all}
                     on_toggle={on_all_toggle}
                     label="all"
