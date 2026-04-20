@@ -18,7 +18,7 @@ use crate::{
         AutoPeerController, OngoingTask, default_pgp_key, selected_registry_email_target,
         sync_create_draft, use_autopeer_controller,
     },
-    i18n::{I18n, use_i18n},
+    i18n::{I18n, Locale, use_i18n},
     store::{AutoPeerStep, PeerConfigStage, SessionDraft, SessionDraftField},
 };
 
@@ -697,6 +697,16 @@ pub fn auto_peer_page() -> Html {
         on_retire_selected_session,
     } = use_autopeer_controller(default_autopeer_home_href, default_looking_glass_href);
     let loading = !ongoing_tasks.is_empty();
+    let locale_value = i18n.locale().code();
+    let on_locale_change = {
+        let i18n = i18n.clone();
+        Callback::from(move |event: Event| {
+            let target: HtmlSelectElement = event.target_unchecked_into();
+            if let Some(locale) = Locale::from_code(&target.value()) {
+                i18n.set_locale(locale);
+            }
+        })
+    };
 
     let content = match &*step {
         AutoPeerStep::LoadingConfig => html! {
@@ -1970,14 +1980,29 @@ pub fn auto_peer_page() -> Html {
     html! {
         <main class="hero">
             <div class="container">
-                <h2 class="title title-flex">
-                    <a href={(*autopeer_site_href).clone()} class="title-link">{i18n.t("app.title")}</a>
-                    <span class="title-footnote">
-                        {i18n.t("app.title.footnote")}
-                        {" / "}
-                        <a href={(*looking_glass_site_href).clone()} class="autopeer-title-nav">{i18n.t("nav.looking_glass")}</a>
-                    </span>
-                </h2>
+                <div class="autopeer-page-header">
+                    <h2 class="title title-flex">
+                        <a href={(*autopeer_site_href).clone()} class="title-link">{i18n.t("app.title")}</a>
+                        <span class="title-footnote">
+                            {i18n.t("app.title.footnote")}
+                            {" / "}
+                            <a href={(*looking_glass_site_href).clone()} class="autopeer-title-nav">{i18n.t("nav.looking_glass")}</a>
+                        </span>
+                    </h2>
+                    <div class="autopeer-language-control">
+                        <span class="autopeer-language-label">{i18n.t("nav.language")}</span>
+                        <select
+                            class="shell-select"
+                            value={locale_value}
+                            aria-label={i18n.t("nav.language")}
+                            onchange={on_locale_change}
+                        >
+                            {for Locale::ALL.iter().copied().map(|locale| html! {
+                                <option value={locale.code()}>{locale.label()}</option>
+                            })}
+                        </select>
+                    </div>
+                </div>
                 <section class="autopeer">
                     <div class="autopeer-container">
                         {content}
