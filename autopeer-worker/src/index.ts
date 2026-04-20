@@ -311,12 +311,6 @@ function registryEmailAuthConfigured(env: Env): boolean {
   return readOptionalEnvString(env, "RESEND_API_KEY") !== null;
 }
 
-function requireRegistryEmailAuthConfigured(env: Env): void {
-  if (!registryEmailAuthConfigured(env)) {
-    throw new HttpError("error.auth.registry_email.unavailable", 503);
-  }
-}
-
 async function consumeChallengeOrThrow(env: Env, challengeId: string): Promise<ChallengeRecord> {
   const result = await consumeFreshChallenge(env, challengeId);
   switch (result.kind) {
@@ -421,12 +415,8 @@ async function createCompletedRegistryEmailSession(
   return session;
 }
 
-function configuredHostAsns(env: Env): Set<string> {
-  return parseConfiguredAsns(env.HOST_ASNS);
-}
-
 function sessionCanImpersonate(env: Env, session: SessionRecord): boolean {
-  return configuredHostAsns(env).has(session.asn);
+  return parseConfiguredAsns(env.HOST_ASNS).has(session.asn);
 }
 
 function sessionCanMutate(env: Env, session: SessionRecord): boolean {
@@ -446,11 +436,6 @@ function authSessionResponseForEnv(env: Env, session: SessionRecord): AuthSessio
 
 function availableMaintainerNames(maintainers: MaintainerRecord[]): string[] {
   return [...new Set(maintainers.map((maintainer) => maintainer.name))];
-}
-
-function availableMaintainerSuffix(maintainers: MaintainerRecord[]): string {
-  const names = availableMaintainerNames(maintainers);
-  return names.length === 0 ? "" : ` Available mntners: ${names.join(", ")}.`;
 }
 
 export function resolveEffectiveMaintainer(
@@ -548,10 +533,6 @@ function buildOperationMessage(state: OperationState): UiMessage {
   }
 }
 
-function buildNodeLockWaitMessage(): UiMessage {
-  return uiKey("operation.message.wait_node_lock");
-}
-
 function pickFailingJob(jobs: GitHubWorkflowJob[]): GitHubWorkflowJob | undefined {
   return jobs.find(
     (job) =>
@@ -632,13 +613,6 @@ function failureMessageFromDetails(details: OperationFailureDetails): UiMessage 
   if (details.step) parts.push(`(step: ${details.step})`);
   if (details.annotation) parts.push(`— ${details.annotation}`);
   return uiRaw(parts.join(" "));
-}
-
-function selectApplyWorkflowRun(
-  runs: GitHubWorkflowRun[],
-  pr: { head: { sha: string } },
-): GitHubWorkflowRun | undefined {
-  return runs.find((candidate) => candidate.head_sha === pr.head.sha);
 }
 
 function buildNoChangeOperation(
@@ -770,7 +744,7 @@ export function decideNodeLockGate(hasNodeLock: boolean): PreMergeGateDecision {
 
   return {
     state: "pending_merge",
-    message: buildNodeLockWaitMessage(),
+    message: uiKey("operation.message.wait_node_lock"),
     shouldAttemptMerge: false,
   };
 }
@@ -864,7 +838,9 @@ async function refreshOperation(
         event: "pull_request",
         perPage: 20,
       });
-      const applyRun = selectApplyWorkflowRun(applyRuns.workflow_runs, pr);
+      const applyRun = applyRuns.workflow_runs.find(
+        (candidate) => candidate.head_sha === pr.head.sha,
+      );
       const applyGate = decideApplyGate(operation, applyRun);
       nextState = applyGate.state;
       message = applyGate.message;
@@ -961,10 +937,6 @@ function findNodeOrThrow(name: string, nodes: Awaited<ReturnType<typeof loadRepo
   return node;
 }
 
-function sessionExistsOnNode(node: string, sessions: SessionView[]): boolean {
-  return sessions.some((session) => session.node === node && session.state !== "manual");
-}
-
 async function handleMutation(
   env: Env,
   request: Request,
@@ -1008,7 +980,7 @@ async function handleMutation(
     if (!sessionPayload) {
       throw new HttpError("error.request.session_payload.required", 400);
     }
-    if (sessionExistsOnNode(nodeName, sessions)) {
+    if (sessions.some((session) => session.node === nodeName && session.state !== "manual")) {
       throw new HttpError(`ASN ${authSession.asn} already has a session or pending operation on ${nodeName}`, 409);
     }
     assertValidSessionSpec(node, authSession.asn, sessionPayload);
@@ -1308,7 +1280,9 @@ async function router(request: Request, env: Env): Promise<Response> {
   }
 
   if (request.method === "POST" && url.pathname === "/v1/auth/verify/registry-email/send") {
-    requireRegistryEmailAuthConfigured(env);
+    if (!registryEmailAuthConfigured(env)) {
+      throw new HttpError("error.auth.registry_email.unavailable", 503);
+    }
     const body = requireRequestRecord(
       await readJson<RegistryEmailSendRequest>(request),
       "request body",

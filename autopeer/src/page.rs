@@ -3,7 +3,7 @@ use std::collections::BTreeSet;
 use common::{
     auto_peer::{
         ALL_PEERING_STRATEGIES, AuthMethodKind, NodeView, OperationFailureStage, OperationKind,
-        OperationState, OperationStatus, PeeringStrategy, SessionState, SessionView, UiMessage,
+        OperationState, OperationStatus, PeeringStrategy, SessionState, UiMessage,
     },
     models::PeeringInfo,
 };
@@ -246,20 +246,12 @@ fn render_error(i18n: &I18n, error: &Option<UiMessage>) -> Html {
     }
 }
 
-fn render_loading_message(i18n: &I18n, message: &UiMessage) -> String {
-    i18n.translate_message(message)
-}
-
-fn render_backend_text(i18n: &I18n, message: &UiMessage) -> String {
-    i18n.translate_message(message)
-}
-
 fn render_loading(i18n: &I18n, loading: bool, loading_message: Option<UiMessage>) -> Html {
     if !loading {
         return Html::default();
     }
     let message = match loading_message {
-        Some(message) => render_loading_message(i18n, &message),
+        Some(message) => i18n.translate_message(&message),
         None => i18n.t("status.working").to_string(),
     };
     html! {
@@ -278,7 +270,7 @@ fn render_ongoing_tasks(i18n: &I18n, tasks: &[OngoingTask]) -> Html {
     html! {
         <div class="autopeer-ongoing-tasks">
             { for tasks.iter().map(|task| {
-                let message = render_loading_message(i18n, &task.message);
+                let message = i18n.translate_message(&task.message);
                 html! {
                     <div class="autopeer-ongoing-task" key={task.id}>
                         <ShellLine>
@@ -299,10 +291,6 @@ fn looking_glass_href_from_parts(protocol: &str, host: &str) -> String {
     }
 }
 
-fn autopeer_home_href() -> String {
-    "/".to_string()
-}
-
 fn looking_glass_href() -> String {
     web_sys::window()
         .and_then(|window| {
@@ -312,10 +300,6 @@ fn looking_glass_href() -> String {
             Some(looking_glass_href_from_parts(&protocol, &host))
         })
         .unwrap_or_else(|| "/".to_string())
-}
-
-fn session_for_node<'a>(node_name: &str, sessions: &'a [SessionView]) -> Option<&'a SessionView> {
-    sessions.iter().find(|session| session.node == node_name)
 }
 
 fn humanize_token(i18n: &I18n, token: &str) -> String {
@@ -647,7 +631,7 @@ fn render_operation_progress(i18n: &I18n, operation: &OperationStatus) -> Html {
 #[function_component(AutoPeerPage)]
 pub fn auto_peer_page() -> Html {
     let i18n = use_i18n();
-    let default_autopeer_home_href = autopeer_home_href();
+    let default_autopeer_home_href = String::from("/");
     let default_looking_glass_href = looking_glass_href();
     let AutoPeerController {
         autopeer_site_href,
@@ -759,8 +743,8 @@ pub fn auto_peer_page() -> Html {
                                 let on_enter_oidc = on_enter_oidc.clone();
                                 let method = method.clone();
                                 let method_copy = method.clone();
-                                let method_label = render_backend_text(&i18n, &method.label);
-                                let method_description = render_backend_text(&i18n, &method.description);
+                                let method_label = i18n.translate_message(&method.label);
+                                let method_description = i18n.translate_message(&method.description);
                                 let onclick = Callback::from(move |_| {
                                     on_enter_oidc.emit(method_copy.clone());
                                 });
@@ -800,7 +784,7 @@ pub fn auto_peer_page() -> Html {
                         {for methods.iter().map(|method| {
                             let on_select_method = on_select_method.clone();
                             let method_value = method.clone();
-                            let method_description = render_backend_text(&i18n, &method.description);
+                            let method_description = i18n.translate_message(&method.description);
                             let onclick = Callback::from(move |_| {
                                 on_select_method.emit(method_value.clone());
                             });
@@ -808,7 +792,7 @@ pub fn auto_peer_page() -> Html {
                             html! {
                                 <ShellLine>
                                     <ShellButton
-                                        text={render_backend_text(&i18n, &method.label)}
+                                        text={i18n.translate_message(&method.label)}
                                         onclick={onclick}
                                         disabled={loading}
                                     />
@@ -834,7 +818,7 @@ pub fn auto_peer_page() -> Html {
         AutoPeerStep::VerifyMethod => {
             let selected_method_value = (*selected_method).clone();
             if let Some(method) = selected_method_value {
-                let method_label = render_backend_text(&i18n, &method.label);
+                let method_label = i18n.translate_message(&method.label);
                 let verification_fields = match method.kind {
                     AuthMethodKind::RegistrySsh => {
                         let on_change = {
@@ -1392,7 +1376,7 @@ pub fn auto_peer_page() -> Html {
                         } else {
                             <div class="autopeer-node-grid">
                                 {for nodes.iter().map(|node| {
-                                    let node_session = session_for_node(&node.name, &sessions).cloned();
+                                    let node_session = sessions.iter().find(|session| session.node == node.name).cloned();
                                     let node_session_for_click = node_session.clone();
                                     let draft = draft.clone();
                                     let editing_node = editing_node.clone();
@@ -1475,7 +1459,7 @@ pub fn auto_peer_page() -> Html {
                                                 <span class="autopeer-node-note">{comment.clone()}</span>
                                             }
                                             if let Some(message) = node_session.as_ref().and_then(|session| session.message.as_ref()) {
-                                                <span class="autopeer-node-note">{render_backend_text(&i18n, message)}</span>
+                                                <span class="autopeer-node-note">{i18n.translate_message(message)}</span>
                                             }
                                             <span class="autopeer-node-state-note">{state_note}</span>
                                         </ShellButton>
@@ -1871,7 +1855,7 @@ pub fn auto_peer_page() -> Html {
                         </div>
                         <div class="autopeer-overview-meta">
                             {auth_summary.as_ref().map(|session| {
-                                let auth_label = render_backend_text(&i18n, &session.auth_method.label);
+                                let auth_label = i18n.translate_message(&session.auth_method.label);
                                 html! {
                                     <>
                                         <span class="autopeer-status-pill">{format!("AS{}", session.asn)}</span>
@@ -1920,7 +1904,7 @@ pub fn auto_peer_page() -> Html {
                                         {auth_summary.as_ref().map(|session| format!("AS{}", session.asn)).unwrap_or_else(|| i18n.t("sidebar.no_active_session").to_string())}
                                     </h3>
                                     {auth_summary.as_ref().map(|session| {
-                                            let auth_label = render_backend_text(&i18n, &session.auth_method.label);
+                                            let auth_label = i18n.translate_message(&session.auth_method.label);
                                             html! {
                                                 <p class="text-secondary">
                                                     {i18n.translate_params(
@@ -1937,7 +1921,7 @@ pub fn auto_peer_page() -> Html {
                             </article>
 
                             {host_summary.as_ref().map(|host_session| {
-                                    let auth_label = render_backend_text(&i18n, &host_session.auth_method.label);
+                                    let auth_label = i18n.translate_message(&host_session.auth_method.label);
                                     html! {
                                         <article class="peering-card autopeer-panel autopeer-panel--compact">
                                             <div class="autopeer-panel-header">
@@ -2009,7 +1993,7 @@ pub fn auto_peer_page() -> Html {
                                         <span class="autopeer-status-pill">{operation_state_label(&i18n, &operation_status.state)}</span>
                                         if operation_status.failure_details.is_none() {
                                             if let Some(message) = &operation_status.message {
-                                                <p class="text-secondary">{render_backend_text(&i18n, message)}</p>
+                                                <p class="text-secondary">{i18n.translate_message(message)}</p>
                                             }
                                         }
                                     </div>

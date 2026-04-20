@@ -71,10 +71,6 @@ use crate::{
 
 const MISSING_AUTOPEER_URL_ERROR: &str = "error.runtime.config.autopeer_url.missing";
 
-fn key_message(key: impl Into<String>) -> UiMessage {
-    UiMessage::key(key)
-}
-
 #[derive(Clone)]
 struct SessionHandles {
     asn: UseStateHandle<String>,
@@ -324,7 +320,7 @@ fn require_api_base(
         .map(str::to_string);
 
     if value.is_none() {
-        error.set(Some(key_message(MISSING_AUTOPEER_URL_ERROR)));
+        error.set(Some(UiMessage::key(MISSING_AUTOPEER_URL_ERROR)));
     }
 
     value
@@ -379,16 +375,12 @@ fn clear_location_hash() {
 
 fn redirect_to(url: &str) -> Result<(), UiMessage> {
     let Some(window) = web_sys::window() else {
-        return Err(key_message("error.runtime.browser.unavailable"));
+        return Err(UiMessage::key("error.runtime.browser.unavailable"));
     };
     window
         .location()
         .set_href(url)
-        .map_err(|_| key_message("error.runtime.oidc.redirect_failed"))
-}
-
-fn session_for_node<'a>(node_name: &str, sessions: &'a [SessionView]) -> Option<&'a SessionView> {
-    sessions.iter().find(|session| session.node == node_name)
+        .map_err(|_| UiMessage::key("error.runtime.oidc.redirect_failed"))
 }
 
 fn selected_session_node_name(editing_node: Option<&str>, draft: &SessionDraft) -> Option<String> {
@@ -694,8 +686,10 @@ pub fn use_autopeer_controller(
                         }
 
                         if let Some(token) = hash_param("email_token") {
-                            let task_id =
-                                start_loading(&ongoing_tasks, key_message("loading.email_login"));
+                            let task_id = start_loading(
+                                &ongoing_tasks,
+                                UiMessage::key("loading.email_login"),
+                            );
                             finish_redirected_auth_session(
                                 &api_url,
                                 service::complete_registry_email(&api_url, &token).await,
@@ -711,7 +705,7 @@ pub fn use_autopeer_controller(
 
                         if let Some(state) = hash_param("oidc_state") {
                             let task_id =
-                                start_loading(&ongoing_tasks, key_message("loading.oidc_login"));
+                                start_loading(&ongoing_tasks, UiMessage::key("loading.oidc_login"));
                             finish_redirected_auth_session(
                                 &api_url,
                                 service::complete_oidc(&api_url, &state).await,
@@ -815,7 +809,7 @@ pub fn use_autopeer_controller(
                 return;
             };
 
-            let task_id = start_loading(&ongoing_tasks, key_message("loading.fetch_sessions"));
+            let task_id = start_loading(&ongoing_tasks, UiMessage::key("loading.fetch_sessions"));
 
             let error = error.clone();
             let ongoing_tasks = ongoing_tasks.clone();
@@ -866,8 +860,10 @@ pub fn use_autopeer_controller(
 
                 loop {
                     if current.state.is_terminal() {
-                        let task_id =
-                            start_loading(&ongoing_tasks, key_message("loading.refresh_sessions"));
+                        let task_id = start_loading(
+                            &ongoing_tasks,
+                            UiMessage::key("loading.refresh_sessions"),
+                        );
                         match service::list_sessions(&api_base, &auth_session.session_token).await {
                             Ok(response) => {
                                 apply_session_list(response, &session_handles);
@@ -953,11 +949,11 @@ pub fn use_autopeer_controller(
 
             let asn_value = asn.trim().to_string();
             if asn_value.is_empty() {
-                error.set(Some(key_message("error.auth.asn.required")));
+                error.set(Some(UiMessage::key("error.auth.asn.required")));
                 return;
             }
 
-            let task_id = start_loading(&ongoing_tasks, key_message("loading.fetch_methods"));
+            let task_id = start_loading(&ongoing_tasks, UiMessage::key("loading.fetch_methods"));
             error.set(None);
             operation.set(None);
 
@@ -1016,11 +1012,11 @@ pub fn use_autopeer_controller(
                 return;
             };
             let Some(provider) = method.provider.clone() else {
-                error.set(Some(key_message("error.auth.oidc.provider.missing")));
+                error.set(Some(UiMessage::key("error.auth.oidc.provider.missing")));
                 return;
             };
 
-            let task_id = start_loading(&ongoing_tasks, key_message("loading.redirect_oidc"));
+            let task_id = start_loading(&ongoing_tasks, UiMessage::key("loading.redirect_oidc"));
             error.set(None);
 
             let ongoing_tasks = ongoing_tasks.clone();
@@ -1068,11 +1064,11 @@ pub fn use_autopeer_controller(
 
             let asn_value = asn.trim().to_string();
             if asn_value.is_empty() {
-                error.set(Some(key_message("error.auth.asn.required")));
+                error.set(Some(UiMessage::key("error.auth.asn.required")));
                 return;
             }
 
-            let task_id = start_loading(&ongoing_tasks, key_message("loading.fetch_challenge"));
+            let task_id = start_loading(&ongoing_tasks, UiMessage::key("loading.fetch_challenge"));
             error.set(None);
 
             let auth_flow_handles = auth_flow_handles.clone();
@@ -1100,7 +1096,9 @@ pub fn use_autopeer_controller(
                                 set_selected_auth_method(&auth_flow_handles, method);
                                 auth_handles.step.set(AutoPeerStep::VerifyMethod);
                             }
-                            None => error.set(Some(key_message("error.auth.method.unavailable"))),
+                            None => {
+                                error.set(Some(UiMessage::key("error.auth.method.unavailable")))
+                            }
                         }
                     }
                     Err(message) => error.set(Some(message)),
@@ -1133,28 +1131,30 @@ pub fn use_autopeer_controller(
                 return;
             };
             let Some(challenge_id) = (*challenge_id).clone() else {
-                error.set(Some(key_message("error.request.challenge_id.missing")));
+                error.set(Some(UiMessage::key("error.request.challenge_id.missing")));
                 return;
             };
             let Some(method) = (*selected_method).clone() else {
-                error.set(Some(key_message("error.ui.auth.method.choose_first")));
+                error.set(Some(UiMessage::key("error.ui.auth.method.choose_first")));
                 return;
             };
             if method.kind != AuthMethodKind::RegistryEmail {
-                error.set(Some(key_message("error.ui.auth.registry_email.inactive")));
+                error.set(Some(UiMessage::key(
+                    "error.ui.auth.registry_email.inactive",
+                )));
                 return;
             }
 
             let selected_target =
                 selected_registry_email_target(&method, selected_email_maintainer.as_str());
             let Some(target) = selected_target else {
-                error.set(Some(key_message(
+                error.set(Some(UiMessage::key(
                     "error.ui.auth.registry_email.choose_maintainer",
                 )));
                 return;
             };
 
-            let task_id = start_loading(&ongoing_tasks, key_message("loading.send_email"));
+            let task_id = start_loading(&ongoing_tasks, UiMessage::key("loading.send_email"));
             error.set(None);
 
             let effective_mnt = target.maintainer.clone();
@@ -1196,22 +1196,22 @@ pub fn use_autopeer_controller(
                 return;
             };
             let Some(challenge_id) = (*challenge_id).clone() else {
-                error.set(Some(key_message("error.request.challenge_id.missing")));
+                error.set(Some(UiMessage::key("error.request.challenge_id.missing")));
                 return;
             };
             let Some(method) = (*selected_method).clone() else {
-                error.set(Some(key_message("error.ui.auth.method.choose_first")));
+                error.set(Some(UiMessage::key("error.ui.auth.method.choose_first")));
                 return;
             };
             if method.kind == AuthMethodKind::RegistrySsh
                 && let Err(message) = validate_ssh_signature_input(ssh_signature.as_str())
             {
-                error.set(Some(key_message(message)));
+                error.set(Some(UiMessage::key(message)));
                 return;
             }
             if method.kind == AuthMethodKind::RegistryEmail && registry_email_code.trim().is_empty()
             {
-                error.set(Some(key_message(
+                error.set(Some(UiMessage::key(
                     "error.ui.auth.registry_email.code.required",
                 )));
                 return;
@@ -1240,7 +1240,7 @@ pub fn use_autopeer_controller(
                 if method.kind == AuthMethodKind::Oidc {
                     let Some(provider) = method.provider.clone() else {
                         clear_loading(&ongoing_tasks, task_id);
-                        error.set(Some(key_message("error.auth.oidc.provider.missing")));
+                        error.set(Some(UiMessage::key("error.auth.oidc.provider.missing")));
                         return;
                     };
 
@@ -1284,7 +1284,7 @@ pub fn use_autopeer_controller(
                     AuthMethodKind::Oidc => unreachable!(),
                     AuthMethodKind::HostImpersonation => {
                         clear_loading(&ongoing_tasks, task_id);
-                        error.set(Some(key_message(
+                        error.set(Some(UiMessage::key(
                             "error.ui.auth.impersonation.host_required",
                         )));
                         return;
@@ -1364,7 +1364,7 @@ pub fn use_autopeer_controller(
                     .filter(|session| session.can_impersonate)
             }) else {
                 error.set(None);
-                support_error.set(Some(key_message(
+                support_error.set(Some(UiMessage::key(
                     "error.ui.auth.impersonation.host_auth_first",
                 )));
                 return;
@@ -1373,13 +1373,13 @@ pub fn use_autopeer_controller(
             let target_asn = impersonate_asn.trim().to_string();
             if target_asn.is_empty() {
                 error.set(None);
-                support_error.set(Some(key_message(
+                support_error.set(Some(UiMessage::key(
                     "error.ui.auth.impersonation.asn.required",
                 )));
                 return;
             }
 
-            let task_id = start_loading(&ongoing_tasks, key_message("loading.authing_asn"));
+            let task_id = start_loading(&ongoing_tasks, UiMessage::key("loading.authing_asn"));
             error.set(None);
             support_error.set(None);
             operation.set(None);
@@ -1434,13 +1434,13 @@ pub fn use_autopeer_controller(
             };
             let Some(host_session_value) = (*host_session).clone() else {
                 error.set(None);
-                support_error.set(Some(key_message(
+                support_error.set(Some(UiMessage::key(
                     "error.ui.auth.impersonation.host_session.missing",
                 )));
                 return;
             };
 
-            let task_id = start_loading(&ongoing_tasks, key_message("loading.restore_host"));
+            let task_id = start_loading(&ongoing_tasks, UiMessage::key("loading.restore_host"));
             error.set(None);
             support_error.set(None);
 
@@ -1485,26 +1485,26 @@ pub fn use_autopeer_controller(
                 return;
             };
             let Some(auth_session) = (*auth_session).clone() else {
-                error.set(Some(key_message("error.ui.auth.authenticate_first")));
+                error.set(Some(UiMessage::key("error.ui.auth.authenticate_first")));
                 return;
             };
 
             let draft_value = (*draft).clone();
             if editing_node.is_none() && draft_value.node.trim().is_empty() {
-                error.set(Some(key_message("error.ui.node.choose_inline")));
+                error.set(Some(UiMessage::key("error.ui.node.choose_inline")));
                 return;
             }
             let spec = match draft_value.to_spec() {
                 Ok(spec) => spec,
                 Err(message) => {
-                    error.set(Some(key_message(message)));
+                    error.set(Some(UiMessage::key(message)));
                     return;
                 }
             };
 
             let task_id = start_loading(
                 &ongoing_tasks,
-                key_message(if editing_node.is_some() {
+                UiMessage::key(if editing_node.is_some() {
                     "loading.update_pr"
                 } else {
                     "loading.create_pr"
@@ -1572,13 +1572,18 @@ pub fn use_autopeer_controller(
                 return;
             };
             let Some(auth_session) = (*auth_session).clone() else {
-                error.set(Some(key_message("error.ui.auth.authenticate_first")));
+                error.set(Some(UiMessage::key("error.ui.auth.authenticate_first")));
                 return;
             };
             let selected_node = selected_session_node_name((*editing_node).as_deref(), &draft)
-                .and_then(|node| session_for_node(&node, &sessions).map(|_| node));
+                .and_then(|node| {
+                    sessions
+                        .iter()
+                        .find(|session| session.node == node)
+                        .map(|_| node)
+                });
             let Some(node) = selected_node else {
-                error.set(Some(key_message(
+                error.set(Some(UiMessage::key(
                     "error.ui.session.choose_managed_to_retire",
                 )));
                 return;
@@ -1592,7 +1597,7 @@ pub fn use_autopeer_controller(
             retire_confirmation.set(false);
             reset_session_selection(&session_handles);
 
-            let task_id = start_loading(&ongoing_tasks, key_message("loading.retire_pr"));
+            let task_id = start_loading(&ongoing_tasks, UiMessage::key("loading.retire_pr"));
             error.set(None);
 
             let operation = operation.clone();
