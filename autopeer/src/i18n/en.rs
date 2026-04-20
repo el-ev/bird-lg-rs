@@ -304,7 +304,7 @@ pub(super) const TABLE: &[(&str, &str)] = &[
     ("stage2.section.tunnel", "Tunnel Addresses"),
     (
         "stage2.section.tunnel.help",
-        "Use the addresses you configured on your side. IPv6 can be either ULA like `fd55:...` or link-local like `fe80:...`.",
+        "Use the addresses you configured on your side. IPv6 can be either ULA like `fd42:...` or link-local like `fe80:...`.",
     ),
     ("stage2.section.families", "Route Families"),
     (
@@ -314,7 +314,7 @@ pub(super) const TABLE: &[(&str, &str)] = &[
     ("stage2.section.bgp", "BGP Behavior"),
     (
         "stage2.section.bgp.help",
-        "MP-BGP uses your IPv6 address for a single BGP session that can carry IPv4 and/or IPv6 routes. If you disable it, we will generate separate BGP sessions. Extended Next Hop only applies to MP-BGP.",
+        "MP-BGP uses a single BGP session over your selected IPv4 or IPv6 transport to carry IPv4 and/or IPv6 routes; if you disable it, we will generate separate BGP sessions, and Extended Next Hop only applies to IPv4 routes carried over IPv6 transport.",
     ),
     ("stage2.section.policy", "Routing Policy"),
     ("stage2.advanced.summary", "Advanced options"),
@@ -331,12 +331,12 @@ pub(super) const TABLE: &[(&str, &str)] = &[
     ("stage2.field.peer4", "Peer IPv4 address"),
     (
         "stage2.field.peer4.placeholder",
-        "Optional DN42 IPv4 address on your side",
+        "Your DN42 IPv4 address, e.g. 172.21.111.111",
     ),
     ("stage2.field.peer6", "Peer IPv6 address"),
     (
         "stage2.field.peer6.placeholder",
-        "ULA or link-local, e.g. fd55:dead:beef::3 or fe80::1234",
+        "Your ULA or link-local, e.g. fd42:4242:1023:: or fe80::",
     ),
     ("stage2.field.own6_link_local", "Our link-local IPv6"),
     (
@@ -348,12 +348,18 @@ pub(super) const TABLE: &[(&str, &str)] = &[
         "stage2.field.own6_node.no_inventory",
         "Our inventory doesn't list an IPv6 address for this node.",
     ),
+    ("stage2.field.own4_node", "Our node IPv4"),
+    (
+        "stage2.field.own4_node.no_inventory",
+        "Our inventory doesn't list an IPv4 address for this node.",
+    ),
     ("stage2.field.families", "Families"),
     ("stage2.field.families.ipv4_label", "IPv4 routes"),
     ("stage2.field.families.ipv6_label", "IPv6 routes"),
     ("stage2.field.bgp_features", "Features"),
     ("stage2.field.bgp.mpbgp_label", "MP-BGP"),
     ("stage2.field.bgp.enh_label", "Extended Next Hop"),
+    ("stage2.field.bgp.transport", "Transport"),
     ("stage2.field.policy", "Policy"),
     ("stage2.field.comment", "Comment"),
     (
@@ -406,9 +412,9 @@ pub(super) const TABLE: &[(&str, &str)] = &[
     ("location.direction.nw", "Northwest"),
     ("location.direction.se", "Southeast"),
     ("location.direction.sw", "Southwest"),
-    ("node.transport.ipv4", "IPv4 transport"),
-    ("node.transport.ipv6", "IPv6 transport"),
-    ("node.transport.dual_stack", "Dual-stack transport"),
+    ("node.transport.ipv4", "IPv4"),
+    ("node.transport.ipv6", "IPv6"),
+    ("node.transport.dual_stack", "Dual-stack"),
     // Session / operation labels
     ("session_state.managed", "Managed"),
     ("session_state.manual", "Manual"),
@@ -823,19 +829,35 @@ pub(super) const TABLE: &[(&str, &str)] = &[
     ),
     (
         "validation.peer4.required",
-        "An IPv4 peer address is required for IPv4 when MP-BGP is disabled",
+        "A peer IPv4 address is required for IPv4 routes or IPv4 transport",
     ),
     (
         "validation.peer6.required_mp_bgp",
-        "An IPv6 peer address is required when MP-BGP is enabled",
+        "A peer IPv6 address is required for MP-BGP over IPv6 transport",
     ),
     (
         "validation.peer6.required_ipv6",
         "An IPv6 peer address is required for IPv6 routes",
     ),
     (
+        "validation.peer6.required_enh",
+        "An IPv6 peer address is required when ENH is enabled",
+    ),
+    (
         "validation.extended_next_hop.requires_mp_bgp",
-        "Extended next hop requires MP-BGP",
+        "Extended Next Hop requires MP-BGP",
+    ),
+    (
+        "validation.extended_next_hop.requires_ipv4",
+        "Extended Next Hop requires IPv4 routes",
+    ),
+    (
+        "validation.extended_next_hop.requires_ipv6_transport",
+        "Extended Next Hop requires IPv6 transport",
+    ),
+    (
+        "validation.ipv4_over_ipv6_transport.requires_peer4_or_enh",
+        "IPv4 over IPv6 transport requires a peer IPv4 address or Extended Next Hop",
     ),
     (
         "validation.own6.requires_peer6",
@@ -848,6 +870,10 @@ pub(super) const TABLE: &[(&str, &str)] = &[
     (
         "validation.own6.must_start_fe80",
         "Local link-local IPv6 must start with fe80:",
+    ),
+    (
+        "validation.own6.must_differ_from_peer6",
+        "Peer link-local IPv6 must differ from our link-local IPv6",
     ),
     ("validation.endpoint.required", "endpoint is required"),
     (
@@ -908,7 +934,7 @@ pub(super) const TABLE: &[(&str, &str)] = &[
     ),
     (
         "validation.peer4.range",
-        "Peer IPv4 address must be within 172.20.0.0/14",
+        "Peer IPv4 address must be a valid DN42 IPv4 address",
     ),
     (
         "validation.peer6.invalid",
@@ -916,7 +942,7 @@ pub(super) const TABLE: &[(&str, &str)] = &[
     ),
     (
         "validation.peer6.scope",
-        "Peer IPv6 address must be a ULA or link-local IPv6 address",
+        "Peer IPv6 address must be a valid DN42 ULA or link-local IPv6 address",
     ),
     (
         "validation.own6.invalid",

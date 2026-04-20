@@ -202,6 +202,32 @@ fn default_true() -> bool {
 #[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 #[derive(Default)]
+pub enum MpBgpTransport {
+    Ipv4,
+    #[default]
+    Ipv6,
+}
+
+impl MpBgpTransport {
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Ipv4 => "ipv4",
+            Self::Ipv6 => "ipv6",
+        }
+    }
+
+    pub fn from_value(value: &str) -> Option<Self> {
+        match value {
+            "ipv4" => Some(Self::Ipv4),
+            "ipv6" => Some(Self::Ipv6),
+            _ => None,
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+#[derive(Default)]
 pub enum PeeringStrategy {
     #[default]
     FullTable,
@@ -238,6 +264,9 @@ pub const ALL_PEERING_STRATEGIES: [PeeringStrategy; 4] = [
     PeeringStrategy::Downstream,
 ];
 
+pub const ALL_MP_BGP_TRANSPORTS: [MpBgpTransport; 2] =
+    [MpBgpTransport::Ipv4, MpBgpTransport::Ipv6];
+
 fn is_default_peering_strategy(strategy: &PeeringStrategy) -> bool {
     matches!(strategy, PeeringStrategy::FullTable)
 }
@@ -268,6 +297,8 @@ pub struct PeerSessionSpec {
     pub extended_next_hop: bool,
     #[serde(default = "default_true")]
     pub mp_bgp: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub mp_bgp_transport: Option<MpBgpTransport>,
     #[serde(default, skip_serializing_if = "is_default_peering_strategy")]
     pub peering_strategy: PeeringStrategy,
 }

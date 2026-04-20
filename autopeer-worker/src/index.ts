@@ -50,6 +50,7 @@ import {
   verifiedOidcClaimSources,
 } from "./oidc";
 import { loadMaintainersForAsn, methodsFromMaintainers } from "./registry";
+import { MP_BGP_TRANSPORTS } from "./types";
 import type {
   AuthSessionResponse,
   AuthStartRequest,
@@ -230,6 +231,20 @@ function parseRequestSessionSpec(value: unknown): PeerSessionSpec {
     record.peering_strategy,
     "session.peering_strategy",
   ) ?? "full_table";
+  const mpBgpTransport = requireOptionalRequestString(
+    record.mp_bgp_transport,
+    "session.mp_bgp_transport",
+  );
+  if (
+    mpBgpTransport !== null &&
+    mpBgpTransport !== undefined &&
+    !(MP_BGP_TRANSPORTS as readonly string[]).includes(mpBgpTransport)
+  ) {
+    throw new HttpError(
+      `session.mp_bgp_transport must be one of ${MP_BGP_TRANSPORTS.join(", ")}`,
+      400,
+    );
+  }
   return {
     comment: requireOptionalRequestString(record.comment, "session.comment"),
     endpoint: requireRequestString(record.endpoint, "session.endpoint"),
@@ -247,6 +262,7 @@ function parseRequestSessionSpec(value: unknown): PeerSessionSpec {
       "session.extended_next_hop",
     ),
     mp_bgp: requireRequestBoolean(record.mp_bgp, "session.mp_bgp"),
+    mp_bgp_transport: mpBgpTransport as PeerSessionSpec["mp_bgp_transport"],
     peering_strategy: peeringStrategy as PeerSessionSpec["peering_strategy"],
   };
 }

@@ -1,9 +1,11 @@
 import { isMap, isScalar, isSeq, parseDocument } from "yaml";
 
 import {
+  MP_BGP_TRANSPORTS,
   PEERING_STRATEGIES,
   type AuthMethod,
   type InventoryHost,
+  type MpBgpTransport,
   type NodeView,
   type OperationKind,
   type OperationRecord,
@@ -32,6 +34,7 @@ const BGP_KEY_ORDER = [
   "ipv6",
   "extended_next_hop",
   "mp_bgp",
+  "mp_bgp_transport",
   "peering_strategy",
 ] as const;
 const BASE64_LIKE = /^[A-Za-z0-9+/]+={0,2}$/;
@@ -166,6 +169,11 @@ function isPeeringStrategy(value: unknown): value is PeeringStrategy {
     (PEERING_STRATEGIES as readonly string[]).includes(value);
 }
 
+function isMpBgpTransport(value: unknown): value is MpBgpTransport {
+  return typeof value === "string" &&
+    (MP_BGP_TRANSPORTS as readonly string[]).includes(value);
+}
+
 function normalizePeeringStrategy(value: YamlValue | undefined, field: string): PeeringStrategy {
   if (value === undefined || value === null) {
     return DEFAULT_PEERING_STRATEGY;
@@ -176,6 +184,23 @@ function normalizePeeringStrategy(value: YamlValue | undefined, field: string): 
   const normalized = value.trim();
   if (!isPeeringStrategy(normalized)) {
     throw new Error(`${field} must be one of ${PEERING_STRATEGIES.join(", ")}`);
+  }
+  return normalized;
+}
+
+function normalizeMpBgpTransport(
+  value: YamlValue | undefined,
+  field: string,
+): MpBgpTransport | undefined {
+  if (value === undefined || value === null) {
+    return undefined;
+  }
+  if (typeof value !== "string") {
+    throw new Error(`${field} must be one of ${MP_BGP_TRANSPORTS.join(", ")}`);
+  }
+  const normalized = value.trim();
+  if (!isMpBgpTransport(normalized)) {
+    throw new Error(`${field} must be one of ${MP_BGP_TRANSPORTS.join(", ")}`);
   }
   return normalized;
 }
@@ -240,6 +265,13 @@ function normalizePeerEntry(peer: PeerEntry): PeerEntry {
     extended_next_hop: normalizeKnownValue(bgp, "extended_next_hop", true),
     mp_bgp: normalizeKnownValue(bgp, "mp_bgp", true),
   };
+  const mpBgpTransport = normalizeMpBgpTransport(
+    bgp.mp_bgp_transport as YamlValue | undefined,
+    `${peerLabel} bgp.mp_bgp_transport`,
+  );
+  if (mpBgpTransport !== undefined) {
+    normalizedBgp.mp_bgp_transport = mpBgpTransport;
+  }
   const peeringStrategy = normalizePeeringStrategy(
     bgp.peering_strategy as YamlValue | undefined,
     `${peerLabel} bgp.peering_strategy`,
@@ -409,6 +441,7 @@ function toSpec(peer: PeerEntry): PeerSessionSpec {
     ipv6: bgp.ipv6 !== false,
     extended_next_hop: bgp.extended_next_hop !== false,
     mp_bgp: bgp.mp_bgp !== false,
+    mp_bgp_transport: isMpBgpTransport(bgp.mp_bgp_transport) ? bgp.mp_bgp_transport : null,
     peering_strategy: normalizePeeringStrategy(
       bgp.peering_strategy as YamlValue | undefined,
       "bgp.peering_strategy",
@@ -458,6 +491,7 @@ function specToPeerEntry(
       ipv6: spec.ipv6,
       extended_next_hop: spec.extended_next_hop,
       mp_bgp: spec.mp_bgp,
+      mp_bgp_transport: spec.mp_bgp_transport ?? undefined,
       peering_strategy:
         spec.peering_strategy === DEFAULT_PEERING_STRATEGY ? undefined : spec.peering_strategy,
     },
@@ -624,6 +658,14 @@ function validateMtu(value: number | null | undefined): void {
 export function validateSessionSpec(node: InventoryHost, asn: string, spec: PeerSessionSpec): void {
   const peer4 = spec.peer4?.trim();
   const peer6 = spec.peer6?.trim();
+  if (
+    spec.mp_bgp_transport !== null &&
+    spec.mp_bgp_transport !== undefined &&
+    !isMpBgpTransport(spec.mp_bgp_transport)
+  ) {
+    throw new Error(`mp_bgp_transport must be one of ${MP_BGP_TRANSPORTS.join(", ")}`);
+  }
+  const transport = resolveMpBgpTransport(spec.mp_bgp_transport ?? null, peer4, peer6);
   parseEndpoint(spec.endpoint);
   if (!spec.wg_public_key.trim()) {
     throw new Error("wg_public_key is required");
@@ -641,17 +683,29 @@ export function validateSessionSpec(node: InventoryHost, asn: string, spec: Peer
   if (!spec.ipv4 && !spec.ipv6) {
     throw new Error("at least one BGP family must be enabled");
   }
-  if (spec.mp_bgp && !peer6) {
-    throw new Error("peer6 is required when MP-BGP is enabled");
+  if (spec.mp_bgp && transport === "ipv6" && !peer6) {
+    throw new Error("peer6 is required for MP-BGP over IPv6 transport");
+  }
+  if (spec.mp_bgp && transport === "ipv4" && !peer4) {
+    throw new Error("peer4 is required for MP-BGP over IPv4 transport");
   }
   if (spec.ipv4 && !spec.mp_bgp && !peer4) {
     throw new Error("peer4 is required for IPv4 when MP-BGP is disabled");
   }
-  if (spec.ipv6 && !peer6) {
+  if (spec.ipv6 && ((!spec.mp_bgp) || transport === "ipv6") && !peer6) {
     throw new Error("peer6 is required for IPv6 routes");
   }
   if (spec.extended_next_hop && !spec.mp_bgp) {
     throw new Error("extended_next_hop requires MP-BGP");
+  }
+  if (spec.extended_next_hop && !spec.ipv4) {
+    throw new Error("extended_next_hop requires IPv4 routes");
+  }
+  if (spec.extended_next_hop && transport !== "ipv6") {
+    throw new Error("extended_next_hop requires IPv6 transport");
+  }
+  if (spec.ipv4 && spec.mp_bgp && transport === "ipv6" && !peer4 && !spec.extended_next_hop) {
+    throw new Error("ipv4 over IPv6 transport requires peer4 or extended_next_hop");
   }
   if (!isPeeringStrategy(spec.peering_strategy)) {
     throw new Error(`peering_strategy must be one of ${PEERING_STRATEGIES.join(", ")}`);
@@ -676,6 +730,23 @@ export function validateSessionSpec(node: InventoryHost, asn: string, spec: Peer
   validateMtu(spec.mtu);
   ensureEndpointAllowed(node, spec.endpoint);
   normalizeAsn(asn);
+}
+
+function resolveMpBgpTransport(
+  explicit: MpBgpTransport | null,
+  peer4: string | undefined,
+  peer6: string | undefined,
+): MpBgpTransport | null {
+  if (explicit) {
+    return explicit;
+  }
+  if (peer6) {
+    return "ipv6";
+  }
+  if (peer4) {
+    return "ipv4";
+  }
+  return null;
 }
 
 export function loadInventoryHosts(

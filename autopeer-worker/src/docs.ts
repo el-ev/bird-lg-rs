@@ -340,6 +340,10 @@ const components = {
         ipv6: { type: "boolean" },
         extended_next_hop: { type: "boolean" },
         mp_bgp: { type: "boolean" },
+        mp_bgp_transport: {
+          type: "string",
+          enum: ["ipv4", "ipv6"],
+        },
         peering_strategy: {
           type: "string",
           enum: ["full_table", "transit", "peer", "downstream"],

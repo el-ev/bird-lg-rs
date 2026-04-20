@@ -130,6 +130,8 @@ export const PEERING_STRATEGIES = [
 ] as const;
 
 export type PeeringStrategy = (typeof PEERING_STRATEGIES)[number];
+export const MP_BGP_TRANSPORTS = ["ipv4", "ipv6"] as const;
+export type MpBgpTransport = (typeof MP_BGP_TRANSPORTS)[number];
 
 export interface PeerSessionSpec {
   comment?: string | null;
@@ -145,6 +147,7 @@ export interface PeerSessionSpec {
   ipv6: boolean;
   extended_next_hop: boolean;
   mp_bgp: boolean;
+  mp_bgp_transport?: MpBgpTransport | null;
   peering_strategy: PeeringStrategy;
 }
 

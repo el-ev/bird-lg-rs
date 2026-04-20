@@ -211,6 +211,62 @@ describe("network peer mutations", () => {
     expect(result.content).not.toContain("-     ");
   });
 
+  it("emits explicit mp_bgp_transport when requested", () => {
+    const result = mutatePeerFile(baseFile, {
+      asn: "4242421234",
+      effectiveMnt: "EXAMPLE-MNT",
+      authMethod,
+      kind: "create",
+      session: {
+        comment: "transport override",
+        endpoint: "peer.example.net:21023",
+        wg_public_key: "abcd+efgh/ijkl=",
+        port: null,
+        peer4: "172.20.193.67",
+        peer6: null,
+        own6: null,
+        keepalive: null,
+        mtu: null,
+        ipv4: false,
+        ipv6: true,
+        extended_next_hop: false,
+        mp_bgp: true,
+        mp_bgp_transport: "ipv4",
+        peering_strategy: "full_table",
+      },
+    });
+
+    expect(result.content).toContain("mp_bgp_transport: 'ipv4'");
+  });
+
+  it("omits legacy mp_bgp_transport when the session leaves it unset", () => {
+    const result = mutatePeerFile(baseFile, {
+      asn: "4242421234",
+      effectiveMnt: "EXAMPLE-MNT",
+      authMethod,
+      kind: "create",
+      session: {
+        comment: "legacy transport",
+        endpoint: "peer.example.net:21023",
+        wg_public_key: "abcd+efgh/ijkl=",
+        port: null,
+        peer4: "172.20.193.67",
+        peer6: null,
+        own6: null,
+        keepalive: null,
+        mtu: null,
+        ipv4: false,
+        ipv6: true,
+        extended_next_hop: false,
+        mp_bgp: true,
+        mp_bgp_transport: null,
+        peering_strategy: "full_table",
+      },
+    });
+
+    expect(result.content).not.toContain("mp_bgp_transport");
+  });
+
   it("silently adopts a manual peer during create", () => {
     const file = `peers:
   - comment: 'autopeer test'
@@ -629,6 +685,7 @@ describe("session validation", () => {
     ipv6: true,
     extended_next_hop: true,
     mp_bgp: true,
+    mp_bgp_transport: null,
     peering_strategy: "full_table",
   };
 
@@ -658,6 +715,17 @@ describe("session validation", () => {
         ...baseSpec,
         peer4: null,
         ipv6: false,
+      }),
+    ).not.toThrow();
+  });
+
+  it("accepts IPv6 routes over an IPv4 MP-BGP session without peer6", () => {
+    expect(() =>
+      validateSessionSpec(node, "4242422172", {
+        ...baseSpec,
+        peer6: null,
+        extended_next_hop: false,
+        mp_bgp_transport: "ipv4",
       }),
     ).not.toThrow();
   });
@@ -697,14 +765,67 @@ describe("session validation", () => {
     ).toThrow("peer6 must be a ULA or link-local IPv6 address");
   });
 
-  it("rejects MP-BGP without an IPv6 tunnel address", () => {
+  it("rejects IPv6 transport MP-BGP without an IPv6 tunnel address", () => {
     expect(() =>
       validateSessionSpec(node, "4242422172", {
         ...baseSpec,
         peer6: null,
         ipv6: false,
+        extended_next_hop: false,
+        mp_bgp_transport: "ipv6",
       }),
-    ).toThrow("peer6 is required when MP-BGP is enabled");
+    ).toThrow("peer6 is required for MP-BGP over IPv6 transport");
+  });
+
+  it("rejects IPv4 transport MP-BGP without an IPv4 tunnel address", () => {
+    expect(() =>
+      validateSessionSpec(node, "4242422172", {
+        ...baseSpec,
+        peer4: null,
+        ipv6: false,
+        extended_next_hop: false,
+        mp_bgp_transport: "ipv4",
+      }),
+    ).toThrow("peer4 is required for MP-BGP over IPv4 transport");
+  });
+
+  it("rejects extended next hop without MP-BGP", () => {
+    expect(() =>
+      validateSessionSpec(node, "4242422172", {
+        ...baseSpec,
+        mp_bgp: false,
+      }),
+    ).toThrow("extended_next_hop requires MP-BGP");
+  });
+
+  it("rejects extended next hop without IPv4 routes", () => {
+    expect(() =>
+      validateSessionSpec(node, "4242422172", {
+        ...baseSpec,
+        ipv4: false,
+      }),
+    ).toThrow("extended_next_hop requires IPv4 routes");
+  });
+
+  it("rejects extended next hop over IPv4 transport", () => {
+    expect(() =>
+      validateSessionSpec(node, "4242422172", {
+        ...baseSpec,
+        mp_bgp_transport: "ipv4",
+      }),
+    ).toThrow("extended_next_hop requires IPv6 transport");
+  });
+
+  it("rejects IPv4 over IPv6 transport without peer4 or extended next hop", () => {
+    expect(() =>
+      validateSessionSpec(node, "4242422172", {
+        ...baseSpec,
+        peer4: null,
+        ipv6: false,
+        extended_next_hop: false,
+        mp_bgp_transport: "ipv6",
+      }),
+    ).toThrow("ipv4 over IPv6 transport requires peer4 or extended_next_hop");
   });
 
   it("rejects IPv6 routes without peer6 even if peer4 exists", () => {
