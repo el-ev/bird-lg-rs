@@ -8,11 +8,9 @@ use crate::{
 #[function_component(PeeringPage)]
 pub fn peering_page() -> Html {
     let state = use_context::<LgStateHandle>().expect("no ctx found");
-
-    if state.network_info.is_none() {
+    let Some(network_info) = state.network_info.as_ref() else {
         return html! {};
-    }
-    let network_info = state.network_info.as_ref().unwrap();
+    };
 
     let ipv4_prefixes = network_info.ipv4_prefix.join(", ");
     let ipv6_prefixes = network_info.ipv6_prefix.join(", ");
@@ -34,50 +32,43 @@ pub fn peering_page() -> Html {
         </article>
     };
 
-    let content = match &state.network_info {
-        Some(network_info) => {
-            let mut peers = network_info.peering.iter().collect::<Vec<_>>();
-            peers.sort_by(|(_, info_a), (_, info_b)| info_a.ipv4.cmp(&info_b.ipv4));
+    let mut peers = network_info.peering.iter().collect::<Vec<_>>();
+    peers.sort_by(|(_, info_a), (_, info_b)| info_a.ipv4.cmp(&info_b.ipv4));
 
-            html! {
-                <>
-                    if show_prefix_card {
-                        {prefix_card}
-                    }
-
-                    <div>
-                        <div class="peering-card-header">
-                            <h3 class="peering-card-title">{"Nodes"}</h3>
-                            {
-                                if let Some(comment) = &network_info.comment {
-                                    html! { <p class="peering-card-subtitle">{ render_multiline_text(comment) }</p> }
-                                } else {
-                                    html! {}
-                                }
-                            }
-                        </div>
-                        <div class="peering-node-list">
-                            { for peers.into_iter().map(|(node, info)| {
-                                html! {
-                                    <PeeringNodeCard node_name={node.clone()} node_info={info.clone()} />
-                                }
-                            }) }
-                        </div>
-                    </div>
-
-                    <ContactCard contacts={
-                        network_info
-                            .contacts
-                            .iter()
-                            .map(|(label, value)| (label.clone(), value.clone()))
-                            .collect::<Vec<_>>()
-                    } />
-                </>
+    let content = html! {
+        <>
+            if show_prefix_card {
+                {prefix_card}
             }
-        }
-        None => html! {
-            <div class="peering-empty">{"Loading peering information..."}</div>
-        },
+
+            <div>
+                <div class="peering-card-header">
+                    <h3 class="peering-card-title">{"Nodes"}</h3>
+                    {
+                        if let Some(comment) = &network_info.comment {
+                            html! { <p class="peering-card-subtitle">{ render_multiline_text(comment) }</p> }
+                        } else {
+                            html! {}
+                        }
+                    }
+                </div>
+                <div class="peering-node-list">
+                    { for peers.into_iter().map(|(node, info)| {
+                        html! {
+                            <PeeringNodeCard node_name={node.clone()} node_info={info.clone()} />
+                        }
+                    }) }
+                </div>
+            </div>
+
+            <ContactCard contacts={
+                network_info
+                    .contacts
+                    .iter()
+                    .map(|(label, value)| (label.clone(), value.clone()))
+                    .collect::<Vec<_>>()
+            } />
+        </>
     };
 
     html! {

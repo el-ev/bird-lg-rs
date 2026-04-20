@@ -425,12 +425,6 @@ hr {
     -webkit-user-select: all;
 }
 
-.peering-empty {
-    text-align: center;
-    padding: 48px 0;
-    color: var(--text-secondary);
-}
-
 .peering-contact-grid {
     grid-template-columns: minmax(110px, 160px) minmax(0, 1fr);
     gap: 8px 20px;
