@@ -24,9 +24,10 @@ pub fn shell_select(props: &ShellSelectProps) -> Html {
         let value = props.value.clone();
         use_effect_with(value, move |value| {
             if let Some(el) = select_ref.cast::<HtmlSelectElement>()
-                && el.value() != value.as_str() {
-                    el.set_value(value);
-                }
+                && el.value() != value.as_str()
+            {
+                el.set_value(value);
+            }
             || ()
         });
     }

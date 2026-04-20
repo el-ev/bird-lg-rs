@@ -1370,6 +1370,21 @@ details[open] .summary-header {
     gap: var(--spacing-sm);
 }
 
+.autopeer-validation-block {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.autopeer-validation-block > .shell-line {
+    margin-bottom: 0;
+}
+
+.autopeer-validation-block--invalid {
+    padding-inline-start: 0.75rem;
+    border-inline-start: 2px solid color-mix(in srgb, var(--error) 72%, var(--border));
+}
+
 .autopeer-form-section--invalid {
     padding-inline-start: 0.75rem;
     border-inline-start: 2px solid color-mix(in srgb, var(--error) 72%, var(--border));
@@ -1650,6 +1665,12 @@ details[open] .summary-header {
     margin: 0;
     font-size: 0.88rem;
     color: var(--error);
+}
+
+.autopeer-live-validation-list {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
 }
 
 .autopeer-sessions,

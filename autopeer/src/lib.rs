@@ -1,7 +1,7 @@
 mod app;
-mod models;
 mod controller;
 mod i18n;
+mod models;
 mod page;
 mod service;
 mod store;

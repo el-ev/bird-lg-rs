@@ -19,6 +19,8 @@ pub struct ShellInputProps {
     #[prop_or(4)]
     pub rows: usize,
     #[prop_or_default]
+    pub on_focus: Callback<FocusEvent>,
+    #[prop_or_default]
     pub on_blur: Callback<FocusEvent>,
     #[prop_or_default]
     pub on_keydown: Callback<KeyboardEvent>,
@@ -68,6 +70,7 @@ pub fn shell_input(props: &ShellInputProps) -> Html {
                     rows={props.rows.to_string()}
                     disabled={props.disabled}
                     spellcheck="false"
+                    onfocus={props.on_focus.clone()}
                     onblur={props.on_blur.clone()}
                     onkeydown={props.on_keydown.clone()}
                 />
@@ -115,10 +118,12 @@ pub fn shell_input(props: &ShellInputProps) -> Html {
         let onfocus = {
             let input_ref = input_ref.clone();
             let cursor_col = cursor_col.clone();
-            Callback::from(move |_| {
+            let on_focus = props.on_focus.clone();
+            Callback::from(move |event: FocusEvent| {
                 if let Some(input) = input_ref.cast::<HtmlInputElement>() {
                     cursor_col.set(read_cursor_position(&input));
                 }
+                on_focus.emit(event);
             })
         };
 
@@ -218,6 +223,7 @@ mod tests {
             disabled: false,
             multiline: false,
             rows: 4,
+            on_focus: Callback::noop(),
             on_blur: Callback::noop(),
             on_keydown: Callback::noop(),
         }

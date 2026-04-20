@@ -1684,11 +1684,11 @@ pub fn use_autopeer_controller(
 #[cfg(test)]
 mod tests {
     use crate::{
-        models::{AuthMethod, AuthMethodKind, UiMessage},
         controller::{
             configured_href, filter_supported_methods, matching_auth_method,
             validate_ssh_signature_input,
         },
+        models::{AuthMethod, AuthMethodKind, UiMessage},
     };
 
     #[test]
