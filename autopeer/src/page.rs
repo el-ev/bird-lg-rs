@@ -218,7 +218,9 @@ fn session_details_live_validation(
     let peer4_highlight = !peer4_focused && !peer4_blank && peer4_error.is_some();
     let peer6_highlight = !peer6_focused
         && ((!peer6_blank && peer6_error.is_some()) || link_local_own6_collision);
-    let bgp_message = if show_generic_tunnel_required || !bgp_touched {
+    let bgp_message = if show_generic_tunnel_required
+        || !(bgp_touched || peer4_touched || peer6_touched)
+    {
         None
     } else {
         bgp_error.clone()
@@ -2539,6 +2541,25 @@ mod tests {
     }
 
     #[test]
+    fn live_validation_shows_enh_error_after_peer4_is_filled() {
+        let touched = BTreeSet::from([field_key(SessionDraftField::Peer4).to_string()]);
+        let draft = SessionDraft {
+            peer4: "172.21.11.11".into(),
+            peer6: String::new(),
+            ..SessionDraft::default()
+        };
+
+        let validation = session_details_live_validation(&draft, &touched, None, None);
+
+        assert_eq!(
+            validation.bgp_message,
+            Some("validation.extended_next_hop.requires_ipv6_transport".to_string())
+        );
+        assert!(validation.peer6_messages.is_empty());
+        assert!(validation.highlight_extended_next_hop);
+    }
+
+    #[test]
     fn live_validation_does_not_project_ipv6_peer6_error_onto_mp_bgp_toggle() {
         let touched =
             BTreeSet::from([toggle_group_key(SessionDraftToggleGroup::Families).to_string()]);
@@ -2875,6 +2896,28 @@ mod tests {
             vec!["validation.peer6.required_mp_bgp".to_string()]
         );
         assert!(!validation.highlight_peer6);
+    }
+
+    #[test]
+    fn live_validation_shows_enh_error_while_peer6_is_focused_after_clear() {
+        let draft = SessionDraft {
+            endpoint: "peer.example.net:21023".into(),
+            wg_public_key: "Cbefg96Owv1Xk/jrUExO3i5OeUSlsdirv4ONenEnNXc=".into(),
+            peer4: "172.20.193.67".into(),
+            peer6: String::new(),
+            ..SessionDraft::default()
+        };
+        let touched = BTreeSet::from([field_key(SessionDraftField::Peer6).to_string()]);
+
+        let validation =
+            session_details_live_validation(&draft, &touched, Some(SessionDraftField::Peer6), None);
+
+        assert_eq!(
+            validation.bgp_message,
+            Some("validation.extended_next_hop.requires_ipv6_transport".to_string())
+        );
+        assert!(validation.peer6_messages.is_empty());
+        assert!(!validation.highlight_extended_next_hop);
     }
 
     #[test]
