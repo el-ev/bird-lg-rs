@@ -73,15 +73,15 @@ pub(super) const TABLE: &[(&str, &str)] = &[
     ),
     (
         "auth_method.registry_ssh.session_description",
-        "You authenticated with {mnt} using registry SSH auth.",
+        "You authenticated with {mnt} using SSH auth.",
     ),
     (
         "auth_method.registry_pgp.session_description",
-        "You authenticated with {mnt} using registry PGP auth.",
+        "You authenticated with {mnt} using PGP auth.",
     ),
     (
         "auth_method.registry_email.session_description",
-        "You authenticated with {mnt} using registry email auth.",
+        "You authenticated with {mnt} using email auth.",
     ),
     (
         "auth_method.host_impersonation.label",
@@ -102,7 +102,7 @@ pub(super) const TABLE: &[(&str, &str)] = &[
     // Step: VerifyMethod (SSH)
     (
         "verify.ssh.no_fingerprints",
-        "We could not find any registry SSH key fingerprints for your ASN.",
+        "We could not find any SSH key fingerprints for your ASN.",
     ),
     ("verify.ssh.match_one", "Match your SSH key {fingerprint}"),
     (
@@ -112,20 +112,20 @@ pub(super) const TABLE: &[(&str, &str)] = &[
     ("verify.ssh.create_signature", "Sign the challenge"),
     (
         "verify.ssh.paste_prompt",
-        "Run the command above, then paste your detached SSH signature",
+        "Run the command above, then paste your detached SSH signature.",
     ),
     ("verify.ssh.placeholder", "-----BEGIN SSH SIGNATURE-----"),
     // Step: VerifyMethod (PGP)
     (
         "verify.pgp.no_fingerprints",
-        "We could not find any registry PGP fingerprints for your ASN.",
+        "We could not find any PGP fingerprints for your ASN",
     ),
     ("verify.pgp.use_key", "Use your key {fingerprint}"),
     (
         "verify.pgp.clearsign_intro",
         "Clear-sign the exact challenge text with your matching key, then export that same public key and paste both outputs below.",
     ),
-    ("verify.pgp.exact_challenge", "Exact challenge text"),
+    ("verify.pgp.exact_challenge", "Challenge text"),
     ("verify.pgp.clearsign_label", "Clear-sign your challenge"),
     (
         "verify.pgp.signed_paste_prompt",
