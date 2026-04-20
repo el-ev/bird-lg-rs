@@ -1,5 +1,3 @@
-use std::{collections::BTreeSet, net::Ipv6Addr};
-
 use common::models::PeeringInfo;
 use ui_components::shell::{
     ShellButton, ShellInput, ShellLine, ShellPrompt, ShellSelect, ShellToggle,
@@ -19,6 +17,12 @@ use crate::{
         SessionState, UiMessage,
     },
     store::{AutoPeerStep, PeerConfigStage, SessionDraft, SessionDraftField},
+    update_form::{
+        Peer6AddressKind, SessionDraftToggleGroup, SessionDraftTouchedControls,
+        detect_peer6_address_kind, displayed_node_ipv4_visibility, displayed_peer6_address_kind,
+        field_is_touched, session_details_live_validation, session_details_submission_error,
+        should_display_node_ipv4, should_mark_field_invalid, touch_field, touch_toggle_group,
+    },
 };
 
 fn render_readonly_block(label: &str, content: String) -> Html {
@@ -50,31 +54,6 @@ fn render_readonly_block(label: &str, content: String) -> Html {
     }
 }
 
-fn field_key(field: SessionDraftField) -> &'static str {
-    match field {
-        SessionDraftField::Endpoint => "endpoint",
-        SessionDraftField::WgPublicKey => "wg_public_key",
-        SessionDraftField::Peer4 => "peer4",
-        SessionDraftField::Peer6 => "peer6",
-        SessionDraftField::Own6 => "own6",
-        SessionDraftField::Keepalive => "keepalive",
-        SessionDraftField::Mtu => "mtu",
-    }
-}
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-enum SessionDraftToggleGroup {
-    Families,
-    Bgp,
-}
-
-fn toggle_group_key(group: SessionDraftToggleGroup) -> &'static str {
-    match group {
-        SessionDraftToggleGroup::Families => "__toggle_group.families",
-        SessionDraftToggleGroup::Bgp => "__toggle_group.bgp",
-    }
-}
-
 fn update_draft_state(
     draft: &UseStateHandle<SessionDraft>,
     update: impl FnOnce(&mut SessionDraft),
@@ -84,206 +63,13 @@ fn update_draft_state(
     draft.set(next);
 }
 
-fn mark_field_touched(touched_fields: &UseStateHandle<BTreeSet<String>>, field: SessionDraftField) {
-    let mut next = (**touched_fields).clone();
-    next.insert(field_key(field).to_string());
-    touched_fields.set(next);
-}
-
-fn mark_toggle_group_touched(
-    touched_fields: &UseStateHandle<BTreeSet<String>>,
-    group: SessionDraftToggleGroup,
+fn update_touched_controls(
+    touched_fields: &UseStateHandle<SessionDraftTouchedControls>,
+    update: impl FnOnce(&mut SessionDraftTouchedControls),
 ) {
     let mut next = (**touched_fields).clone();
-    next.insert(toggle_group_key(group).to_string());
+    update(&mut next);
     touched_fields.set(next);
-}
-
-fn control_is_touched(touched_controls: &BTreeSet<String>, field: SessionDraftField) -> bool {
-    touched_controls.contains(field_key(field))
-}
-
-fn control_is_focused(focused_field: Option<SessionDraftField>, field: SessionDraftField) -> bool {
-    focused_field == Some(field)
-}
-
-fn toggle_group_is_touched(
-    touched_controls: &BTreeSet<String>,
-    group: SessionDraftToggleGroup,
-) -> bool {
-    touched_controls.contains(toggle_group_key(group))
-}
-
-#[derive(Clone, Debug, Default, PartialEq, Eq)]
-struct SessionDraftLiveValidation {
-    peer4_message: Option<String>,
-    peer6_messages: Vec<String>,
-    own6_message: Option<String>,
-    tunnel_message: Option<String>,
-    families_message: Option<String>,
-    bgp_message: Option<String>,
-    highlight_peer4: bool,
-    highlight_peer6: bool,
-    highlight_own6: bool,
-    highlight_ipv4: bool,
-    highlight_ipv6: bool,
-    highlight_mp_bgp: bool,
-    highlight_extended_next_hop: bool,
-}
-
-impl SessionDraftLiveValidation {
-    fn highlights_field(&self, field: SessionDraftField) -> bool {
-        match field {
-            SessionDraftField::Peer4 => self.highlight_peer4,
-            SessionDraftField::Peer6 => self.highlight_peer6,
-            SessionDraftField::Own6 => self.highlight_own6,
-            _ => false,
-        }
-    }
-}
-
-fn matches_validation_key(message: Option<&str>, expected: &str) -> bool {
-    matches!(message, Some(value) if value == expected)
-}
-
-fn session_details_live_validation(
-    draft: &SessionDraft,
-    touched_controls: &BTreeSet<String>,
-    focused_field: Option<SessionDraftField>,
-    fallback_own6: Option<&str>,
-) -> SessionDraftLiveValidation {
-    let peer4_touched = control_is_touched(touched_controls, SessionDraftField::Peer4);
-    let peer6_touched = control_is_touched(touched_controls, SessionDraftField::Peer6);
-    let own6_touched = control_is_touched(touched_controls, SessionDraftField::Own6);
-    let peer4_focused = control_is_focused(focused_field, SessionDraftField::Peer4);
-    let peer6_focused = control_is_focused(focused_field, SessionDraftField::Peer6);
-    let own6_focused = control_is_focused(focused_field, SessionDraftField::Own6);
-    let peer4_error = draft.field_error(SessionDraftField::Peer4);
-    let peer6_error = draft.field_error(SessionDraftField::Peer6);
-    let bgp_error = draft.bgp_error();
-    let families_touched =
-        toggle_group_is_touched(touched_controls, SessionDraftToggleGroup::Families);
-    let bgp_touched = toggle_group_is_touched(touched_controls, SessionDraftToggleGroup::Bgp);
-    let combo_touched = families_touched || bgp_touched;
-
-    let peer4_blank = draft.peer4.trim().is_empty();
-    let peer6_blank = draft.peer6.trim().is_empty();
-    let own6_present = !draft.own6.trim().is_empty();
-
-    let no_families_selected = !draft.ipv4 && !draft.ipv6;
-    let peer4_missing_for_ipv4 = draft.ipv4 && !draft.mp_bgp && peer4_blank;
-    let peer6_missing_for_ipv6 = draft.ipv6 && !draft.mp_bgp && peer6_blank;
-    let link_local_own6_collision = draft.link_local_collision_with(fallback_own6);
-    let show_generic_tunnel_required = !own6_present
-        && peer4_blank
-        && peer6_blank
-        && (peer4_touched || peer6_touched || own6_touched || combo_touched)
-        && !peer4_focused
-        && !peer6_focused;
-    let peer4_requirement_touched = peer4_touched || families_touched || bgp_touched;
-    let peer6_requirement_touched = peer6_touched || families_touched || bgp_touched;
-    let peer4_message = if !peer4_focused
-        && !show_generic_tunnel_required
-        && ((peer4_blank && peer4_requirement_touched && peer4_error.is_some())
-            || (!peer4_blank && peer4_touched && peer4_error.is_some()))
-    {
-        peer4_error.clone()
-    } else {
-        None
-    };
-    let peer6_messages = if link_local_own6_collision || show_generic_tunnel_required {
-        Vec::new()
-    } else if peer6_blank {
-        if peer6_focused && !peer6_touched {
-            Vec::new()
-        } else if peer6_requirement_touched {
-            peer6_error.clone().into_iter().collect()
-        } else {
-            Vec::new()
-        }
-    } else if peer6_focused {
-        Vec::new()
-    } else if !peer6_blank && peer6_touched {
-        peer6_error.clone().into_iter().collect()
-    } else {
-        Vec::new()
-    };
-    let own6_message = if link_local_own6_collision && !own6_focused {
-        Some("validation.own6.must_differ_from_peer6".to_string())
-    } else if (own6_present || own6_touched) && !own6_focused {
-        draft.field_error(SessionDraftField::Own6)
-    } else {
-        None
-    };
-    let peer4_highlight = !peer4_focused && !peer4_blank && peer4_error.is_some();
-    let peer6_highlight = !peer6_focused
-        && ((!peer6_blank && peer6_error.is_some()) || link_local_own6_collision);
-    let bgp_message = if show_generic_tunnel_required
-        || !(bgp_touched || peer4_touched || peer6_touched)
-    {
-        None
-    } else {
-        bgp_error.clone()
-    };
-
-    SessionDraftLiveValidation {
-        peer4_message,
-        peer6_messages,
-        own6_message: own6_message.clone(),
-        tunnel_message: if show_generic_tunnel_required {
-            Some("validation.tunnel.required".to_string())
-        } else {
-            None
-        },
-        families_message: if families_touched && no_families_selected {
-            Some("validation.bgp_family.required".to_string())
-        } else {
-            None
-        },
-        bgp_message: bgp_message.clone(),
-        highlight_peer4: peer4_highlight,
-        highlight_peer6: peer6_highlight,
-        highlight_own6: own6_message.is_some(),
-        highlight_ipv4: (families_touched && no_families_selected)
-            || (!show_generic_tunnel_required
-                && !peer4_focused
-                && peer4_missing_for_ipv4
-                && families_touched)
-            || matches_validation_key(
-                bgp_message.as_deref(),
-                "validation.extended_next_hop.requires_ipv4",
-            ),
-        highlight_ipv6: (families_touched && no_families_selected)
-            || (!show_generic_tunnel_required
-                && !peer6_focused
-                && peer6_missing_for_ipv6
-                && families_touched),
-        highlight_mp_bgp: matches_validation_key(
-            bgp_message.as_deref(),
-            "validation.extended_next_hop.requires_mp_bgp",
-        ),
-        highlight_extended_next_hop: !peer6_focused
-            && matches!(
-            bgp_message.as_deref(),
-            Some(
-                "validation.extended_next_hop.requires_mp_bgp"
-                    | "validation.extended_next_hop.requires_ipv4"
-                    | "validation.extended_next_hop.requires_ipv6_transport"
-                    | "validation.ipv4_over_ipv6_transport.requires_peer4_or_enh"
-            )
-        ),
-    }
-}
-
-fn session_details_submission_error(
-    draft: &SessionDraft,
-    fallback_own6: Option<&str>,
-) -> Option<String> {
-    if draft.link_local_collision_with(fallback_own6) {
-        Some("validation.own6.must_differ_from_peer6".to_string())
-    } else {
-        draft.to_spec().err()
-    }
 }
 
 fn live_validation_message(i18n: &I18n, message: Option<&str>) -> Html {
@@ -614,65 +400,6 @@ fn render_inventory_peering_review(i18n: &I18n, node: Option<&NodeView>, active_
             </dl>
         </div>
     }
-}
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-enum Peer6AddressKind {
-    LinkLocal,
-    Ula,
-}
-
-fn detect_peer6_address_kind(value: &str) -> Option<Peer6AddressKind> {
-    let parsed = value.trim().parse::<Ipv6Addr>().ok()?;
-    if parsed.segments()[0] == 0xfe80 {
-        Some(Peer6AddressKind::LinkLocal)
-    } else if (parsed.segments()[0] & 0xfe00) == 0xfc00 {
-        Some(Peer6AddressKind::Ula)
-    } else {
-        None
-    }
-}
-
-fn displayed_peer6_address_kind(
-    current_value: &str,
-    focused_field: Option<SessionDraftField>,
-    committed_kind: Option<Peer6AddressKind>,
-) -> Option<Peer6AddressKind> {
-    if focused_field == Some(SessionDraftField::Peer6) {
-        committed_kind
-    } else {
-        detect_peer6_address_kind(current_value)
-    }
-}
-
-fn should_display_node_ipv4(draft: &SessionDraft) -> bool {
-    !draft.peer4.trim().is_empty() && draft.field_error(SessionDraftField::Peer4).is_none()
-}
-
-fn displayed_node_ipv4_visibility(
-    draft: &SessionDraft,
-    focused_field: Option<SessionDraftField>,
-    committed_visibility: bool,
-) -> bool {
-    if focused_field == Some(SessionDraftField::Peer4) {
-        committed_visibility
-    } else {
-        should_display_node_ipv4(draft)
-    }
-}
-
-fn should_mark_field_invalid(draft: &SessionDraft, field: SessionDraftField) -> bool {
-    let value = match field {
-        SessionDraftField::Endpoint => draft.endpoint.as_str(),
-        SessionDraftField::WgPublicKey => draft.wg_public_key.as_str(),
-        SessionDraftField::Peer4 => draft.peer4.as_str(),
-        SessionDraftField::Peer6 => draft.peer6.as_str(),
-        SessionDraftField::Own6 => draft.own6.as_str(),
-        SessionDraftField::Keepalive => draft.keepalive.as_str(),
-        SessionDraftField::Mtu => draft.mtu.as_str(),
-    };
-
-    !value.trim().is_empty() && draft.field_error(field).is_some()
 }
 
 fn operation_stage_index(operation: &OperationStatus) -> usize {
@@ -1416,7 +1143,7 @@ pub fn auto_peer_page() -> Html {
                 Callback::from(move |_| {
                     editing_node.set(None);
                     config_stage.set(PeerConfigStage::SelectNode);
-                    touched_fields.set(BTreeSet::new());
+                    touched_fields.set(SessionDraftTouchedControls::new());
                     draft.set(sync_create_draft(&nodes, &sessions, &draft));
                 })
             };
@@ -1436,7 +1163,9 @@ pub fn auto_peer_page() -> Html {
                     if *focused_field == Some(target_field) {
                         focused_field.set(None);
                     }
-                    mark_field_touched(&touched_fields, target_field);
+                    update_touched_controls(&touched_fields, |next| {
+                        touch_field(next, target_field)
+                    });
                 })
             };
 
@@ -1454,7 +1183,9 @@ pub fn auto_peer_page() -> Html {
                     if *focused_field == Some(SessionDraftField::Peer6) {
                         focused_field.set(None);
                     }
-                    mark_field_touched(&touched_fields, SessionDraftField::Peer6);
+                    update_touched_controls(&touched_fields, |next| {
+                        touch_field(next, SessionDraftField::Peer6);
+                    });
                     let next_kind = detect_peer6_address_kind(&draft.peer6);
                     committed_peer6_kind.set(next_kind);
                     if next_kind != Some(Peer6AddressKind::LinkLocal) && !draft.own6.is_empty() {
@@ -1464,8 +1195,7 @@ pub fn auto_peer_page() -> Html {
             };
 
             let field_is_invalid = |field: SessionDraftField| {
-                control_is_touched(&touched_fields, field)
-                    && should_mark_field_invalid(&draft, field)
+                field_is_touched(&touched_fields, field) && should_mark_field_invalid(&draft, field)
             };
 
             let input_class = |field: SessionDraftField| {
@@ -1492,7 +1222,9 @@ pub fn auto_peer_page() -> Html {
                 let touched_fields = touched_fields.clone();
                 Callback::from(move |value: String| {
                     if value.trim().is_empty() {
-                        mark_field_touched(&touched_fields, SessionDraftField::Peer6);
+                        update_touched_controls(&touched_fields, |next| {
+                            touch_field(next, SessionDraftField::Peer6);
+                        });
                     }
                     update_draft_state(&draft, |next| next.peer6 = value)
                 })
@@ -1502,7 +1234,9 @@ pub fn auto_peer_page() -> Html {
                 let draft = draft.clone();
                 let touched_fields = touched_fields.clone();
                 Callback::from(move |_| {
-                    mark_toggle_group_touched(&touched_fields, SessionDraftToggleGroup::Families);
+                    update_touched_controls(&touched_fields, |next| {
+                        touch_toggle_group(next, SessionDraftToggleGroup::Families);
+                    });
                     update_draft_state(&draft, |next| next.ipv4 = !next.ipv4);
                 })
             };
@@ -1511,7 +1245,9 @@ pub fn auto_peer_page() -> Html {
                 let draft = draft.clone();
                 let touched_fields = touched_fields.clone();
                 Callback::from(move |_| {
-                    mark_toggle_group_touched(&touched_fields, SessionDraftToggleGroup::Families);
+                    update_touched_controls(&touched_fields, |next| {
+                        touch_toggle_group(next, SessionDraftToggleGroup::Families);
+                    });
                     update_draft_state(&draft, |next| next.ipv6 = !next.ipv6);
                 })
             };
@@ -1520,7 +1256,9 @@ pub fn auto_peer_page() -> Html {
                 let draft = draft.clone();
                 let touched_fields = touched_fields.clone();
                 Callback::from(move |_: ()| {
-                    mark_toggle_group_touched(&touched_fields, SessionDraftToggleGroup::Bgp);
+                    update_touched_controls(&touched_fields, |next| {
+                        touch_toggle_group(next, SessionDraftToggleGroup::Bgp);
+                    });
                     update_draft_state(&draft, |next| {
                         next.mp_bgp = !next.mp_bgp;
                         if !next.mp_bgp {
@@ -1534,7 +1272,9 @@ pub fn auto_peer_page() -> Html {
                 let draft = draft.clone();
                 let touched_fields = touched_fields.clone();
                 Callback::from(move |_| {
-                    mark_toggle_group_touched(&touched_fields, SessionDraftToggleGroup::Bgp);
+                    update_touched_controls(&touched_fields, |next| {
+                        touch_toggle_group(next, SessionDraftToggleGroup::Bgp);
+                    });
                     update_draft_state(&draft, |next| {
                         next.extended_next_hop = !next.extended_next_hop;
                         if next.extended_next_hop {
@@ -1552,7 +1292,9 @@ pub fn auto_peer_page() -> Html {
                 Callback::from(move |event: Event| {
                     let select: HtmlSelectElement = event.target_unchecked_into();
                     let value = select.value();
-                    mark_toggle_group_touched(&touched_fields, SessionDraftToggleGroup::Bgp);
+                    update_touched_controls(&touched_fields, |next| {
+                        touch_toggle_group(next, SessionDraftToggleGroup::Bgp);
+                    });
                     update_draft_state(&draft, |next| {
                         next.mp_bgp_transport = MpBgpTransport::from_value(&value);
                         if next.mp_bgp_transport == Some(MpBgpTransport::Ipv4) {
@@ -2362,17 +2104,17 @@ pub fn auto_peer_page() -> Html {
 mod tests {
     use std::collections::BTreeSet;
 
-    use super::{
-        Peer6AddressKind, SessionDraftLiveValidation, SessionDraftToggleGroup,
-        autopeer_node_endpoint_port, detect_peer6_address_kind, displayed_node_ipv4_visibility,
-        displayed_peer_config_stage, displayed_peer6_address_kind, field_key, retire_button_text,
-        session_details_live_validation, session_details_submission_error,
-        should_display_node_ipv4, should_mark_field_invalid, toggle_group_key,
-    };
+    use super::{autopeer_node_endpoint_port, displayed_peer_config_stage, retire_button_text};
     use crate::{
         controller::{configured_href, filter_supported_methods, validate_ssh_signature_input},
         models::{AuthMethod, AuthMethodKind, MpBgpTransport, PeeringStrategy, UiMessage},
         store::{PeerConfigStage, SessionDraft, SessionDraftField},
+        update_form::{
+            Peer6AddressKind, SessionDraftLiveValidation, SessionDraftToggleGroup,
+            detect_peer6_address_kind, displayed_node_ipv4_visibility,
+            displayed_peer6_address_kind, session_details_live_validation,
+            session_details_submission_error, should_display_node_ipv4, should_mark_field_invalid,
+        },
     };
 
     #[test]
@@ -2484,14 +2226,13 @@ mod tests {
             peering_strategy: PeeringStrategy::FullTable,
             ..SessionDraft::default()
         };
-        let touched =
-            BTreeSet::from([toggle_group_key(SessionDraftToggleGroup::Families).to_string()]);
+        let touched = BTreeSet::from([SessionDraftToggleGroup::Families.into()]);
 
         let validation = session_details_live_validation(&draft, &touched, None, None);
 
         assert_eq!(
             validation.peer4_message,
-            Some("validation.peer4.required".into())
+            Some("validation.peer4.required_ipv4".into())
         );
         assert!(!validation.highlight_peer4);
         assert!(validation.highlight_ipv4);
@@ -2509,7 +2250,7 @@ mod tests {
             peering_strategy: PeeringStrategy::FullTable,
             ..SessionDraft::default()
         };
-        let touched = BTreeSet::from([toggle_group_key(SessionDraftToggleGroup::Bgp).to_string()]);
+        let touched = BTreeSet::from([SessionDraftToggleGroup::Bgp.into()]);
 
         let validation = session_details_live_validation(&draft, &touched, None, None);
 
@@ -2521,7 +2262,7 @@ mod tests {
 
     #[test]
     fn live_validation_highlights_enh_when_ipv6_transport_is_required() {
-        let touched = BTreeSet::from([toggle_group_key(SessionDraftToggleGroup::Bgp).to_string()]);
+        let touched = BTreeSet::from([SessionDraftToggleGroup::Bgp.into()]);
         let draft = SessionDraft {
             peer4: "172.20.193.67".into(),
             ipv6: false,
@@ -2542,7 +2283,7 @@ mod tests {
 
     #[test]
     fn live_validation_shows_enh_error_after_peer4_is_filled() {
-        let touched = BTreeSet::from([field_key(SessionDraftField::Peer4).to_string()]);
+        let touched = BTreeSet::from([SessionDraftField::Peer4.into()]);
         let draft = SessionDraft {
             peer4: "172.21.11.11".into(),
             peer6: String::new(),
@@ -2561,8 +2302,7 @@ mod tests {
 
     #[test]
     fn live_validation_does_not_project_ipv6_peer6_error_onto_mp_bgp_toggle() {
-        let touched =
-            BTreeSet::from([toggle_group_key(SessionDraftToggleGroup::Families).to_string()]);
+        let touched = BTreeSet::from([SessionDraftToggleGroup::Families.into()]);
         let draft = SessionDraft {
             peer4: "172.20.193.67".into(),
             mp_bgp: false,
@@ -2587,7 +2327,7 @@ mod tests {
             peer4: "1.1.1.1".into(),
             ..SessionDraft::default()
         };
-        let touched = BTreeSet::from([field_key(SessionDraftField::Peer4).to_string()]);
+        let touched = BTreeSet::from([SessionDraftField::Peer4.into()]);
 
         let validation = session_details_live_validation(&draft, &touched, None, None);
 
@@ -2671,7 +2411,7 @@ mod tests {
             peer6: "fe80::1023".into(),
             ..SessionDraft::default()
         };
-        let touched = BTreeSet::from([field_key(SessionDraftField::Peer4).to_string()]);
+        let touched = BTreeSet::from([SessionDraftField::Peer4.into()]);
 
         let validation = session_details_live_validation(&draft, &touched, None, None);
 
@@ -2685,7 +2425,7 @@ mod tests {
             peer6: "x.x.x.x".into(),
             ..SessionDraft::default()
         };
-        let touched = BTreeSet::from([field_key(SessionDraftField::Peer6).to_string()]);
+        let touched = BTreeSet::from([SessionDraftField::Peer6.into()]);
 
         let validation = session_details_live_validation(&draft, &touched, None, None);
 
@@ -2698,7 +2438,7 @@ mod tests {
 
     #[test]
     fn live_validation_shows_generic_tunnel_requirement_when_both_addresses_blank() {
-        let touched = BTreeSet::from([field_key(SessionDraftField::Peer4).to_string()]);
+        let touched = BTreeSet::from([SessionDraftField::Peer4.into()]);
 
         let validation =
             session_details_live_validation(&SessionDraft::default(), &touched, None, None);
@@ -2716,9 +2456,9 @@ mod tests {
     #[test]
     fn live_validation_uses_tunnel_section_error_when_no_tunnel_address_is_present() {
         let touched = BTreeSet::from([
-            field_key(SessionDraftField::Peer6).to_string(),
-            toggle_group_key(SessionDraftToggleGroup::Families).to_string(),
-            toggle_group_key(SessionDraftToggleGroup::Bgp).to_string(),
+            SessionDraftField::Peer6.into(),
+            SessionDraftToggleGroup::Families.into(),
+            SessionDraftToggleGroup::Bgp.into(),
         ]);
 
         let validation =
@@ -2745,8 +2485,7 @@ mod tests {
             peering_strategy: PeeringStrategy::FullTable,
             ..SessionDraft::default()
         };
-        let touched =
-            BTreeSet::from([toggle_group_key(SessionDraftToggleGroup::Families).to_string()]);
+        let touched = BTreeSet::from([SessionDraftToggleGroup::Families.into()]);
 
         let validation = session_details_live_validation(&draft, &touched, None, None);
 
@@ -2769,8 +2508,7 @@ mod tests {
             peering_strategy: PeeringStrategy::FullTable,
             ..SessionDraft::default()
         };
-        let touched =
-            BTreeSet::from([toggle_group_key(SessionDraftToggleGroup::Families).to_string()]);
+        let touched = BTreeSet::from([SessionDraftToggleGroup::Families.into()]);
 
         let validation = session_details_live_validation(&draft, &touched, None, None);
 
@@ -2792,7 +2530,7 @@ mod tests {
             peering_strategy: PeeringStrategy::FullTable,
             ..SessionDraft::default()
         };
-        let touched = BTreeSet::from([toggle_group_key(SessionDraftToggleGroup::Bgp).to_string()]);
+        let touched = BTreeSet::from([SessionDraftToggleGroup::Bgp.into()]);
 
         let validation = session_details_live_validation(&draft, &touched, None, None);
 
@@ -2833,8 +2571,8 @@ mod tests {
             ..SessionDraft::default()
         };
         let touched = BTreeSet::from([
-            toggle_group_key(SessionDraftToggleGroup::Families).to_string(),
-            toggle_group_key(SessionDraftToggleGroup::Bgp).to_string(),
+            SessionDraftToggleGroup::Families.into(),
+            SessionDraftToggleGroup::Bgp.into(),
         ]);
 
         let validation =
@@ -2859,7 +2597,7 @@ mod tests {
             peering_strategy: PeeringStrategy::FullTable,
             ..SessionDraft::default()
         };
-        let touched = BTreeSet::from([field_key(SessionDraftField::Peer6).to_string()]);
+        let touched = BTreeSet::from([SessionDraftField::Peer6.into()]);
 
         let validation = session_details_live_validation(&draft, &touched, None, None);
 
@@ -2870,6 +2608,33 @@ mod tests {
         assert_eq!(validation.tunnel_message, None);
         assert!(!validation.highlight_peer6);
         assert!(!validation.highlight_ipv6);
+        assert!(!validation.highlight_mp_bgp);
+        assert!(!validation.highlight_extended_next_hop);
+    }
+
+    #[test]
+    fn live_validation_requires_peer4_for_explicit_ipv4_transport_after_blur() {
+        let draft = SessionDraft {
+            endpoint: "peer.example.net:21023".into(),
+            wg_public_key: "Cbefg96Owv1Xk/jrUExO3i5OeUSlsdirv4ONenEnNXc=".into(),
+            peer6: "fd55:dead:beef::3".into(),
+            ipv4: false,
+            extended_next_hop: false,
+            mp_bgp_transport: Some(MpBgpTransport::Ipv4),
+            peering_strategy: PeeringStrategy::FullTable,
+            ..SessionDraft::default()
+        };
+        let touched = BTreeSet::from([SessionDraftField::Peer4.into()]);
+
+        let validation = session_details_live_validation(&draft, &touched, None, None);
+
+        assert_eq!(
+            validation.peer4_message,
+            Some("validation.peer4.required_mp_bgp".into())
+        );
+        assert_eq!(validation.tunnel_message, None);
+        assert!(!validation.highlight_peer4);
+        assert!(!validation.highlight_ipv4);
         assert!(!validation.highlight_mp_bgp);
         assert!(!validation.highlight_extended_next_hop);
     }
@@ -2886,7 +2651,7 @@ mod tests {
             peering_strategy: PeeringStrategy::FullTable,
             ..SessionDraft::default()
         };
-        let touched = BTreeSet::from([field_key(SessionDraftField::Peer6).to_string()]);
+        let touched = BTreeSet::from([SessionDraftField::Peer6.into()]);
 
         let validation =
             session_details_live_validation(&draft, &touched, Some(SessionDraftField::Peer6), None);
@@ -2907,7 +2672,7 @@ mod tests {
             peer6: String::new(),
             ..SessionDraft::default()
         };
-        let touched = BTreeSet::from([field_key(SessionDraftField::Peer6).to_string()]);
+        let touched = BTreeSet::from([SessionDraftField::Peer6.into()]);
 
         let validation =
             session_details_live_validation(&draft, &touched, Some(SessionDraftField::Peer6), None);
@@ -2922,7 +2687,7 @@ mod tests {
 
     #[test]
     fn live_validation_keeps_peer6_messages_out_of_tunnel_section_error() {
-        let touched = BTreeSet::from([field_key(SessionDraftField::Peer6).to_string()]);
+        let touched = BTreeSet::from([SessionDraftField::Peer6.into()]);
 
         let validation =
             session_details_live_validation(&SessionDraft::default(), &touched, None, None);

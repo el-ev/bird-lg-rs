@@ -264,8 +264,7 @@ pub const ALL_PEERING_STRATEGIES: [PeeringStrategy; 4] = [
     PeeringStrategy::Downstream,
 ];
 
-pub const ALL_MP_BGP_TRANSPORTS: [MpBgpTransport; 2] =
-    [MpBgpTransport::Ipv4, MpBgpTransport::Ipv6];
+pub const ALL_MP_BGP_TRANSPORTS: [MpBgpTransport; 2] = [MpBgpTransport::Ipv4, MpBgpTransport::Ipv6];
 
 fn is_default_peering_strategy(strategy: &PeeringStrategy) -> bool {
     matches!(strategy, PeeringStrategy::FullTable)

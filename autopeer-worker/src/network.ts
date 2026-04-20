@@ -683,16 +683,20 @@ export function validateSessionSpec(node: InventoryHost, asn: string, spec: Peer
   if (!spec.ipv4 && !spec.ipv6) {
     throw new Error("at least one BGP family must be enabled");
   }
-  if (spec.mp_bgp && transport === "ipv6" && !peer6) {
+  const peer4RequiredForTransport = spec.mp_bgp && transport === "ipv4";
+  const peer6RequiredForTransport = spec.mp_bgp && transport === "ipv6";
+  const peer4RequiredForRoutes = spec.ipv4 && !spec.mp_bgp;
+  const peer6RequiredForRoutes = spec.ipv6 && !spec.mp_bgp;
+  if (peer6RequiredForTransport && !peer6) {
     throw new Error("peer6 is required for MP-BGP over IPv6 transport");
   }
-  if (spec.mp_bgp && transport === "ipv4" && !peer4) {
+  if (peer4RequiredForTransport && !peer4) {
     throw new Error("peer4 is required for MP-BGP over IPv4 transport");
   }
-  if (spec.ipv4 && !spec.mp_bgp && !peer4) {
-    throw new Error("peer4 is required for IPv4 when MP-BGP is disabled");
+  if (peer4RequiredForRoutes && !peer4) {
+    throw new Error("peer4 is required for IPv4 routes");
   }
-  if (spec.ipv6 && ((!spec.mp_bgp) || transport === "ipv6") && !peer6) {
+  if (peer6RequiredForRoutes && !peer6) {
     throw new Error("peer6 is required for IPv6 routes");
   }
   if (spec.extended_next_hop && !spec.mp_bgp) {

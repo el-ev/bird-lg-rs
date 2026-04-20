@@ -840,6 +840,18 @@ describe("session validation", () => {
     ).toThrow("peer6 is required for IPv6 routes");
   });
 
+  it("rejects IPv4 routes without peer4 even if peer6 exists", () => {
+    expect(() =>
+      validateSessionSpec(node, "4242422172", {
+        ...baseSpec,
+        peer4: null,
+        ipv6: false,
+        extended_next_hop: false,
+        mp_bgp: false,
+      }),
+    ).toThrow("peer4 is required for IPv4 routes");
+  });
+
   it("rejects MTUs outside the operational range", () => {
     expect(() =>
       validateSessionSpec(node, "4242422172", {

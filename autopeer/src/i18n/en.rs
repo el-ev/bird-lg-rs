@@ -828,8 +828,12 @@ pub(super) const TABLE: &[(&str, &str)] = &[
         "Enable at least one BGP family",
     ),
     (
-        "validation.peer4.required",
-        "A peer IPv4 address is required for IPv4 routes or IPv4 transport",
+        "validation.peer4.required_mp_bgp",
+        "A peer IPv4 address is required for MP-BGP over IPv4 transport",
+    ),
+    (
+        "validation.peer4.required_ipv4",
+        "An IPv4 peer address is required for IPv4 routes",
     ),
     (
         "validation.peer6.required_mp_bgp",

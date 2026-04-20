@@ -1,5 +1,4 @@
 use std::{
-    collections::BTreeSet,
     rc::Rc,
     sync::atomic::{AtomicU64, Ordering},
 };
@@ -68,6 +67,7 @@ use crate::{
         AutoPeerStep, PeerConfigStage, PersistedSessions, SessionDraft, load_persisted_sessions,
         save_persisted_sessions,
     },
+    update_form::SessionDraftTouchedControls,
 };
 
 const MISSING_AUTOPEER_API_URL_ERROR: &str = "error.runtime.config.autopeer_api_url.missing";
@@ -304,9 +304,6 @@ fn is_stale_session_error(message: &UiMessage) -> bool {
     message.is_key("error.auth.session.unknown")
         || message.is_key("error.auth.session.expired")
         || message.is_key("error.auth.session.token.missing")
-        || message.key == "unknown auth session"
-        || message.key == "auth session has expired"
-        || message.key == "missing bearer session token"
 }
 
 fn require_api_base(
@@ -529,7 +526,7 @@ pub struct AutoPeerController {
     pub nodes: UseStateHandle<Vec<NodeView>>,
     pub sessions: UseStateHandle<Vec<SessionView>>,
     pub draft: UseStateHandle<SessionDraft>,
-    pub touched_fields: UseStateHandle<BTreeSet<String>>,
+    pub touched_fields: UseStateHandle<SessionDraftTouchedControls>,
     pub editing_node: UseStateHandle<Option<String>>,
     pub config_stage: UseStateHandle<PeerConfigStage>,
     pub retire_confirmation: UseStateHandle<bool>,
@@ -600,7 +597,7 @@ pub fn use_autopeer_controller(
     let nodes = use_state(Vec::<NodeView>::new);
     let sessions = use_state(Vec::<SessionView>::new);
     let draft = use_state(SessionDraft::default);
-    let touched_fields = use_state(BTreeSet::<String>::new);
+    let touched_fields = use_state(SessionDraftTouchedControls::new);
     let editing_node = use_state(|| None::<String>);
     let config_stage = use_state(|| PeerConfigStage::SelectNode);
     let retire_confirmation = use_state(|| false);
@@ -763,7 +760,7 @@ pub fn use_autopeer_controller(
         let touched_fields = touched_fields.clone();
         use_effect_with((*step).clone(), move |step| {
             if *step != AutoPeerStep::ManageSessions {
-                touched_fields.set(BTreeSet::new());
+                touched_fields.set(SessionDraftTouchedControls::new());
             }
             || ()
         });
@@ -773,7 +770,7 @@ pub fn use_autopeer_controller(
         let touched_fields = touched_fields.clone();
         let draft_node = draft.node.clone();
         use_effect_with(((*editing_node).clone(), draft_node), move |_| {
-            touched_fields.set(BTreeSet::new());
+            touched_fields.set(SessionDraftTouchedControls::new());
             || ()
         });
     }

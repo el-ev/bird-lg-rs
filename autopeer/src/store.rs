@@ -46,7 +46,7 @@ impl PeerConfigStage {
     }
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub enum SessionDraftField {
     Endpoint,
     WgPublicKey,
@@ -163,10 +163,13 @@ impl SessionDraft {
         peer6: Option<&str>,
     ) -> Option<&'static str> {
         let transport = resolve_mp_bgp_transport(self.mp_bgp_transport, peer4, peer6);
-        if self.mp_bgp && transport == Some(MpBgpTransport::Ipv4) && peer4.is_none() {
-            Some("validation.peer4.required")
-        } else if self.ipv4 && !self.mp_bgp && peer4.is_none() {
-            Some("validation.peer4.required")
+        let peer4_required_for_transport = self.mp_bgp && transport == Some(MpBgpTransport::Ipv4);
+        let peer4_required_for_routes = self.ipv4 && !self.mp_bgp;
+
+        if peer4.is_none() && peer4_required_for_transport {
+            Some("validation.peer4.required_mp_bgp")
+        } else if peer4.is_none() && peer4_required_for_routes {
+            Some("validation.peer4.required_ipv4")
         } else {
             None
         }
@@ -178,12 +181,12 @@ impl SessionDraft {
         peer6: Option<&str>,
     ) -> Option<&'static str> {
         let transport = resolve_mp_bgp_transport(self.mp_bgp_transport, peer4, peer6);
-        if self.mp_bgp && transport == Some(MpBgpTransport::Ipv6) && peer6.is_none() {
+        let peer6_required_for_transport = self.mp_bgp && transport == Some(MpBgpTransport::Ipv6);
+        let peer6_required_for_routes = self.ipv6 && !self.mp_bgp;
+
+        if peer6.is_none() && peer6_required_for_transport {
             Some("validation.peer6.required_mp_bgp")
-        } else if self.ipv6
-            && ((!self.mp_bgp) || transport == Some(MpBgpTransport::Ipv6))
-            && peer6.is_none()
-        {
+        } else if peer6.is_none() && peer6_required_for_routes {
             Some("validation.peer6.required_ipv6")
         } else {
             None
@@ -768,6 +771,24 @@ mod tests {
     }
 
     #[test]
+    fn draft_to_spec_rejects_ipv4_routes_without_peer4() {
+        let draft = SessionDraft {
+            endpoint: "peer.example.net:21023".into(),
+            wg_public_key: VALID_WG_KEY.into(),
+            peer6: "fd55:dead:beef::3".into(),
+            ipv6: false,
+            extended_next_hop: false,
+            mp_bgp: false,
+            ..SessionDraft::default()
+        };
+
+        assert_eq!(
+            draft.to_spec().unwrap_err(),
+            "validation.peer4.required_ipv4"
+        );
+    }
+
+    #[test]
     fn draft_to_spec_requires_peer4_for_explicit_ipv4_mp_bgp_transport() {
         let draft = SessionDraft {
             endpoint: "peer.example.net:21023".into(),
@@ -778,7 +799,10 @@ mod tests {
             ..SessionDraft::default()
         };
 
-        assert_eq!(draft.to_spec().unwrap_err(), "validation.peer4.required");
+        assert_eq!(
+            draft.to_spec().unwrap_err(),
+            "validation.peer4.required_mp_bgp"
+        );
     }
 
     #[test]
@@ -974,7 +998,7 @@ mod tests {
 
         assert_eq!(
             draft.field_error(SessionDraftField::Peer4),
-            Some("validation.peer4.required".into())
+            Some("validation.peer4.required_ipv4".into())
         );
     }
 
@@ -1034,6 +1058,25 @@ mod tests {
     }
 
     #[test]
+    fn field_error_matches_to_spec_for_missing_peer4_on_ipv4_transport() {
+        let draft = SessionDraft {
+            endpoint: "peer.example.net:21023".into(),
+            wg_public_key: VALID_WG_KEY.into(),
+            peer6: "fd55:dead:beef::3".into(),
+            ipv4: false,
+            mp_bgp_transport: Some(MpBgpTransport::Ipv4),
+            ..SessionDraft::default()
+        };
+
+        let expected = "validation.peer4.required_mp_bgp";
+        assert_eq!(
+            draft.field_error(SessionDraftField::Peer4),
+            Some(expected.into())
+        );
+        assert_eq!(draft.to_spec().unwrap_err(), expected);
+    }
+
+    #[test]
     fn field_error_uses_ipv4_transport_for_dual_family_mp_bgp_without_peer6() {
         let draft = SessionDraft {
             endpoint: "peer.example.net:21023".into(),
@@ -1044,6 +1087,20 @@ mod tests {
         };
 
         assert_eq!(draft.field_error(SessionDraftField::Peer6), None);
+        assert!(draft.to_spec().is_ok());
+    }
+
+    #[test]
+    fn field_error_uses_ipv6_transport_for_dual_family_mp_bgp_without_peer4() {
+        let draft = SessionDraft {
+            endpoint: "peer.example.net:21023".into(),
+            wg_public_key: VALID_WG_KEY.into(),
+            peer6: "fd55:dead:beef::3".into(),
+            ipv6: false,
+            ..SessionDraft::default()
+        };
+
+        assert_eq!(draft.field_error(SessionDraftField::Peer4), None);
         assert!(draft.to_spec().is_ok());
     }
 
