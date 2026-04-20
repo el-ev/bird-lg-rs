@@ -3,7 +3,7 @@ use common::auto_peer::{
     HostImpersonationRequest, OidcCompleteRequest, OidcStartRequest, OidcStartResponse,
     OperationStatus, RegistryEmailCompleteRequest, RegistryEmailSendRequest,
     RegistryEmailSendResponse, RegistryEmailVerifyRequest, RegistryPgpVerifyRequest,
-    RegistrySshVerifyRequest, SessionListResponse, UpdateSessionRequest,
+    RegistrySshVerifyRequest, SessionListResponse, UiMessage, UpdateSessionRequest,
 };
 use reqwasm::http::{Request, Response};
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
@@ -24,20 +24,22 @@ pub struct RuntimeConfig {
 
 #[derive(Deserialize)]
 struct ErrorResponse {
-    error: String,
+    error: UiMessage,
 }
 
-async fn decode_json<T: DeserializeOwned>(response: Response) -> Result<T, String> {
+async fn decode_json<T: DeserializeOwned>(response: Response) -> Result<T, UiMessage> {
     if response.ok() {
         response
             .json::<T>()
             .await
-            .map_err(|error| format!("Failed to decode response: {error}"))
+            .map_err(|error| UiMessage::raw(format!("Failed to decode response: {error}")))
     } else {
         let status = response.status();
         match response.json::<ErrorResponse>().await {
             Ok(body) => Err(body.error),
-            Err(_) => Err(format!("HTTP request failed with status {status}")),
+            Err(_) => Err(UiMessage::raw(format!(
+                "HTTP request failed with status {status}"
+            ))),
         }
     }
 }
@@ -47,14 +49,14 @@ async fn send_json<B: Serialize, T: DeserializeOwned>(
     url: &str,
     token: Option<&str>,
     body: &B,
-) -> Result<T, String> {
+) -> Result<T, UiMessage> {
     let payload = serde_json::to_string(body)
-        .map_err(|error| format!("Failed to encode payload: {error}"))?;
+        .map_err(|error| UiMessage::raw(format!("Failed to encode payload: {error}")))?;
 
     let request = match method {
         "POST" => Request::post(url),
         "PATCH" => Request::patch(url),
-        other => return Err(format!("Unsupported HTTP method {other}")),
+        other => return Err(UiMessage::raw(format!("Unsupported HTTP method {other}"))),
     };
 
     let request = if let Some(token) = token {
@@ -68,22 +70,22 @@ async fn send_json<B: Serialize, T: DeserializeOwned>(
         .body(payload)
         .send()
         .await
-        .map_err(|error| format!("Request failed: {error}"))?;
+        .map_err(|error| UiMessage::raw(format!("Request failed: {error}")))?;
 
     decode_json(response).await
 }
 
-async fn send_delete<T: DeserializeOwned>(url: &str, token: &str) -> Result<T, String> {
+async fn send_delete<T: DeserializeOwned>(url: &str, token: &str) -> Result<T, UiMessage> {
     let response = Request::delete(url)
         .header("Authorization", &format!("Bearer {token}"))
         .send()
         .await
-        .map_err(|error| format!("Request failed: {error}"))?;
+        .map_err(|error| UiMessage::raw(format!("Request failed: {error}")))?;
 
     decode_json(response).await
 }
 
-async fn send_get<T: DeserializeOwned>(url: &str, token: Option<&str>) -> Result<T, String> {
+async fn send_get<T: DeserializeOwned>(url: &str, token: Option<&str>) -> Result<T, UiMessage> {
     let request = if let Some(token) = token {
         Request::get(url).header("Authorization", &format!("Bearer {token}"))
     } else {
@@ -93,7 +95,7 @@ async fn send_get<T: DeserializeOwned>(url: &str, token: Option<&str>) -> Result
     let response = request
         .send()
         .await
-        .map_err(|error| format!("Request failed: {error}"))?;
+        .map_err(|error| UiMessage::raw(format!("Request failed: {error}")))?;
 
     decode_json(response).await
 }
@@ -119,21 +121,21 @@ fn optional_effective_mnt(effective_mnt: Option<&str>) -> Option<String> {
         .map(str::to_string)
 }
 
-pub async fn load_runtime_config() -> Result<RuntimeConfig, String> {
+pub async fn load_runtime_config() -> Result<RuntimeConfig, UiMessage> {
     let response = Request::get(CONFIG_PATH)
         .send()
         .await
-        .map_err(|error| format!("Failed to load config.json: {error}"))?;
+        .map_err(|error| UiMessage::raw(format!("Failed to load config.json: {error}")))?;
 
     if response.status() == 404 {
         return Ok(RuntimeConfig::default());
     }
 
     if !response.ok() {
-        return Err(format!(
+        return Err(UiMessage::raw(format!(
             "Config endpoint responded with HTTP {}",
             response.status()
-        ));
+        )));
     }
 
     match response.json::<RuntimeConfig>().await {
@@ -147,7 +149,7 @@ pub async fn load_runtime_config() -> Result<RuntimeConfig, String> {
     }
 }
 
-pub async fn start_auth(api_base: &str, asn: &str) -> Result<AuthStartResponse, String> {
+pub async fn start_auth(api_base: &str, asn: &str) -> Result<AuthStartResponse, UiMessage> {
     let url = api_url(api_base, "/v1/auth/start");
     send_json(
         "POST",
@@ -164,7 +166,7 @@ pub async fn verify_registry_ssh(
     api_base: &str,
     challenge_id: &str,
     signature: &str,
-) -> Result<AuthSessionResponse, String> {
+) -> Result<AuthSessionResponse, UiMessage> {
     let url = api_url(api_base, "/v1/auth/verify/registry-ssh");
     send_json(
         "POST",
@@ -183,7 +185,7 @@ pub async fn verify_registry_pgp(
     challenge_id: &str,
     public_key: &str,
     signed_message: &str,
-) -> Result<AuthSessionResponse, String> {
+) -> Result<AuthSessionResponse, UiMessage> {
     let url = api_url(api_base, "/v1/auth/verify/registry-pgp");
     send_json(
         "POST",
@@ -202,7 +204,7 @@ pub async fn send_registry_email(
     api_base: &str,
     challenge_id: &str,
     effective_mnt: Option<&str>,
-) -> Result<RegistryEmailSendResponse, String> {
+) -> Result<RegistryEmailSendResponse, UiMessage> {
     let url = api_url(api_base, "/v1/auth/verify/registry-email/send");
     send_json(
         "POST",
@@ -220,7 +222,7 @@ pub async fn verify_registry_email(
     api_base: &str,
     challenge_id: &str,
     code: &str,
-) -> Result<AuthSessionResponse, String> {
+) -> Result<AuthSessionResponse, UiMessage> {
     let url = api_url(api_base, "/v1/auth/verify/registry-email");
     send_json(
         "POST",
@@ -237,7 +239,7 @@ pub async fn verify_registry_email(
 pub async fn complete_registry_email(
     api_base: &str,
     token: &str,
-) -> Result<AuthSessionResponse, String> {
+) -> Result<AuthSessionResponse, UiMessage> {
     let url = api_url(api_base, "/v1/auth/verify/registry-email/complete");
     send_json(
         "POST",
@@ -254,7 +256,7 @@ pub async fn start_oidc(
     api_base: &str,
     provider: &str,
     challenge_id: Option<&str>,
-) -> Result<OidcStartResponse, String> {
+) -> Result<OidcStartResponse, UiMessage> {
     let url = api_url(api_base, &format!("/v1/auth/oidc/{provider}/start"));
     send_json(
         "POST",
@@ -267,7 +269,7 @@ pub async fn start_oidc(
     .await
 }
 
-pub async fn complete_oidc(api_base: &str, state: &str) -> Result<AuthSessionResponse, String> {
+pub async fn complete_oidc(api_base: &str, state: &str) -> Result<AuthSessionResponse, UiMessage> {
     let url = api_url(api_base, "/v1/auth/oidc/complete");
     send_json(
         "POST",
@@ -285,7 +287,7 @@ pub async fn impersonate_asn(
     session_token: &str,
     asn: &str,
     effective_mnt: Option<&str>,
-) -> Result<AuthSessionResponse, String> {
+) -> Result<AuthSessionResponse, UiMessage> {
     let url = api_url(api_base, "/v1/auth/impersonate");
     send_json(
         "POST",
@@ -302,7 +304,7 @@ pub async fn impersonate_asn(
 pub async fn list_sessions(
     api_base: &str,
     session_token: &str,
-) -> Result<SessionListResponse, String> {
+) -> Result<SessionListResponse, UiMessage> {
     let url = api_url(api_base, "/v1/sessions");
     send_get(&url, Some(session_token)).await
 }
@@ -311,7 +313,7 @@ pub async fn create_session(
     api_base: &str,
     session_token: &str,
     request: &CreateSessionRequest,
-) -> Result<OperationStatus, String> {
+) -> Result<OperationStatus, UiMessage> {
     let url = api_url(api_base, "/v1/sessions");
     send_json("POST", &url, Some(session_token), request).await
 }
@@ -322,7 +324,7 @@ pub async fn update_session(
     node: &str,
     asn: &str,
     request: &UpdateSessionRequest,
-) -> Result<OperationStatus, String> {
+) -> Result<OperationStatus, UiMessage> {
     let url = api_url(api_base, &format!("/v1/sessions/{node}/{asn}"));
     send_json("PATCH", &url, Some(session_token), request).await
 }
@@ -332,7 +334,7 @@ pub async fn delete_session(
     session_token: &str,
     node: &str,
     asn: &str,
-) -> Result<OperationStatus, String> {
+) -> Result<OperationStatus, UiMessage> {
     let url = api_url(api_base, &format!("/v1/sessions/{node}/{asn}"));
     send_delete(&url, session_token).await
 }
@@ -341,7 +343,7 @@ pub async fn get_operation(
     api_base: &str,
     session_token: &str,
     operation_id: &str,
-) -> Result<OperationStatus, String> {
+) -> Result<OperationStatus, UiMessage> {
     let url = api_url(api_base, &format!("/v1/operations/{operation_id}"));
     send_get(&url, Some(session_token)).await
 }

@@ -10,22 +10,16 @@ import type {
   RegistrySshVerifyRequest,
   SessionRecord,
 } from "./types";
-import { HttpError, addSeconds, nowIso, requireNonEmptyString } from "./utils";
+import {
+  HttpError,
+  addSeconds,
+  nowIso,
+  requireNonEmptyString,
+  uiKey,
+} from "./utils";
 
 const CHALLENGE_TTL_SECONDS = 15 * 60;
 const SESSION_TTL_SECONDS = 6 * 60 * 60;
-const SSH_SIGNATURE_ARMOR_HINT =
-  "Paste the full detached SSH signature block produced by ssh-keygen -Y sign, including the BEGIN/END lines.";
-const SSH_SIGNATURE_CHALLENGE_HINT =
-  "Paste the detached SSH signature block produced by ssh-keygen -Y sign, not the unsigned challenge text.";
-const SSH_SIGNATURE_MALFORMED_HINT =
-  "SSH signature data is malformed. Re-run ssh-keygen -Y sign and paste the full detached signature block.";
-const PGP_PUBLIC_KEY_HINT =
-  "PGP public key is invalid. Export your ASCII-armored public key and paste the full block.";
-const PGP_SIGNED_MESSAGE_HINT =
-  "PGP signed message is invalid. Clear-sign the challenge and paste the full signed block.";
-const PGP_VERIFICATION_HINT =
-  "PGP signature verification failed. Re-sign the challenge with the matching registry key and paste the full signed block.";
 const EMAIL_AUTH_TTL_SECONDS = 15 * 60;
 
 type Reader = {
@@ -51,7 +45,7 @@ function requireAuthField(value: unknown, field: string): string {
 
 function readUint32(reader: Reader): number {
   if (reader.offset + 4 > reader.bytes.length) {
-    invalidSshSignature(SSH_SIGNATURE_MALFORMED_HINT);
+    invalidSshSignature("error.auth.ssh.malformed_signature");
   }
 
   const view = new DataView(reader.bytes.buffer, reader.bytes.byteOffset + reader.offset, 4);
@@ -62,7 +56,7 @@ function readUint32(reader: Reader): number {
 
 function readBytes(reader: Reader, length: number): Uint8Array {
   if (reader.offset + length > reader.bytes.length) {
-    invalidSshSignature(SSH_SIGNATURE_MALFORMED_HINT);
+    invalidSshSignature("error.auth.ssh.malformed_signature");
   }
 
   const slice = reader.bytes.slice(reader.offset, reader.offset + length);
@@ -81,13 +75,13 @@ function bytesToString(bytes: Uint8Array): string {
 function armorToBytes(signature: string): Uint8Array {
   const trimmed = signature.trim();
   if (trimmed.length === 0) {
-    invalidSshSignature(SSH_SIGNATURE_ARMOR_HINT);
+    invalidSshSignature("error.auth.ssh.empty_or_missing_blocks");
   }
   if (!trimmed.includes("-----BEGIN SSH SIGNATURE-----") || !trimmed.includes("-----END SSH SIGNATURE-----")) {
     if (trimmed.includes("dn42-autopeer challenge")) {
-      invalidSshSignature(SSH_SIGNATURE_CHALLENGE_HINT);
+      invalidSshSignature("error.auth.ssh.unsigned_challenge");
     }
-    invalidSshSignature(SSH_SIGNATURE_ARMOR_HINT);
+    invalidSshSignature("error.auth.ssh.empty_or_missing_blocks");
   }
 
   const base64 = signature
@@ -95,14 +89,14 @@ function armorToBytes(signature: string): Uint8Array {
     .replace(/-----END SSH SIGNATURE-----/g, "")
     .replace(/\s+/g, "");
   if (base64.length === 0) {
-    invalidSshSignature(SSH_SIGNATURE_ARMOR_HINT);
+    invalidSshSignature("error.auth.ssh.empty_or_missing_blocks");
   }
 
   let binary: string;
   try {
     binary = atob(base64);
   } catch {
-    invalidSshSignature(SSH_SIGNATURE_MALFORMED_HINT);
+    invalidSshSignature("error.auth.ssh.malformed_signature");
   }
   return Uint8Array.from(binary, (char) => char.charCodeAt(0));
 }
@@ -117,12 +111,12 @@ function parseSshSignature(signature: string): { publicKey: string } {
 
   const magic = bytesToString(readBytes(reader, 6));
   if (magic !== "SSHSIG") {
-    invalidSshSignature(SSH_SIGNATURE_MALFORMED_HINT);
+    invalidSshSignature("error.auth.ssh.malformed_signature");
   }
 
   const version = readUint32(reader);
   if (version !== 1) {
-    invalidSshSignature(SSH_SIGNATURE_MALFORMED_HINT);
+    invalidSshSignature("error.auth.ssh.malformed_signature");
   }
 
   const rawPublicKey = readStringBytes(reader);
@@ -196,7 +190,7 @@ async function verifyAgainstChallenge(signature: string, challengeText: string):
       ? false
       : await verifySshSignature(signature, `${challengeText}\n`);
   } catch {
-    invalidSshSignature(SSH_SIGNATURE_MALFORMED_HINT);
+    invalidSshSignature("error.auth.ssh.malformed_signature");
   }
 }
 
@@ -238,14 +232,16 @@ export function createRegistryEmailSession(
 ): SessionRecord {
   return buildSessionRecord(challenge.asn, effectiveMnt, {
     kind: "registry_email",
-    label: "Registry Email",
-    description: `You authenticated with ${effectiveMnt} using registry email auth.`,
+    label: uiKey("auth_method.registry_email.label"),
+    description: uiKey("auth_method.registry_email.session_description", {
+      mnt: effectiveMnt,
+    }),
   });
 }
 
 export function assertChallengeFresh(challenge: ChallengeRecord): void {
   if (Date.parse(challenge.expires_at) <= Date.now()) {
-    throw new HttpError("challenge has expired", 400);
+    throw new HttpError("error.auth.challenge.expired", 400);
   }
 }
 
@@ -258,21 +254,20 @@ export async function verifyRegistrySshChallenge(
 
   const maintainer = matchingMaintainerBySshKey(challenge.maintainers, parsed.publicKey);
   if (!maintainer) {
-    throw new HttpError(
-      "Your SSH signature used a key that is not present in the resolved maintainer objects",
-      400,
-    );
+    throw new HttpError("error.auth.ssh.unrecognized_key", 400);
   }
 
   const valid = await verifyAgainstChallenge(signature, challenge.challenge_text);
   if (!valid) {
-    throw new HttpError("SSH signature verification failed", 400);
+    throw new HttpError("error.auth.ssh.verification_failed", 400);
   }
 
   return buildSessionRecord(challenge.asn, maintainer.name, {
     kind: "registry_ssh",
-    label: "Registry SSH Signature",
-    description: `You authenticated with ${maintainer.name} using registry SSH auth.`,
+    label: uiKey("auth_method.registry_ssh.label"),
+    description: uiKey("auth_method.registry_ssh.session_description", {
+      mnt: maintainer.name,
+    }),
   });
 }
 
@@ -284,43 +279,45 @@ export async function verifyRegistryPgpChallenge(
   const signedMessage = requireAuthField(request.signed_message, "signed_message");
 
   const publicKey = await readKey({ armoredKey }).catch(() =>
-    invalidPgpSignature(PGP_PUBLIC_KEY_HINT),
+    invalidPgpSignature("error.auth.pgp.invalid_public_key"),
   );
 
   const fingerprint = publicKey.getFingerprint().toUpperCase();
   const maintainer = matchingMaintainerByFingerprint(challenge.maintainers, fingerprint);
   if (!maintainer) {
     throw new HttpError(
-      `Your PGP fingerprint ${fingerprint} is not present in the resolved maintainer objects`,
+      uiKey("error.auth.pgp.unrecognized_key", { fingerprint }),
       400,
     );
   }
 
   const cleartext = await readCleartextMessage({
     cleartextMessage: signedMessage,
-  }).catch(() => invalidPgpSignature(PGP_SIGNED_MESSAGE_HINT));
+  }).catch(() => invalidPgpSignature("error.auth.pgp.invalid_signed_message"));
 
   const verification = await verifyPgp({
       message: cleartext,
       verificationKeys: publicKey,
-    }).catch(() => invalidPgpSignature(PGP_VERIFICATION_HINT));
+    }).catch(() => invalidPgpSignature("error.auth.pgp.verification_failed"));
 
   const signedText = cleartext.getText().trimEnd();
   if (signedText !== challenge.challenge_text.trimEnd()) {
-    throw new HttpError("Your PGP signed message does not match the issued challenge", 400);
+    throw new HttpError("error.auth.pgp.challenge_mismatch", 400);
   }
 
   for (const signature of verification.signatures) {
     try {
       await signature.verified;
     } catch {
-      invalidPgpSignature(PGP_VERIFICATION_HINT);
+      invalidPgpSignature("error.auth.pgp.verification_failed");
     }
   }
 
   return buildSessionRecord(challenge.asn, maintainer.name, {
     kind: "registry_pgp",
-    label: "Registry PGP Signature",
-    description: `You authenticated with ${maintainer.name} using registry PGP auth.`,
+    label: uiKey("auth_method.registry_pgp.label"),
+    description: uiKey("auth_method.registry_pgp.session_description", {
+      mnt: maintainer.name,
+    }),
   });
 }

@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+import { uiKey, uiRaw } from "../src/utils";
 import type {
   ChallengeRecord,
   RegistryEmailAuthRequestRecord,
@@ -105,8 +106,8 @@ function challengeRecord(): ChallengeRecord {
     methods: [
       {
         kind: "registry_email",
-        label: "Registry Email",
-        description: "Email auth",
+        label: uiKey("auth_method.registry_email.label"),
+        description: uiRaw("Email auth"),
         email_targets: [
           {
             maintainer: "EXAMPLE-MNT",
@@ -165,8 +166,10 @@ function sessionRecord(overrides: Partial<SessionRecord> = {}): SessionRecord {
     effective_mnt: "EXAMPLE-MNT",
     auth_method: {
       kind: "registry_email",
-      label: "Registry Email",
-      description: "You authenticated with EXAMPLE-MNT using registry email auth.",
+      label: uiKey("auth_method.registry_email.label"),
+      description: uiKey("auth_method.registry_email.session_description", {
+        mnt: "EXAMPLE-MNT",
+      }),
     },
     created_at: "2026-04-19T01:23:45.000Z",
     expires_at: "2999-01-01T06:00:00.000Z",
@@ -221,7 +224,7 @@ describe("registry email worker routes", () => {
 
     expect(response.status).toBe(503);
     await expect(response.json()).resolves.toEqual({
-      error: "Registry email login is not available in this deployment",
+      error: uiKey("error.auth.registry_email.unavailable"),
     });
     expect(mailerMocks.sendRegistryEmailAuthMessage).not.toHaveBeenCalled();
     expect(dbMocks.putRegistryEmailAuthRequest).not.toHaveBeenCalled();
@@ -276,7 +279,7 @@ describe("registry email worker routes", () => {
 
     expect(response.status).toBe(400);
     await expect(response.json()).resolves.toEqual({
-      error: "challenge has already been used",
+      error: uiKey("error.auth.challenge.used"),
     });
     expect(dbMocks.putAuthSession).not.toHaveBeenCalled();
   });
@@ -307,7 +310,7 @@ describe("registry email worker routes", () => {
 
     expect(secondResponse.status).toBe(404);
     await expect(secondResponse.json()).resolves.toEqual({
-      error: "Registry email login state was not found or has expired",
+      error: uiKey("error.auth.registry_email.state.missing"),
     });
   });
 

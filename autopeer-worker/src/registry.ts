@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 
 import type { AuthMethod, MaintainerRecord, RegistryEmailTarget } from "./types";
-import { fromBase64, joinPath, readSecret } from "./utils";
+import { fromBase64, joinPath, readSecret, uiKey } from "./utils";
 
 interface GiteaContentResponse {
   content?: string;
@@ -160,8 +160,8 @@ export function methodsFromMaintainers(
   if (maintainers.some((mnt) => mnt.ssh_public_keys.length > 0)) {
     methods.push({
       kind: "registry_ssh",
-      label: "Registry SSH Signature",
-      description: "Sign our challenge with an SSH key from your DN42 maintainer object.",
+      label: uiKey("auth_method.registry_ssh.label"),
+      description: uiKey("auth_method.registry_ssh.description"),
       ssh_fingerprints: sshFingerprints,
       pgp_fingerprints: [],
       email_targets: [],
@@ -171,8 +171,10 @@ export function methodsFromMaintainers(
   if (pgpFingerprints.length > 0) {
     methods.push({
       kind: "registry_pgp",
-      label: "Registry PGP Signature",
-      description: `Use one of your registry PGP fingerprints: ${pgpFingerprints.join(", ")}`,
+      label: uiKey("auth_method.registry_pgp.label"),
+      description: uiKey("auth_method.registry_pgp.description", {
+        fingerprints: pgpFingerprints.join(", "),
+      }),
       ssh_fingerprints: [],
       pgp_fingerprints: pgpFingerprints,
       email_targets: [],
@@ -182,10 +184,15 @@ export function methodsFromMaintainers(
   if (registryEmailEnabled && emailTargets.length > 0) {
     methods.push({
       kind: "registry_email",
-      label: "Registry Email",
-      description: emailTargets.length === 1
-        ? `Send a sign-in link and one-time code to ${emailTargets[0].emails.join(", ")}.`
-        : "Choose a maintainer and send a sign-in link to its registry email contacts.",
+      label: uiKey("auth_method.registry_email.label"),
+      description: uiKey(
+        emailTargets.length === 1
+          ? "auth_method.registry_email.description_single"
+          : "auth_method.registry_email.description",
+        {
+          emails: emailTargets[0]?.emails.join(", ") ?? "",
+        },
+      ),
       ssh_fingerprints: [],
       pgp_fingerprints: [],
       email_targets: emailTargets,

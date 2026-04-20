@@ -3,7 +3,7 @@ use std::collections::BTreeSet;
 use common::{
     auto_peer::{
         ALL_PEERING_STRATEGIES, AuthMethodKind, NodeView, OperationFailureStage, OperationKind,
-        OperationState, OperationStatus, PeeringStrategy, SessionState, SessionView,
+        OperationState, OperationStatus, PeeringStrategy, SessionState, SessionView, UiMessage,
     },
     models::PeeringInfo,
 };
@@ -234,11 +234,11 @@ fn pgp_sign_command(challenge_text: &str, key_id: &str) -> String {
     }
 }
 
-fn render_error(i18n: &I18n, error: &Option<String>) -> Html {
+fn render_error(i18n: &I18n, error: &Option<UiMessage>) -> Html {
     if let Some(error) = error {
         html! {
             <ShellLine>
-                <span class="error-message">{i18n.translate_owned(error)}</span>
+                <span class="error-message">{i18n.translate_message(error)}</span>
             </ShellLine>
         }
     } else {
@@ -246,16 +246,20 @@ fn render_error(i18n: &I18n, error: &Option<String>) -> Html {
     }
 }
 
-fn render_loading_message(i18n: &I18n, raw: &str) -> String {
-    i18n.translate_owned(raw)
+fn render_loading_message(i18n: &I18n, message: &UiMessage) -> String {
+    i18n.translate_message(message)
 }
 
-fn render_loading(i18n: &I18n, loading: bool, loading_message: Option<&str>) -> Html {
+fn render_backend_text(i18n: &I18n, message: &UiMessage) -> String {
+    i18n.translate_message(message)
+}
+
+fn render_loading(i18n: &I18n, loading: bool, loading_message: Option<UiMessage>) -> Html {
     if !loading {
         return Html::default();
     }
     let message = match loading_message {
-        Some(raw) => render_loading_message(i18n, raw),
+        Some(message) => render_loading_message(i18n, &message),
         None => i18n.t("status.working").to_string(),
     };
     html! {
@@ -715,7 +719,7 @@ pub fn auto_peer_page() -> Html {
                     <ShellPrompt>{i18n.t("prompt.autopeer")}</ShellPrompt>
                     {" "}{i18n.t("step.loading_config.prompt")}
                 </ShellLine>
-                {render_loading(&i18n, true, Some(i18n.t("step.loading_config.message")))}
+                {render_loading(&i18n, true, Some(UiMessage::key("step.loading_config.message")))}
                 {render_error(&i18n, &error)}
             </div>
         },
@@ -755,6 +759,8 @@ pub fn auto_peer_page() -> Html {
                                 let on_enter_oidc = on_enter_oidc.clone();
                                 let method = method.clone();
                                 let method_copy = method.clone();
+                                let method_label = render_backend_text(&i18n, &method.label);
+                                let method_description = render_backend_text(&i18n, &method.description);
                                 let onclick = Callback::from(move |_| {
                                     on_enter_oidc.emit(method_copy.clone());
                                 });
@@ -762,12 +768,15 @@ pub fn auto_peer_page() -> Html {
                                 html! {
                                     <ShellLine>
                                         <ShellButton
-                                            text={format!("{}{}", i18n.t("step.enter_asn.continue_with"), method.label)}
+                                            text={i18n.translate_params(
+                                                "step.enter_asn.continue_with",
+                                                &[("provider", method_label.as_str())],
+                                            )}
                                             onclick={onclick}
                                             disabled={loading}
                                         />
                                         <span class="autopeer-method-desc">
-                                            {format!(" - {}", method.description)}
+                                            {" - "}{method_description}
                                         </span>
                                     </ShellLine>
                                 }
@@ -782,12 +791,16 @@ pub fn auto_peer_page() -> Html {
                 <div class="autopeer-step">
                     <ShellLine>
                         <ShellPrompt>{i18n.t("prompt.autopeer")}</ShellPrompt>
-                        {format!(" {}{}", i18n.t("step.select_method.found_for_as"), *asn)}
+                        {" "}{i18n.translate_params(
+                            "step.select_method.found_for_as",
+                            &[("asn", asn.as_str())],
+                        )}
                     </ShellLine>
                     <div class="autopeer-challenge-list">
                         {for methods.iter().map(|method| {
                             let on_select_method = on_select_method.clone();
                             let method_value = method.clone();
+                            let method_description = render_backend_text(&i18n, &method.description);
                             let onclick = Callback::from(move |_| {
                                 on_select_method.emit(method_value.clone());
                             });
@@ -795,12 +808,12 @@ pub fn auto_peer_page() -> Html {
                             html! {
                                 <ShellLine>
                                     <ShellButton
-                                        text={method.label.clone()}
+                                        text={render_backend_text(&i18n, &method.label)}
                                         onclick={onclick}
                                         disabled={loading}
                                     />
                                     <span class="autopeer-method-desc">
-                                        {format!(" - {}", method.description)}
+                                        {" - "}{method_description}
                                     </span>
                                 </ShellLine>
                             }
@@ -821,6 +834,7 @@ pub fn auto_peer_page() -> Html {
         AutoPeerStep::VerifyMethod => {
             let selected_method_value = (*selected_method).clone();
             if let Some(method) = selected_method_value {
+                let method_label = render_backend_text(&i18n, &method.label);
                 let verification_fields = match method.kind {
                     AuthMethodKind::RegistrySsh => {
                         let on_change = {
@@ -838,16 +852,21 @@ pub fn auto_peer_page() -> Html {
                                 } else if method.ssh_fingerprints.len() == 1 {
                                     <ShellLine>
                                         <ShellPrompt>{i18n.t("prompt.key")}</ShellPrompt>
-                                        {format!(" {}{}", i18n.t("verify.ssh.match_one"), method.ssh_fingerprints[0])}
+                                        {" "}{i18n.translate_params(
+                                            "verify.ssh.match_one",
+                                            &[("fingerprint", method.ssh_fingerprints[0].as_str())],
+                                        )}
                                     </ShellLine>
                                 } else {
                                     <ShellLine>
                                         <ShellPrompt>{i18n.t("prompt.keys")}</ShellPrompt>
-                                        {format!(
-                                            " {}{}",
-                                            i18n.t("verify.ssh.match_many"),
-                                            method.ssh_fingerprints.join(", ")
-                                        )}
+                                        {" "} {{
+                                            let fingerprints = method.ssh_fingerprints.join(", ");
+                                            i18n.translate_params(
+                                                "verify.ssh.match_many",
+                                                &[("fingerprints", fingerprints.as_str())],
+                                            )
+                                        }}
                                     </ShellLine>
                                 }
                                 if let Some(challenge) = &*challenge_text {
@@ -906,7 +925,10 @@ pub fn auto_peer_page() -> Html {
                                 } else if method.pgp_fingerprints.len() == 1 {
                                     <ShellLine>
                                         <ShellPrompt>{i18n.t("prompt.key")}</ShellPrompt>
-                                        {format!(" {}{}", i18n.t("verify.pgp.use_key"), method.pgp_fingerprints[0])}
+                                        {" "}{i18n.translate_params(
+                                            "verify.pgp.use_key",
+                                            &[("fingerprint", method.pgp_fingerprints[0].as_str())],
+                                        )}
                                     </ShellLine>
                                 } else {
                                     <ShellLine>
@@ -999,6 +1021,8 @@ pub fn auto_peer_page() -> Html {
                         } else {
                             i18n.t("action.resend_signin_link")
                         };
+                        let selected_target_emails =
+                            selected_target.map(|target| target.emails.join(", "));
 
                         html! {
                             <>
@@ -1016,7 +1040,10 @@ pub fn auto_peer_page() -> Html {
                                 } else if method.email_targets.len() == 1 {
                                     <ShellLine>
                                         <ShellPrompt>{i18n.t("prompt.mntner")}</ShellPrompt>
-                                        {format!(" {}{}", i18n.t("verify.email.auth_as"), method.email_targets[0].maintainer)}
+                                        {" "}{i18n.translate_params(
+                                            "verify.email.auth_as",
+                                            &[("mnt", method.email_targets[0].maintainer.as_str())],
+                                        )}
                                     </ShellLine>
                                 } else {
                                     <ShellLine>
@@ -1032,20 +1059,25 @@ pub fn auto_peer_page() -> Html {
                                         </ShellSelect>
                                     </ShellLine>
                                 }
-                                if let Some(target) = selected_target {
+                                if let Some(emails) = &selected_target_emails {
                                     <ShellLine>
                                         <ShellPrompt>{i18n.t("prompt.emails")}</ShellPrompt>
-                                        {format!(" {}{}", i18n.t("verify.email.send_to"), target.emails.join(", "))}
+                                        {" "}{i18n.translate_params(
+                                            "verify.email.send_to",
+                                            &[("emails", emails.as_str())],
+                                        )}
                                     </ShellLine>
                                 }
                                 if !registry_email_sent_to.is_empty() {
                                     <ShellLine>
                                         <span class="text-secondary">
-                                            {format!(
-                                                "{}{}.",
-                                                i18n.t("verify.email.sent_to_prefix"),
-                                                registry_email_sent_to.join(", ")
-                                            )}
+                                            {{
+                                                let emails = registry_email_sent_to.join(", ");
+                                                i18n.translate_params(
+                                                    "verify.email.sent_to_prefix",
+                                                    &[("emails", emails.as_str())],
+                                                )
+                                            }}
                                         </span>
                                     </ShellLine>
                                 }
@@ -1076,7 +1108,10 @@ pub fn auto_peer_page() -> Html {
                             <>
                                 <ShellLine>
                                     <ShellPrompt>{i18n.t("prompt.login")}</ShellPrompt>
-                                    {format!(" {}{}{}", i18n.t("verify.oidc.continue_to"), method.label, i18n.t("verify.oidc.in_browser"))}
+                                    {" "}{i18n.translate_params(
+                                        "verify.oidc.in_browser",
+                                        &[("provider", method_label.as_str())],
+                                    )}
                                 </ShellLine>
                                 <ShellLine>
                                     <span class="text-secondary">
@@ -1095,7 +1130,10 @@ pub fn auto_peer_page() -> Html {
                     },
                 };
                 let verify_button_text = if method.kind == AuthMethodKind::Oidc {
-                    format!("{}{}", i18n.t("verify.oidc.continue_to"), method.label)
+                    i18n.translate_params(
+                        "verify.oidc.continue_to",
+                        &[("provider", method_label.as_str())],
+                    )
                 } else if method.kind == AuthMethodKind::RegistryEmail {
                     i18n.t("action.verify_code").to_string()
                 } else {
@@ -1106,7 +1144,13 @@ pub fn auto_peer_page() -> Html {
                     <div class="autopeer-step">
                         <ShellLine>
                             <ShellPrompt>{i18n.t("prompt.auth")}</ShellPrompt>
-                            {format!(" {}{}{}", method.label, i18n.t("verify.auth_for_as"), *asn)}
+                            {" "}{i18n.translate_params(
+                                "verify.auth_for_as",
+                                &[
+                                    ("label", method_label.as_str()),
+                                    ("asn", asn.as_str()),
+                                ],
+                            )}
                         </ShellLine>
                         {verification_fields}
                         {render_ongoing_tasks(&i18n, ongoing_tasks.tasks())}
@@ -1312,10 +1356,9 @@ pub fn auto_peer_page() -> Html {
                 let editing_node = editing_node.clone();
                 let config_stage = config_stage.clone();
                 let error = error.clone();
-                let i18n = i18n.clone();
                 Callback::from(move |_| {
                     if editing_node.is_none() && draft.node.trim().is_empty() {
-                        error.set(Some(i18n.t("error.choose_node").to_string()));
+                        error.set(Some(UiMessage::key("error.ui.node.choose")));
                         return;
                     }
 
@@ -1324,7 +1367,7 @@ pub fn auto_peer_page() -> Html {
                             error.set(None);
                             config_stage.set(PeerConfigStage::Review);
                         }
-                        Err(message) => error.set(Some(message)),
+                        Err(message) => error.set(Some(UiMessage::key(message))),
                     }
                 })
             };
@@ -1381,7 +1424,6 @@ pub fn auto_peer_page() -> Html {
                                             Some(SessionState::Conflict) => i18n.t("stage1.state.note.conflict"),
                                         }
                                     };
-                                    let i18n_for_click = i18n.clone();
                                     let onclick = Callback::from(move |_| {
                                         error.set(None);
                                         match node_session_for_click.as_ref().map(|session| &session.state) {
@@ -1395,7 +1437,7 @@ pub fn auto_peer_page() -> Html {
                                             }
                                             Some(SessionState::Managed) | Some(SessionState::Manual) => {
                                                 let Some(spec) = node_session_for_click.as_ref().and_then(|session| session.spec.clone()) else {
-                                                    error.set(Some(i18n_for_click.t("error.session_missing_config").to_string()));
+                                                    error.set(Some(UiMessage::key("error.ui.session.missing_config")));
                                                     return;
                                                 };
                                                 editing_node.set(Some(node_value.name.clone()));
@@ -1403,10 +1445,10 @@ pub fn auto_peer_page() -> Html {
                                                 config_stage.set(PeerConfigStage::SessionDetails);
                                             }
                                             Some(SessionState::PendingPr) => {
-                                                error.set(Some(i18n_for_click.t("error.wait_inflight").to_string()));
+                                                error.set(Some(UiMessage::key("error.ui.operation.wait_inflight")));
                                             }
                                             Some(SessionState::Conflict) => {
-                                                error.set(Some(i18n_for_click.t("error.node_blocked_conflict").to_string()));
+                                                error.set(Some(UiMessage::key("error.ui.node.blocked_conflict")));
                                             }
                                         }
                                     });
@@ -1424,7 +1466,7 @@ pub fn auto_peer_page() -> Html {
                                             <span class="autopeer-node-option-head">
                                                 <strong class="autopeer-node-name">{node.name.clone()}</strong>
                                                 <span class="autopeer-node-option-status">
-                                                    <span class="autopeer-node-badge">{node.ip_support.clone()}</span>
+                                                    <span class="autopeer-node-badge">{humanize_ip_support(&i18n, &node.ip_support)}</span>
                                                     <span class="autopeer-status-pill">{state_label}</span>
                                                 </span>
                                             </span>
@@ -1433,7 +1475,7 @@ pub fn auto_peer_page() -> Html {
                                                 <span class="autopeer-node-note">{comment.clone()}</span>
                                             }
                                             if let Some(message) = node_session.as_ref().and_then(|session| session.message.as_ref()) {
-                                                <span class="autopeer-node-note">{message.clone()}</span>
+                                                <span class="autopeer-node-note">{render_backend_text(&i18n, message)}</span>
                                             }
                                             <span class="autopeer-node-state-note">{state_note}</span>
                                         </ShellButton>
@@ -1451,9 +1493,15 @@ pub fn auto_peer_page() -> Html {
                             <h3 class="autopeer-panel-title">
                                 {
                                     if let Some(node) = &editing_node_value {
-                                        format!("{}{}", i18n.t("stage2.title.update_prefix"), node)
+                                        i18n.translate_params(
+                                            "stage2.title.update_prefix",
+                                            &[("node", node.as_str())],
+                                        )
                                     } else if let Some(node) = &selected_node {
-                                        format!("{}{}", i18n.t("stage2.title.create_prefix"), node.name)
+                                        i18n.translate_params(
+                                            "stage2.title.create_prefix",
+                                            &[("node", node.name.as_str())],
+                                        )
                                     } else {
                                         i18n.t("stage2.title.create_blank").to_string()
                                     }
@@ -1822,14 +1870,23 @@ pub fn auto_peer_page() -> Html {
                             </p>
                         </div>
                         <div class="autopeer-overview-meta">
-                            if let Some(session) = &auth_summary {
-                                <>
-                                    <span class="autopeer-status-pill">{format!("AS{}", session.asn)}</span>
-                                    <span class="autopeer-node-badge">
-                                        {format!("{} via {}", session.effective_mnt, session.auth_method.label)}
-                                    </span>
-                                </>
-                            }
+                            {auth_summary.as_ref().map(|session| {
+                                let auth_label = render_backend_text(&i18n, &session.auth_method.label);
+                                html! {
+                                    <>
+                                        <span class="autopeer-status-pill">{format!("AS{}", session.asn)}</span>
+                                        <span class="autopeer-node-badge">
+                                            {i18n.translate_params(
+                                                "dashboard.session_badge_template",
+                                                &[
+                                                    ("mnt", session.effective_mnt.as_str()),
+                                                    ("label", auth_label.as_str()),
+                                                ],
+                                            )}
+                                        </span>
+                                    </>
+                                }
+                            }).unwrap_or_default()}
                             <ShellButton text={i18n.t("action.refresh")} onclick={on_refresh.clone()} disabled={loading} />
                             <ShellButton text={i18n.t("action.logout")} onclick={on_logout} disabled={loading} />
                         </div>
@@ -1862,68 +1919,85 @@ pub fn auto_peer_page() -> Html {
                                     <h3 class="autopeer-panel-title">
                                         {auth_summary.as_ref().map(|session| format!("AS{}", session.asn)).unwrap_or_else(|| i18n.t("sidebar.no_active_session").to_string())}
                                     </h3>
-                                    if let Some(session) = &auth_summary {
-                                        <p class="text-secondary">
-                                            {i18n
-                                                .t("sidebar.session_authed_template")
-                                                .replace("{mnt}", &session.effective_mnt)
-                                                .replace("{label}", &session.auth_method.label)}
-                                        </p>
-                                    }
+                                    {auth_summary.as_ref().map(|session| {
+                                            let auth_label = render_backend_text(&i18n, &session.auth_method.label);
+                                            html! {
+                                                <p class="text-secondary">
+                                                    {i18n.translate_params(
+                                                        "sidebar.session_authed_template",
+                                                        &[
+                                                            ("mnt", session.effective_mnt.as_str()),
+                                                            ("label", auth_label.as_str()),
+                                                        ],
+                                                    )}
+                                                </p>
+                                            }
+                                    }).unwrap_or_default()}
                                 </div>
                             </article>
 
-                            if let Some(host_session) = &host_summary {
-                                <article class="peering-card autopeer-panel autopeer-panel--compact">
-                                    <div class="autopeer-panel-header">
-                                        <p class="autopeer-panel-kicker">{i18n.t("sidebar.support_kicker")}</p>
-                                        <h3 class="autopeer-panel-title">{format!("{}{}", i18n.t("sidebar.host_asn_prefix"), host_session.asn)}</h3>
-                                        <p class="text-secondary">
-                                            {i18n
-                                                .t("sidebar.host_authed_template")
-                                                .replace("{mnt}", &host_session.effective_mnt)
-                                                .replace("{label}", &host_session.auth_method.label)}
-                                        </p>
-                                    </div>
-                                    <div class="autopeer-form-section autopeer-form-section--compact">
-                                        <ShellLine>
-                                            <ShellPrompt>{i18n.t("sidebar.impersonate_asn_label")}</ShellPrompt>
-                                            {" "}
-                                            <ShellInput
-                                                value={(*impersonate_asn).clone()}
-                                                on_change={on_impersonate_asn_change}
-                                                placeholder={i18n.t("sidebar.impersonate_asn_placeholder")}
-                                                disabled={loading}
-                                            />
-                                        </ShellLine>
-                                        <ShellLine>
-                                            <ShellPrompt>{i18n.t("sidebar.effective_mnt_label")}</ShellPrompt>
-                                            {" "}
-                                            <ShellInput
-                                                value={(*impersonate_mnt).clone()}
-                                                on_change={on_impersonate_mnt_change}
-                                                placeholder={i18n.t("sidebar.impersonate_mnt_placeholder")}
-                                                disabled={loading}
-                                            />
-                                        </ShellLine>
-                                        {render_error(&i18n, &support_error)}
-                                        <div class="autopeer-inline-actions">
-                                            <ShellButton
-                                                text={i18n.t("action.impersonate_this_asn")}
-                                                onclick={on_impersonate}
-                                                disabled={loading || impersonate_asn.trim().is_empty()}
-                                            />
-                                            if auth_summary.as_ref().map(|session| session.asn.as_str()) != Some(host_session.asn.as_str()) {
-                                                <ShellButton
-                                                    text={i18n.t("action.return_to_host_asn")}
-                                                    onclick={on_return_to_host}
-                                                    disabled={loading}
-                                                />
-                                            }
-                                        </div>
-                                    </div>
-                                </article>
-                            }
+                            {host_summary.as_ref().map(|host_session| {
+                                    let auth_label = render_backend_text(&i18n, &host_session.auth_method.label);
+                                    html! {
+                                        <article class="peering-card autopeer-panel autopeer-panel--compact">
+                                            <div class="autopeer-panel-header">
+                                                <p class="autopeer-panel-kicker">{i18n.t("sidebar.support_kicker")}</p>
+                                                <h3 class="autopeer-panel-title">
+                                                    {i18n.translate_params(
+                                                        "sidebar.host_asn_prefix",
+                                                        &[("asn", host_session.asn.as_str())],
+                                                    )}
+                                                </h3>
+                                                <p class="text-secondary">
+                                                    {i18n.translate_params(
+                                                        "sidebar.host_authed_template",
+                                                        &[
+                                                            ("mnt", host_session.effective_mnt.as_str()),
+                                                            ("label", auth_label.as_str()),
+                                                        ],
+                                                    )}
+                                                </p>
+                                            </div>
+                                            <div class="autopeer-form-section autopeer-form-section--compact">
+                                                <ShellLine>
+                                                    <ShellPrompt>{i18n.t("sidebar.impersonate_asn_label")}</ShellPrompt>
+                                                    {" "}
+                                                    <ShellInput
+                                                        value={(*impersonate_asn).clone()}
+                                                        on_change={on_impersonate_asn_change}
+                                                        placeholder={i18n.t("sidebar.impersonate_asn_placeholder")}
+                                                        disabled={loading}
+                                                    />
+                                                </ShellLine>
+                                                <ShellLine>
+                                                    <ShellPrompt>{i18n.t("sidebar.effective_mnt_label")}</ShellPrompt>
+                                                    {" "}
+                                                    <ShellInput
+                                                        value={(*impersonate_mnt).clone()}
+                                                        on_change={on_impersonate_mnt_change}
+                                                        placeholder={i18n.t("sidebar.impersonate_mnt_placeholder")}
+                                                        disabled={loading}
+                                                    />
+                                                </ShellLine>
+                                                {render_error(&i18n, &support_error)}
+                                                <div class="autopeer-inline-actions">
+                                                    <ShellButton
+                                                        text={i18n.t("action.impersonate_this_asn")}
+                                                        onclick={on_impersonate}
+                                                        disabled={loading || impersonate_asn.trim().is_empty()}
+                                                    />
+                                                    if auth_summary.as_ref().map(|session| session.asn.as_str()) != Some(host_session.asn.as_str()) {
+                                                        <ShellButton
+                                                            text={i18n.t("action.return_to_host_asn")}
+                                                            onclick={on_return_to_host}
+                                                            disabled={loading}
+                                                        />
+                                                    }
+                                                </div>
+                                            </div>
+                                        </article>
+                                    }
+                            }).unwrap_or_default()}
 
                             if let Some(operation_status) = &*operation {
                                 <article class="peering-card autopeer-panel autopeer-panel--compact autopeer-status-card">
@@ -1935,7 +2009,7 @@ pub fn auto_peer_page() -> Html {
                                         <span class="autopeer-status-pill">{operation_state_label(&i18n, &operation_status.state)}</span>
                                         if operation_status.failure_details.is_none() {
                                             if let Some(message) = &operation_status.message {
-                                                <p class="text-secondary">{message}</p>
+                                                <p class="text-secondary">{render_backend_text(&i18n, message)}</p>
                                             }
                                         }
                                     </div>
@@ -1991,16 +2065,15 @@ pub fn auto_peer_page() -> Html {
                     </h2>
                     <div class="autopeer-language-control">
                         <span class="autopeer-language-label">{i18n.t("nav.language")}</span>
-                        <select
-                            class="shell-select"
+                        <ShellSelect
                             value={locale_value}
-                            aria-label={i18n.t("nav.language")}
-                            onchange={on_locale_change}
+                            on_change={on_locale_change}
+                            aria_label={i18n.t("nav.language")}
                         >
                             {for Locale::ALL.iter().copied().map(|locale| html! {
                                 <option value={locale.code()}>{locale.label()}</option>
                             })}
-                        </select>
+                        </ShellSelect>
                     </div>
                 </div>
                 <section class="autopeer">
@@ -2017,7 +2090,7 @@ pub fn auto_peer_page() -> Html {
 mod tests {
     use std::collections::BTreeSet;
 
-    use common::auto_peer::{AuthMethod, AuthMethodKind, PeeringStrategy};
+    use common::auto_peer::{AuthMethod, AuthMethodKind, PeeringStrategy, UiMessage};
 
     use super::{
         Peer6AddressKind, SessionDraftLiveValidation, SessionDraftToggleGroup,
@@ -2042,14 +2115,14 @@ mod tests {
         let methods = vec![
             AuthMethod {
                 kind: AuthMethodKind::RegistrySsh,
-                label: "Registry SSH".into(),
-                description: "SSH".into(),
+                label: UiMessage::raw("Registry SSH"),
+                description: UiMessage::raw("SSH"),
                 ..AuthMethod::default()
             },
             AuthMethod {
                 kind: AuthMethodKind::Oidc,
-                label: "Kioubit".into(),
-                description: "OIDC".into(),
+                label: UiMessage::raw("Kioubit"),
+                description: UiMessage::raw("OIDC"),
                 provider: Some("kioubit".into()),
                 ..AuthMethod::default()
             },
@@ -2162,7 +2235,7 @@ mod tests {
             validate_ssh_signature_input(
                 "dn42-autopeer challenge\nasn: 4242421024\nchallenge_id: example\nissued_at: 2026-04-18T12:42:04.075Z"
             ),
-            Err("error.ssh.unsigned_challenge"),
+            Err("error.auth.ssh.unsigned_challenge"),
         );
     }
 

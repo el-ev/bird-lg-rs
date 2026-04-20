@@ -1,15 +1,50 @@
-import type { ApiError, AutopeerEnvConfig } from "./types";
+import type { ApiError, AutopeerEnvConfig, UiMessage } from "./types";
 
 const ASN_PATTERN = /^424242\d+$/;
-export const UNSUPPORTED_ASN_RANGE_MESSAGE =
-  "We do not support that ASN range yet. Right now Autopeer only supports 424242xxxx.";
+export const UNSUPPORTED_ASN_RANGE_MESSAGE = "error.auth.asn.unsupported";
+
+function looksLikeMessageKey(value: string): boolean {
+  return /^[a-z0-9_.-]+$/u.test(value) && value.includes(".");
+}
+
+export function uiMessage(
+  key: string,
+  params?: Record<string, string>,
+  fallback?: string | null,
+): UiMessage {
+  const normalizedParams = params && Object.keys(params).length > 0 ? params : undefined;
+  return {
+    key,
+    ...(normalizedParams ? { params: normalizedParams } : {}),
+    ...(fallback ? { fallback } : {}),
+  };
+}
+
+export function uiKey(key: string, params?: Record<string, string>): UiMessage {
+  return uiMessage(key, params);
+}
+
+export function uiRaw(value: string): UiMessage {
+  return uiMessage(value, undefined, value);
+}
+
+export function toUiMessage(message: string | UiMessage): UiMessage {
+  if (typeof message !== "string") {
+    return message;
+  }
+  return looksLikeMessageKey(message) ? uiKey(message) : uiRaw(message);
+}
 
 export class HttpError extends Error {
+  readonly uiMessage: UiMessage;
+
   constructor(
-    message: string,
+    message: string | UiMessage,
     readonly status: number,
   ) {
-    super(message);
+    const ui = toUiMessage(message);
+    super(ui.fallback ?? ui.key);
+    this.uiMessage = ui;
   }
 }
 
@@ -31,8 +66,12 @@ export function jsonResponse(body: unknown, status = 200, headers?: HeadersInit)
   });
 }
 
-export function errorResponse(message: string, status = 400, headers?: HeadersInit): Response {
-  const body: ApiError = { error: message };
+export function errorResponse(
+  message: string | UiMessage,
+  status = 400,
+  headers?: HeadersInit,
+): Response {
+  const body: ApiError = { error: toUiMessage(message) };
   return jsonResponse(body, status, headers);
 }
 
@@ -40,7 +79,7 @@ export async function readJson<T>(request: Request): Promise<T> {
   try {
     return (await request.json()) as T;
   } catch {
-    throw new HttpError("request body must be valid JSON", 400);
+    throw new HttpError("error.request.body.invalid_json", 400);
   }
 }
 
@@ -168,7 +207,11 @@ export function jsonWithCors(request: Request, body: unknown, status = 200): Res
   return jsonResponse(body, status, buildCorsHeaders(request));
 }
 
-export function errorWithCors(request: Request, message: string, status = 400): Response {
+export function errorWithCors(
+  request: Request,
+  message: string | UiMessage,
+  status = 400,
+): Response {
   return errorResponse(message, status, buildCorsHeaders(request));
 }
 

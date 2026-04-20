@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { methodsFromMaintainers, sshPublicKeyFingerprint } from "../src/registry";
+import { uiKey } from "../src/utils";
 import type { MaintainerRecord } from "../src/types";
 
 const registrySshKey =
@@ -34,8 +35,8 @@ describe("registry auth metadata", () => {
 
     expect(methodsFromMaintainers(maintainers, [])).toContainEqual({
       kind: "registry_ssh",
-      label: "Registry SSH Signature",
-      description: "Sign our challenge with an SSH key from your DN42 maintainer object.",
+      label: uiKey("auth_method.registry_ssh.label"),
+      description: uiKey("auth_method.registry_ssh.description"),
       ssh_fingerprints: [registrySshFingerprint],
       pgp_fingerprints: [],
       email_targets: [],
@@ -64,8 +65,10 @@ describe("registry auth metadata", () => {
 
     expect(methodsFromMaintainers(maintainers, [])).toContainEqual({
       kind: "registry_email",
-      label: "Registry Email",
-      description: "Choose a maintainer and send a sign-in link to its registry email contacts.",
+      label: uiKey("auth_method.registry_email.label"),
+      description: uiKey("auth_method.registry_email.description", {
+        emails: "admin@example.net, noc@example.net",
+      }),
       ssh_fingerprints: [],
       pgp_fingerprints: [],
       email_targets: [

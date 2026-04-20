@@ -86,8 +86,7 @@ describe("registry SSH auth validation", () => {
         signature: challenge.challenge_text,
       }),
     ).rejects.toMatchObject({
-      message:
-        "Paste the detached SSH signature block produced by ssh-keygen -Y sign, not the unsigned challenge text.",
+      message: "error.auth.ssh.unsigned_challenge",
       status: 400,
     });
   });
@@ -101,8 +100,7 @@ describe("registry SSH auth validation", () => {
         signature: "-----BEGIN SSH SIGNATURE-----\nnot-base64!!\n-----END SSH SIGNATURE-----",
       }),
     ).rejects.toMatchObject({
-      message:
-        "SSH signature data is malformed. Re-run ssh-keygen -Y sign and paste the full detached signature block.",
+      message: "error.auth.ssh.malformed_signature",
       status: 400,
     });
   });
@@ -133,8 +131,7 @@ describe("registry PGP auth validation", () => {
         signed_message: "unused",
       }),
     ).rejects.toMatchObject({
-      message:
-        "PGP public key is invalid. Export your ASCII-armored public key and paste the full block.",
+      message: "error.auth.pgp.invalid_public_key",
       status: 400,
     });
   });
@@ -152,7 +149,7 @@ describe("registry PGP auth validation", () => {
         signed_message: await clearsignedMessage(challenge.challenge_text),
       }),
     ).rejects.toMatchObject({
-      message: `Your PGP fingerprint ${identity.fingerprint} is not present in the resolved maintainer objects`,
+      message: "error.auth.pgp.unrecognized_key",
       status: 400,
     });
   });
@@ -170,8 +167,7 @@ describe("registry PGP auth validation", () => {
         signed_message: "not a clearsigned message",
       }),
     ).rejects.toMatchObject({
-      message:
-        "PGP signed message is invalid. Clear-sign the challenge and paste the full signed block.",
+      message: "error.auth.pgp.invalid_signed_message",
       status: 400,
     });
   });
@@ -204,7 +200,7 @@ describe("registry PGP auth validation", () => {
         signed_message: await clearsignedMessage(`${challenge.challenge_text}\nextra line`),
       }),
     ).rejects.toMatchObject({
-      message: "Your PGP signed message does not match the issued challenge",
+      message: "error.auth.pgp.challenge_mismatch",
       status: 400,
     });
   });

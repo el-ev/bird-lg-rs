@@ -1,3 +1,4 @@
+use common::auto_peer::UiMessage;
 use yew::prelude::*;
 
 mod en;
@@ -25,7 +26,7 @@ impl Locale {
     pub fn label(self) -> &'static str {
         match self {
             Locale::En => "English",
-            Locale::Zh => "中文",
+            Locale::Zh => "中文（简体）",
         }
     }
 
@@ -85,6 +86,33 @@ impl I18n {
             Some(value) => value.to_string(),
             None => key.to_string(),
         }
+    }
+
+    pub fn translate_params(&self, key: &str, params: &[(&str, &str)]) -> String {
+        let template = self
+            .locale
+            .lookup(key)
+            .map(str::to_string)
+            .unwrap_or_else(|| key.to_string());
+
+        render_template(template, params.iter().copied())
+    }
+
+    pub fn translate_message(&self, message: &UiMessage) -> String {
+        let template = self
+            .locale
+            .lookup(&message.key)
+            .map(str::to_string)
+            .or_else(|| message.fallback.clone())
+            .unwrap_or_else(|| message.key.clone());
+
+        render_template(
+            template,
+            message
+                .params
+                .iter()
+                .map(|(key, value)| (key.as_str(), value.as_str())),
+        )
     }
 
     #[cfg(test)]
@@ -153,6 +181,15 @@ fn persist_locale(locale: Locale) {
     }
 }
 
+fn render_template<'a>(
+    template: String,
+    params: impl IntoIterator<Item = (&'a str, &'a str)>,
+) -> String {
+    params.into_iter().fold(template, |output, (key, value)| {
+        output.replace(&format!("{{{key}}}"), value)
+    })
+}
+
 #[macro_export]
 macro_rules! t {
     ($i18n:expr, $key:literal) => {
@@ -173,8 +210,19 @@ mod tests {
 
     #[test]
     fn falls_back_to_english_when_locale_missing_key() {
-        let only_in_en = en::TABLE.first().expect("en table non-empty").0;
-        assert_eq!(Locale::Zh.lookup(only_in_en), Locale::En.lookup(only_in_en));
+        if let Some(only_in_en) = en::TABLE
+            .iter()
+            .find_map(|(key, _)| zh::lookup(key).is_none().then_some(*key))
+        {
+            assert_eq!(Locale::Zh.lookup(only_in_en), Locale::En.lookup(only_in_en));
+        }
+    }
+
+    #[test]
+    fn locale_tables_stay_in_sync() {
+        let en_keys = en::TABLE.iter().map(|(key, _)| *key).collect::<Vec<_>>();
+        let zh_keys = zh::TABLE.iter().map(|(key, _)| *key).collect::<Vec<_>>();
+        assert_eq!(zh_keys, en_keys);
     }
 
     #[test]
@@ -184,5 +232,41 @@ mod tests {
             set_locale: Callback::noop(),
         };
         assert_eq!(i18n.t("nonexistent.key"), "nonexistent.key");
+    }
+
+    #[test]
+    fn translates_message_with_params() {
+        let i18n = I18n::test_default();
+        let message = UiMessage::key("sidebar.session_authed_template")
+            .with_param("mnt", "EXAMPLE-MNT")
+            .with_param("label", "Registry SSH");
+        assert_eq!(
+            i18n.translate_message(&message),
+            "You authenticated as EXAMPLE-MNT via Registry SSH."
+        );
+    }
+
+    #[test]
+    fn translates_string_with_params() {
+        let i18n = I18n {
+            locale: Locale::Zh,
+            set_locale: Callback::noop(),
+        };
+
+        assert_eq!(
+            i18n.translate_params("step.enter_asn.continue_with", &[("provider", "GitHub")]),
+            "使用 GitHub 继续"
+        );
+    }
+
+    #[test]
+    fn falls_back_to_message_fallback_when_key_missing() {
+        let i18n = I18n::test_default();
+        let message = UiMessage {
+            key: "missing.message".to_string(),
+            params: Default::default(),
+            fallback: Some("Raw fallback".to_string()),
+        };
+        assert_eq!(i18n.translate_message(&message), "Raw fallback");
     }
 }

@@ -21,7 +21,7 @@ describe("operator hint sanitization", () => {
   });
 
   it("leaves normal user-facing errors untouched", () => {
-    expect(stripOperatorHints("unknown challenge_id")).toBe("unknown challenge_id");
+    expect(stripOperatorHints("error.auth.challenge.unknown_id")).toBe("error.auth.challenge.unknown_id");
   });
 });
 
@@ -40,9 +40,7 @@ describe("ASN normalization", () => {
 
   it("treats non-424242 ranges as unsupported for autopeer auth flows", () => {
     for (const value of ["4242431024", "AS64512", "foo4242421024"]) {
-      expect(() => normalizeSupportedAutopeerAsn(value)).toThrow(
-        "We do not support that ASN range yet. Right now Autopeer only supports 424242xxxx.",
-      );
+      expect(() => normalizeSupportedAutopeerAsn(value)).toThrow("error.auth.asn.unsupported");
     }
   });
 });

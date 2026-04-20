@@ -56,7 +56,10 @@ function mapOperationRow(row: Record<string, unknown>): OperationRecord {
     pr_node_id: row.pr_node_id === null ? null : String(row.pr_node_id),
     pull_request_url: row.pull_request_url === null ? null : String(row.pull_request_url),
     workflow_run_url: row.workflow_run_url === null ? null : String(row.workflow_run_url),
-    message: row.message === null ? null : String(row.message),
+    message:
+      row.message === null || row.message === undefined
+        ? null
+        : (JSON.parse(String(row.message)) as OperationRecord["message"]),
     failure_details:
       row.failure_details === null || row.failure_details === undefined
         ? null
@@ -341,7 +344,7 @@ export async function putOperation(env: Env, record: OperationRecord): Promise<v
       record.pr_node_id ?? null,
       record.pull_request_url ?? null,
       record.workflow_run_url ?? null,
-      record.message ?? null,
+      record.message ? JSON.stringify(record.message) : null,
       record.failure_details ? JSON.stringify(record.failure_details) : null,
       record.created_at,
       record.updated_at,

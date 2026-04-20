@@ -519,6 +519,7 @@ fn optional_u16(value: &str, error_key: &str) -> Result<Option<u16>, String> {
 mod tests {
     use common::auto_peer::{
         AuthMethod, AuthMethodKind, AuthSessionResponse, PeerSessionSpec, PeeringStrategy,
+        UiMessage,
     };
 
     use super::{PersistedSessions, SessionDraft, SessionDraftField};
@@ -839,8 +840,8 @@ mod tests {
                 effective_mnt: "EXAMPLE-MNT".into(),
                 auth_method: AuthMethod {
                     kind: AuthMethodKind::RegistrySsh,
-                    label: "Registry SSH Signature".into(),
-                    description: "Signed with maintainer SSH key".into(),
+                    label: UiMessage::raw("Registry SSH Signature"),
+                    description: UiMessage::raw("Signed with maintainer SSH key"),
                     provider: None,
                     ssh_fingerprints: Vec::new(),
                     pgp_fingerprints: Vec::new(),

@@ -8,6 +8,8 @@ pub struct ShellSelectProps {
     #[prop_or_default]
     pub class: Classes,
     #[prop_or_default]
+    pub aria_label: Option<AttrValue>,
+    #[prop_or_default]
     pub options: Option<Vec<AttrValue>>,
     #[prop_or_default]
     pub children: Children,
@@ -34,6 +36,7 @@ pub fn shell_select(props: &ShellSelectProps) -> Html {
         <select
             ref={select_ref}
             class={classes!("shell-select", props.class.clone())}
+            aria-label={props.aria_label.clone()}
             onchange={&props.on_change}
         >
             {

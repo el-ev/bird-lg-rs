@@ -38,26 +38,77 @@ pub(super) const TABLE: &[(&str, &str)] = &[
     ),
     (
         "step.enter_asn.prompt",
-        "Enter your DN42 ASN for registry SSH, PGP, or email auth",
+        "Enter your DN42 ASN for registry SSH, PGP, or email auth.",
     ),
     ("step.enter_asn.placeholder", "424242xxxx"),
     (
         "step.enter_asn.oidc_alt",
         "Or sign in with your identity provider and let us derive your ASN automatically.",
     ),
-    ("step.enter_asn.continue_with", "Continue with "),
+    ("step.enter_asn.continue_with", "Continue with {provider}"),
     // Step: SelectMethod
     (
         "step.select_method.found_for_as",
-        "We found registry auth methods for AS",
+        "We found registry auth methods for AS{asn}",
+    ),
+    // Backend auth method copy
+    ("auth_method.registry_ssh.label", "Registry SSH Signature"),
+    (
+        "auth_method.registry_ssh.description",
+        "Sign our challenge with an SSH key from your DN42 maintainer object.",
+    ),
+    ("auth_method.registry_pgp.label", "Registry PGP Signature"),
+    (
+        "auth_method.registry_pgp.description",
+        "Use one of your registry PGP fingerprints: {fingerprints}",
+    ),
+    ("auth_method.registry_email.label", "Registry Email"),
+    (
+        "auth_method.registry_email.description",
+        "Choose a maintainer and send a sign-in link to its registry email contacts.",
+    ),
+    (
+        "auth_method.registry_email.description_single",
+        "Send a sign-in link and one-time code to {emails}.",
+    ),
+    (
+        "auth_method.registry_ssh.session_description",
+        "You authenticated with {mnt} using registry SSH auth.",
+    ),
+    (
+        "auth_method.registry_pgp.session_description",
+        "You authenticated with {mnt} using registry PGP auth.",
+    ),
+    (
+        "auth_method.registry_email.session_description",
+        "You authenticated with {mnt} using registry email auth.",
+    ),
+    (
+        "auth_method.host_impersonation.label",
+        "Host ASN Impersonation",
+    ),
+    (
+        "auth_method.host_impersonation.description",
+        "You are impersonating {mnt} through our host ASN AS{host_asn}.",
+    ),
+    (
+        "auth_method.oidc.description",
+        "Authenticate with {provider} and prove one of your maintainer claims for this ASN.",
+    ),
+    (
+        "auth_method.oidc.session_description",
+        "You authenticated with {provider} as {mnt}.",
     ),
     // Step: VerifyMethod (SSH)
     (
         "verify.ssh.no_fingerprints",
         "We could not find any registry SSH key fingerprints for your ASN.",
     ),
-    ("verify.ssh.match_one", "Match your SSH key "),
-    ("verify.ssh.match_many", "Match one of your SSH keys: "),
+    ("verify.ssh.match_one", "Match your SSH key {fingerprint}"),
+    (
+        "verify.ssh.match_many",
+        "Match one of your SSH keys: {fingerprints}",
+    ),
     ("verify.ssh.create_signature", "Sign the challenge"),
     (
         "verify.ssh.paste_prompt",
@@ -69,7 +120,7 @@ pub(super) const TABLE: &[(&str, &str)] = &[
         "verify.pgp.no_fingerprints",
         "We could not find any registry PGP fingerprints for your ASN.",
     ),
-    ("verify.pgp.use_key", "Use your key "),
+    ("verify.pgp.use_key", "Use your key {fingerprint}"),
     (
         "verify.pgp.clearsign_intro",
         "Clear-sign the exact challenge text with your matching key, then export that same public key and paste both outputs below.",
@@ -102,11 +153,11 @@ pub(super) const TABLE: &[(&str, &str)] = &[
         "verify.email.no_contacts",
         "We could not find any admin-c or tech-c email contacts for your ASN.",
     ),
-    ("verify.email.auth_as", "Authenticate as "),
-    ("verify.email.send_to", "Send to "),
+    ("verify.email.auth_as", "Authenticate as {mnt}"),
+    ("verify.email.send_to", "Send to {emails}"),
     (
         "verify.email.sent_to_prefix",
-        "We sent a sign-in link and auth code to ",
+        "We sent a sign-in link and auth code to {emails}.",
     ),
     (
         "verify.email.code_prompt",
@@ -114,8 +165,11 @@ pub(super) const TABLE: &[(&str, &str)] = &[
     ),
     ("verify.email.code_placeholder", "12345678"),
     // Step: VerifyMethod (OIDC / Host)
-    ("verify.oidc.continue_to", "Continue to "),
-    ("verify.oidc.in_browser", " in your browser"),
+    ("verify.oidc.continue_to", "Continue to {provider}"),
+    (
+        "verify.oidc.in_browser",
+        "Continue to {provider} in your browser",
+    ),
     (
         "verify.oidc.redirect_note",
         "We will redirect you to your provider, then bring you back here after it proves your ASN and maintainer claims.",
@@ -128,7 +182,7 @@ pub(super) const TABLE: &[(&str, &str)] = &[
         "verify.choose_first",
         "Choose an authentication method first.",
     ),
-    ("verify.auth_for_as", " for AS"),
+    ("verify.auth_for_as", "{label} for AS{asn}"),
     // Manage / dashboard headings
     ("dashboard.flow_kicker", "Your Peering Flow"),
     (
@@ -148,6 +202,7 @@ pub(super) const TABLE: &[(&str, &str)] = &[
         "dashboard.create_or_manage_body",
         "Authenticate once and choose one of our nodes. From there you can create a new session, or open an existing one to update or retire it.",
     ),
+    ("dashboard.session_badge_template", "{mnt} via {label}"),
     // Sidebar
     ("sidebar.your_session_kicker", "Your Session"),
     ("sidebar.no_active_session", "No active session"),
@@ -156,7 +211,7 @@ pub(super) const TABLE: &[(&str, &str)] = &[
         "You authenticated as {mnt} via {label}.",
     ),
     ("sidebar.support_kicker", "Support Mode"),
-    ("sidebar.host_asn_prefix", "Host ASN AS"),
+    ("sidebar.host_asn_prefix", "Host ASN AS{asn}"),
     (
         "sidebar.host_authed_template",
         "You authenticated as {mnt} via {label}. Use this only when you need to open or repair sessions for another ASN.",
@@ -234,9 +289,12 @@ pub(super) const TABLE: &[(&str, &str)] = &[
     ("stage2.kicker", "Stage 2"),
     (
         "stage2.title.update_prefix",
-        "Update or retire your session on ",
+        "Update or retire your session on {node}",
     ),
-    ("stage2.title.create_prefix", "Set up your session on "),
+    (
+        "stage2.title.create_prefix",
+        "Set up your session on {node}",
+    ),
     ("stage2.title.create_blank", "Set up your new session"),
     (
         "stage2.update_intro",
@@ -367,6 +425,72 @@ pub(super) const TABLE: &[(&str, &str)] = &[
     ("operation.state.completed", "Completed"),
     ("operation.state.failed", "Failed"),
     ("operation.state.conflict", "Conflict"),
+    // Backend operation messages
+    (
+        "operation.message.pending_pull_request",
+        "We are preparing your pull request.",
+    ),
+    (
+        "operation.message.pending_checks",
+        "Your pull request is open; waiting for peer-session-check.",
+    ),
+    (
+        "operation.message.applying",
+        "Checks passed; applying your session to the node for verification.",
+    ),
+    (
+        "operation.message.pending_merge",
+        "Apply succeeded on the node; waiting for merge.",
+    ),
+    (
+        "operation.message.completed",
+        "Your change was applied and merged successfully.",
+    ),
+    ("operation.message.failed", "Your change failed."),
+    (
+        "operation.message.conflict",
+        "We could not apply your change because our repo conflicted.",
+    ),
+    (
+        "operation.message.wait_node_lock",
+        "Apply succeeded; waiting for another change on this node to finish merging.",
+    ),
+    (
+        "operation.message.no_change",
+        "Your session already matches our repo, so we did not open a pull request.",
+    ),
+    (
+        "operation.message.check_not_started",
+        "peer-session-check did not start for your pull request.",
+    ),
+    (
+        "operation.message.check_wait_start",
+        "Your pull request is open; waiting for peer-session-check to start.",
+    ),
+    (
+        "operation.message.check_failed",
+        "peer-session-check finished with {conclusion}.",
+    ),
+    (
+        "operation.message.apply_not_started",
+        "peer-session-apply did not start for your pull request.",
+    ),
+    (
+        "operation.message.apply_wait_start",
+        "Checks passed; waiting for peer-session-apply to start.",
+    ),
+    (
+        "operation.message.apply_failed",
+        "peer-session-apply finished with {conclusion}.",
+    ),
+    (
+        "operation.message.pull_request_closed",
+        "Your pull request was closed before merge.",
+    ),
+    (
+        "operation.message.merge_failed",
+        "Waiting for merge. Merge attempt failed: {error}",
+    ),
     ("operation.failure_stage.checks", "CI checks"),
     ("operation.failure_stage.preflight", "Node preflight"),
     ("operation.failure_stage.apply", "Node apply"),
@@ -403,7 +527,7 @@ pub(super) const TABLE: &[(&str, &str)] = &[
     ("operation.failure.conclusion", "Result"),
     // Prompts (shell-style left labels)
     ("prompt.autopeer", "autopeer"),
-    ("prompt.asn", "asn"),
+    ("prompt.asn", "ASN"),
     ("prompt.auth", "auth"),
     ("prompt.login", "login"),
     ("prompt.key", "key"),
@@ -417,93 +541,277 @@ pub(super) const TABLE: &[(&str, &str)] = &[
     // Generic loading / errors
     ("status.working", "Working..."),
     (
-        "error.choose_node",
+        "error.ui.node.choose",
         "Choose one of our nodes before you continue",
     ),
     (
-        "error.choose_node_inline",
+        "error.ui.node.choose_inline",
         "Choose one of our nodes before you open a PR",
     ),
     (
-        "error.session_missing_config",
+        "error.ui.session.missing_config",
         "Your current session is missing config details",
     ),
     (
-        "error.wait_inflight",
+        "error.ui.operation.wait_inflight",
         "An in-flight change is still running on this node — wait for it to finish.",
     ),
     (
-        "error.node_blocked_conflict",
+        "error.ui.node.blocked_conflict",
         "This node is blocked by a conflict in our repo",
     ),
     (
-        "error.choose_managed_to_retire",
+        "error.ui.session.choose_managed_to_retire",
         "Choose one of your sessions before you retire it",
     ),
     (
-        "error.authenticate_first",
+        "error.ui.auth.authenticate_first",
         "Authenticate before you continue",
     ),
     (
-        "error.choose_node_default",
+        "error.ui.node.choose_default",
         "Choose one of our nodes before you continue",
     ),
-    ("error.asn_required", "ASN is required"),
-    ("error.oidc_provider_missing", "OIDC provider is missing"),
-    ("error.missing_challenge_id", "Missing challenge_id"),
+    ("error.auth.asn.required", "ASN is required"),
     (
-        "error.choose_method_first",
+        "error.auth.oidc.provider.missing",
+        "OIDC provider is missing",
+    ),
+    ("error.request.challenge_id.missing", "Missing challenge_id"),
+    (
+        "error.ui.auth.method.choose_first",
         "Choose an authentication method first.",
     ),
     (
-        "error.email_auth_inactive",
+        "error.ui.auth.registry_email.inactive",
         "Registry email auth is not active right now.",
     ),
     (
-        "error.email_choose_maintainer",
+        "error.ui.auth.registry_email.choose_maintainer",
         "Choose a maintainer with registry email contacts first.",
     ),
     (
-        "error.enter_email_code",
+        "error.ui.auth.registry_email.code.required",
         "Enter the one-time auth code from your email.",
     ),
     (
-        "error.method_no_longer_available",
+        "error.auth.method.unavailable",
         "That authentication method is no longer available for your ASN.",
     ),
     (
-        "error.host_auth_first",
+        "error.ui.auth.impersonation.host_auth_first",
         "Authenticate one of our configured host ASNs before you impersonate another ASN.",
     ),
     (
-        "error.enter_impersonate_asn",
+        "error.ui.auth.impersonation.asn.required",
         "Enter the ASN you want to impersonate",
     ),
     (
-        "error.no_host_session",
+        "error.ui.auth.impersonation.host_session.missing",
         "No host ASN session is available right now",
     ),
     (
-        "error.impersonate_after_host",
+        "error.ui.auth.impersonation.host_required",
         "Impersonation is only available after you authenticate one of our configured host ASNs.",
     ),
-    ("error.browser_unavailable", "Browser window is unavailable"),
     (
-        "error.oidc_redirect_failed",
+        "error.runtime.browser.unavailable",
+        "Browser window is unavailable",
+    ),
+    (
+        "error.runtime.oidc.redirect_failed",
         "Failed to open the OIDC login redirect",
     ),
     (
-        "error.autopeer_url_missing",
+        "error.runtime.config.autopeer_url.missing",
         "autopeer_url is not configured",
     ),
     (
-        "error.ssh.empty_or_missing_blocks",
+        "error.auth.ssh.empty_or_missing_blocks",
         "Paste the full detached SSH signature block from the command above, including the BEGIN/END lines.",
     ),
     (
-        "error.ssh.unsigned_challenge",
+        "error.auth.ssh.unsigned_challenge",
         "Paste the detached SSH signature block from the command above, not the unsigned challenge text.",
     ),
+    (
+        "error.request.body.invalid_json",
+        "Request body must be valid JSON.",
+    ),
+    (
+        "error.auth.asn.unsupported",
+        "We do not support that ASN range yet. Right now Autopeer only supports 424242xxxx.",
+    ),
+    (
+        "error.auth.asn.not_found",
+        "AS{asn} is invalid because it does not exist in the DN42 registry.",
+    ),
+    (
+        "error.auth.asn.no_supported_auth",
+        "AS{asn} exists in DN42, but it does not publish maintainer auth we can use yet.",
+    ),
+    (
+        "error.auth.registry_email.unavailable",
+        "Registry email login is not available in this deployment.",
+    ),
+    ("error.auth.challenge.unknown_id", "Unknown challenge_id."),
+    (
+        "error.auth.challenge.expired",
+        "Your authentication challenge has expired.",
+    ),
+    (
+        "error.auth.challenge.used",
+        "This authentication challenge has already been used.",
+    ),
+    (
+        "error.auth.session.token.missing",
+        "Missing bearer session token.",
+    ),
+    ("error.auth.session.unknown", "Unknown auth session."),
+    ("error.auth.session.expired", "Auth session has expired."),
+    (
+        "error.auth.impersonation.no_maintainers",
+        "This ASN has no maintainers available for impersonation.",
+    ),
+    (
+        "error.auth.ssh.malformed_signature",
+        "SSH signature data is malformed. Re-run ssh-keygen -Y sign and paste the full detached signature block.",
+    ),
+    (
+        "error.auth.ssh.unrecognized_key",
+        "Your SSH signature used a key that is not present in the resolved maintainer objects.",
+    ),
+    (
+        "error.auth.ssh.verification_failed",
+        "SSH signature verification failed.",
+    ),
+    (
+        "error.auth.pgp.invalid_public_key",
+        "PGP public key is invalid. Export your ASCII-armored public key and paste the full block.",
+    ),
+    (
+        "error.auth.pgp.invalid_signed_message",
+        "PGP signed message is invalid. Clear-sign the challenge and paste the full signed block.",
+    ),
+    (
+        "error.auth.pgp.verification_failed",
+        "PGP signature verification failed. Re-sign the challenge with the matching registry key and paste the full signed block.",
+    ),
+    (
+        "error.auth.pgp.unrecognized_key",
+        "Your PGP fingerprint {fingerprint} is not present in the resolved maintainer objects.",
+    ),
+    (
+        "error.auth.pgp.challenge_mismatch",
+        "Your PGP signed message does not match the issued challenge.",
+    ),
+    (
+        "error.auth.registry_email.state.missing",
+        "Registry email login state was not found or has expired.",
+    ),
+    (
+        "error.auth.registry_email.state.expired",
+        "Registry email login has expired.",
+    ),
+    (
+        "error.auth.registry_email.state.pending",
+        "Registry email login has not completed yet.",
+    ),
+    (
+        "error.auth.registry_email.code.invalid",
+        "Registry email auth code is invalid.",
+    ),
+    (
+        "error.auth.registry_email.session.missing",
+        "Registry email login session is no longer available.",
+    ),
+    (
+        "error.auth.registry_email.session.expired",
+        "Registry email login session has expired.",
+    ),
+    (
+        "error.auth.registry_email.callback.params.missing",
+        "Missing registry email callback parameters.",
+    ),
+    (
+        "error.auth.registry_email.callback.failed",
+        "Registry email login failed; please try again.",
+    ),
+    (
+        "error.auth.registry_email.contacts.missing",
+        "AS{asn} does not expose any admin-c or tech-c email addresses we can use in the registry.",
+    ),
+    (
+        "error.auth.registry_email.target.missing",
+        "{requested} does not have registry email contacts we can use for this ASN.",
+    ),
+    (
+        "error.auth.registry_email.target.required",
+        "effective_mnt is required when your registry email auth covers multiple maintainers.",
+    ),
+    (
+        "error.auth.oidc.callback.provider.missing",
+        "OIDC provider is missing from the callback path.",
+    ),
+    (
+        "error.auth.oidc.callback.params.missing",
+        "Missing OIDC callback parameters.",
+    ),
+    (
+        "error.auth.oidc.provider.unknown",
+        "Unknown OIDC provider {provider}.",
+    ),
+    (
+        "error.auth.oidc.provider.rejected",
+        "{error}: {description}",
+    ),
+    (
+        "error.auth.oidc.state.missing",
+        "OIDC login state was not found or has expired.",
+    ),
+    (
+        "error.auth.oidc.state.expired",
+        "OIDC login state has expired.",
+    ),
+    (
+        "error.auth.oidc.state.pending",
+        "OIDC login has not completed yet.",
+    ),
+    (
+        "error.auth.oidc.session.missing",
+        "OIDC login session is no longer available.",
+    ),
+    (
+        "error.auth.oidc.session.expired",
+        "OIDC login session has expired.",
+    ),
+    (
+        "error.auth.oidc.callback.failed",
+        "OIDC login failed; please try again.",
+    ),
+    (
+        "error.auth.oidc.identity.asn_mismatch",
+        "OIDC identity ASN {token_asn} does not match requested ASN {requested_asn}.",
+    ),
+    (
+        "error.auth.session.path_asn_mismatch",
+        "The path ASN does not match your authenticated session.",
+    ),
+    ("error.request.node.required", "Node is required."),
+    (
+        "error.request.session_payload.required",
+        "Session payload is required.",
+    ),
+    (
+        "error.auth.impersonation.maintainer.required",
+        "effective_mnt is required when your target ASN has multiple maintainers. Available mntners: {available}.",
+    ),
+    (
+        "error.auth.impersonation.maintainer.missing",
+        "{requested} is not present in aut-num -> mnt-by for this ASN. Available mntners: {available}.",
+    ),
+    ("error.request.operation.not_found", "Operation not found."),
+    ("error.request.route.not_found", "Not found."),
     // Frontend validation
     (
         "validation.tunnel.required",

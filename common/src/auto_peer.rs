@@ -1,6 +1,44 @@
+use std::collections::BTreeMap;
+
 use serde::{Deserialize, Serialize};
 
 use crate::models::PeeringInfo;
+
+#[derive(Clone, Debug, Default, Serialize, Deserialize, PartialEq, Eq)]
+pub struct UiMessage {
+    pub key: String,
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub params: BTreeMap<String, String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub fallback: Option<String>,
+}
+
+impl UiMessage {
+    pub fn key(key: impl Into<String>) -> Self {
+        Self {
+            key: key.into(),
+            ..Self::default()
+        }
+    }
+
+    pub fn raw(value: impl Into<String>) -> Self {
+        let value = value.into();
+        Self {
+            key: value.clone(),
+            params: BTreeMap::new(),
+            fallback: Some(value),
+        }
+    }
+
+    pub fn with_param(mut self, key: impl Into<String>, value: impl Into<String>) -> Self {
+        self.params.insert(key.into(), value.into());
+        self
+    }
+
+    pub fn is_key(&self, expected: &str) -> bool {
+        self.key == expected
+    }
+}
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
@@ -36,8 +74,8 @@ pub struct RegistryEmailTarget {
 #[derive(Clone, Debug, Default, Serialize, Deserialize, PartialEq, Eq)]
 pub struct AuthMethod {
     pub kind: AuthMethodKind,
-    pub label: String,
-    pub description: String,
+    pub label: UiMessage,
+    pub description: UiMessage,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub provider: Option<String>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
@@ -312,7 +350,7 @@ pub struct SessionView {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub pull_request_url: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub message: Option<String>,
+    pub message: Option<UiMessage>,
 }
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize, PartialEq, Eq)]
@@ -439,7 +477,7 @@ pub struct OperationStatus {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub workflow_run_url: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub message: Option<String>,
+    pub message: Option<UiMessage>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub failure_details: Option<OperationFailureDetails>,
     pub created_at: String,

@@ -5,6 +5,12 @@ export type AuthMethodKind =
   | "oidc"
   | "host_impersonation";
 
+export interface UiMessage {
+  key: string;
+  params?: Record<string, string>;
+  fallback?: string | null;
+}
+
 export interface RegistryEmailTarget {
   maintainer: string;
   emails: string[];
@@ -12,8 +18,8 @@ export interface RegistryEmailTarget {
 
 export interface AuthMethod {
   kind: AuthMethodKind;
-  label: string;
-  description: string;
+  label: UiMessage;
+  description: UiMessage;
   provider?: string;
   ssh_fingerprints?: string[];
   pgp_fingerprints?: string[];
@@ -151,7 +157,7 @@ export interface SessionView {
   metadata?: SessionMetadata;
   pending_operation_id?: string;
   pull_request_url?: string;
-  message?: string;
+  message?: UiMessage;
 }
 
 export interface SessionListResponse {
@@ -199,14 +205,14 @@ export interface OperationStatus {
   pr_number?: number | null;
   pull_request_url?: string | null;
   workflow_run_url?: string | null;
-  message?: string | null;
+  message?: UiMessage | null;
   failure_details?: OperationFailureDetails | null;
   created_at: string;
   updated_at: string;
 }
 
 export interface ApiError {
-  error: string;
+  error: UiMessage;
 }
 
 export interface MaintainerRecord {
