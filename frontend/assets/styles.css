@@ -1315,9 +1315,12 @@ details[open] .summary-header {
 
 .autopeer-node-name {
     font-size: 1rem;
+    flex: 0 0 auto;
+    white-space: nowrap;
+    overflow-wrap: normal;
+    word-break: normal;
 }
 
-.autopeer-node-name,
 .autopeer-node-meta,
 .autopeer-node-note,
 .autopeer-node-state-note {
