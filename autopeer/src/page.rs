@@ -440,7 +440,11 @@ fn retire_button_text(i18n: &I18n, retire_confirmation: bool) -> &'static str {
     }
 }
 
-fn render_flow_steps(i18n: &I18n, stage: PeerConfigStage) -> Html {
+fn render_flow_steps(
+    i18n: &I18n,
+    stage: PeerConfigStage,
+    on_step_click: &Callback<PeerConfigStage>,
+) -> Html {
     let steps = [
         PeerConfigStage::SelectNode,
         PeerConfigStage::SessionDetails,
@@ -450,15 +454,22 @@ fn render_flow_steps(i18n: &I18n, stage: PeerConfigStage) -> Html {
     html! {
         <ol class="autopeer-flow-steps">
             {for steps.into_iter().map(|candidate| {
+                let is_complete = candidate.index() < stage.index();
                 let state_class = if candidate == stage {
                     "is-active"
-                } else if candidate.index() < stage.index() {
+                } else if is_complete {
                     "is-complete"
                 } else {
                     "is-upcoming"
                 };
+                let onclick = if is_complete {
+                    let cb = on_step_click.clone();
+                    Some(Callback::from(move |_: MouseEvent| cb.emit(candidate)))
+                } else {
+                    None
+                };
                 html! {
-                    <li class={classes!("autopeer-flow-step", state_class)}>
+                    <li class={classes!("autopeer-flow-step", state_class)} {onclick}>
                         <span class="autopeer-flow-step-index">{candidate.index() + 1}</span>
                         <span class="autopeer-flow-step-copy">
                             <strong>{i18n.t(candidate.title_key())}</strong>
@@ -1326,6 +1337,11 @@ pub fn auto_peer_page() -> Html {
                 Callback::from(move |_| config_stage.set(PeerConfigStage::SelectNode))
             };
 
+            let on_step_click = {
+                let config_stage = config_stage.clone();
+                Callback::from(move |stage: PeerConfigStage| config_stage.set(stage))
+            };
+
             let on_continue_to_review = {
                 let draft = draft.clone();
                 let editing_node = editing_node.clone();
@@ -1920,7 +1936,7 @@ pub fn auto_peer_page() -> Html {
                                 </article>
                             } else {
                                 <>
-                                    {render_flow_steps(&i18n, active_stage)}
+                                    {render_flow_steps(&i18n, active_stage, &on_step_click)}
                                     {main_panel}
                                 </>
                             }
