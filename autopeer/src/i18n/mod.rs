@@ -3,6 +3,7 @@ use yew::prelude::*;
 use crate::models::UiMessage;
 
 mod en;
+mod la;
 mod zh;
 
 const LOCALE_STORAGE_KEY: &str = "bird-lg-rs.autopeer.locale";
@@ -11,15 +12,17 @@ const LOCALE_STORAGE_KEY: &str = "bird-lg-rs.autopeer.locale";
 pub enum Locale {
     #[default]
     En,
+    La,
     Zh,
 }
 
 impl Locale {
-    pub const ALL: &'static [Locale] = &[Locale::En, Locale::Zh];
+    pub const ALL: &'static [Locale] = &[Locale::En, Locale::La, Locale::Zh];
 
     pub fn code(self) -> &'static str {
         match self {
             Locale::En => "en",
+            Locale::La => "la",
             Locale::Zh => "zh",
         }
     }
@@ -27,6 +30,7 @@ impl Locale {
     pub fn label(self) -> &'static str {
         match self {
             Locale::En => "English",
+            Locale::La => "Latina",
             Locale::Zh => "中文（简体）",
         }
     }
@@ -34,6 +38,7 @@ impl Locale {
     pub fn from_code(code: &str) -> Option<Self> {
         match code {
             "en" => Some(Locale::En),
+            "la" => Some(Locale::La),
             "zh" => Some(Locale::Zh),
             _ => None,
         }
@@ -51,6 +56,7 @@ impl Locale {
     fn lookup(self, key: &str) -> Option<&'static str> {
         let primary = match self {
             Locale::En => en::lookup(key),
+            Locale::La => la::lookup(key),
             Locale::Zh => zh::lookup(key),
         };
         primary.or_else(|| {
@@ -221,7 +227,9 @@ mod tests {
     #[test]
     fn locale_tables_stay_in_sync() {
         let en_keys = en::TABLE.iter().map(|(key, _)| *key).collect::<Vec<_>>();
+        let la_keys = la::TABLE.iter().map(|(key, _)| *key).collect::<Vec<_>>();
         let zh_keys = zh::TABLE.iter().map(|(key, _)| *key).collect::<Vec<_>>();
+        assert_eq!(la_keys, en_keys);
         assert_eq!(zh_keys, en_keys);
     }
 
