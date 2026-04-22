@@ -7,6 +7,7 @@ import {
   jwksUrlForProvider,
   oidcAsnFromClaimSources,
   oidcMaintainerFromClaimSources,
+  rewriteIssuerHost,
 } from "../src/oidc";
 import type { OidcProviderConfig } from "../src/types";
 
@@ -147,5 +148,34 @@ describe("OIDC claim paths", () => {
         ],
       ),
     ).toBe("IEDON-MNT");
+  });
+});
+
+describe("rewriteIssuerHost", () => {
+  it("rewrites matching issuer host to dn42", () => {
+    const p = provider({
+      issuer: "https://dn42.g-load.eu",
+      dn42_issuer: "https://auth.dn42",
+    });
+    expect(rewriteIssuerHost("https://dn42.g-load.eu/oauth/authorize", p)).toBe(
+      "https://auth.dn42/oauth/authorize",
+    );
+  });
+
+  it("returns url unchanged when no dn42_issuer", () => {
+    const p = provider({ issuer: "https://dn42.g-load.eu" });
+    expect(rewriteIssuerHost("https://dn42.g-load.eu/oauth/authorize", p)).toBe(
+      "https://dn42.g-load.eu/oauth/authorize",
+    );
+  });
+
+  it("returns url unchanged when host does not match issuer", () => {
+    const p = provider({
+      issuer: "https://dn42.g-load.eu",
+      dn42_issuer: "https://auth.dn42",
+    });
+    expect(rewriteIssuerHost("https://other.example/authorize", p)).toBe(
+      "https://other.example/authorize",
+    );
   });
 });

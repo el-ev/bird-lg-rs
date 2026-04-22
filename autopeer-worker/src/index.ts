@@ -46,6 +46,7 @@ import {
   oidcMaintainerFromClaimSources,
   oidcMethodsFromProviders,
   oidcProviderByName,
+  rewriteIssuerHost,
   sessionFromOidcIdentity,
   verifiedOidcClaimSources,
 } from "./oidc";
@@ -100,6 +101,7 @@ import {
   requireOptionalString,
   requireRecord,
   stripOperatorHints,
+  readOptionalSecret,
   timingSafeEqual,
   toUiMessage,
   uiMessage,
@@ -264,6 +266,8 @@ function parseRequestSessionSpec(value: unknown): PeerSessionSpec {
     mp_bgp: requireRequestBoolean(record.mp_bgp, "session.mp_bgp"),
     mp_bgp_transport: mpBgpTransport as PeerSessionSpec["mp_bgp_transport"],
     peering_strategy: peeringStrategy as PeerSessionSpec["peering_strategy"],
+    psk: requireOptionalRequestString(record.psk, "session.psk"),
+    encrypt_endpoint: typeof record.encrypt_endpoint === "boolean" ? record.encrypt_endpoint : undefined,
   };
 }
 
@@ -307,6 +311,11 @@ function externalSiteBaseUrl(env: Env, request: Request): URL {
     external.protocol = `${forwardedProto}:`;
   }
   return external;
+}
+
+function isDn42Request(request: Request): boolean {
+  const host = forwardedHeaderValue(request, "x-forwarded-host") ?? new URL(request.url).host;
+  return host.endsWith(".dn42");
 }
 
 function runtimeConfigResponse(request: Request, env: Env) {
@@ -621,10 +630,10 @@ function failureMessageFromDetails(details: OperationFailureDetails): UiMessage 
     details.stage === "preflight"
       ? "Preflight"
       : details.stage === "checks"
-      ? "peer-session-check"
-      : details.stage === "merge"
-      ? "Merge"
-      : "peer-session-apply";
+        ? "peer-session-check"
+        : details.stage === "merge"
+          ? "Merge"
+          : "peer-session-apply";
   const parts = [`${stage} failed with ${details.conclusion ?? "unknown"}`];
   if (details.step) parts.push(`(step: ${details.step})`);
   if (details.annotation) parts.push(`— ${details.annotation}`);
@@ -935,7 +944,8 @@ async function listSessionsResponse(
     operations.push(await refreshOperation(env, github, operation));
   }
 
-  const sessions = listSessionsForAsn(session.asn, peerFiles, hosts, operations);
+  const vaultPassword = readOptionalSecret(env, "ANSIBLE_VAULT_PASSWORD");
+  const sessions = await listSessionsForAsn(session.asn, peerFiles, hosts, operations, vaultPassword);
   return jsonWithCors(request, {
     asn: session.asn,
     nodes: buildNodeViews(hosts),
@@ -967,7 +977,8 @@ async function handleMutation(
   const github = new GitHubClient(env);
   const repo = await loadRepoState(env, github);
   const operations = await listOperationsForAsn(env, authSession.asn);
-  const sessions = listSessionsForAsn(authSession.asn, repo.peerFiles, repo.hosts, operations);
+  const vaultPassword = readOptionalSecret(env, "ANSIBLE_VAULT_PASSWORD");
+  const sessions = await listSessionsForAsn(authSession.asn, repo.peerFiles, repo.hosts, operations, vaultPassword);
 
   let nodeName = nodeFromPath;
   let sessionPayload: CreateSessionRequest["session"] | UpdateSessionRequest["session"] | undefined;
@@ -1004,6 +1015,15 @@ async function handleMutation(
     assertValidSessionSpec(node, authSession.asn, sessionPayload);
   }
 
+  if (sessionPayload && !vaultPassword) {
+    if (sessionPayload.psk) {
+      throw new HttpError("error.vault.not_configured", 501);
+    }
+    if (sessionPayload.encrypt_endpoint) {
+      throw new HttpError("error.vault.not_configured", 501);
+    }
+  }
+
   const peerPath = PEER_FILE_PATH(nodeName);
   const currentFile = await github.getFile(peerPath, env.GITHUB_BASE_BRANCH);
   if (!currentFile.exists || !currentFile.text || !currentFile.sha) {
@@ -1013,19 +1033,20 @@ async function handleMutation(
   const mutationAuthMethod =
     kind === "migrate"
       ? {
-          ...authSession.auth_method,
-          provider: "migration",
-        }
+        ...authSession.auth_method,
+        provider: "migration",
+      }
       : authSession.auth_method;
 
   let mutation;
   try {
-    mutation = mutatePeerFile(currentFile.text, {
+    mutation = await mutatePeerFile(currentFile.text, {
       asn: authSession.asn,
       effectiveMnt: authSession.effective_mnt,
       authMethod: mutationAuthMethod,
       kind,
       session: sessionPayload,
+      vaultPassword,
     });
   } catch (error) {
     throw new HttpError(String((error as Error).message), 409);
@@ -1431,6 +1452,12 @@ async function router(request: Request, env: Env): Promise<Response> {
     }
 
     const discovery = await fetchOidcDiscovery(provider);
+    if (isDn42Request(request) && provider.dn42_issuer) {
+      discovery.authorization_endpoint = rewriteIssuerHost(
+        discovery.authorization_endpoint,
+        provider,
+      );
+    }
     const redirectUri = oidcCallbackUrl(env, request, providerName);
     const authorization = await createOidcAuthorizationRequest(
       provider,

@@ -29,6 +29,17 @@ export function oidcMethodsFromProviders(providers: OidcProviderConfig[]): AuthM
   }));
 }
 
+export function rewriteIssuerHost(url: string, provider: OidcProviderConfig): string {
+  if (!provider.dn42_issuer) return url;
+  const original = new URL(url);
+  const issuer = new URL(provider.issuer);
+  if (original.host !== issuer.host) return url;
+  const dn42 = new URL(provider.dn42_issuer);
+  original.protocol = dn42.protocol;
+  original.host = dn42.host;
+  return original.toString();
+}
+
 export function oidcProviderByName(
   providers: OidcProviderConfig[],
   name: string,

@@ -149,6 +149,8 @@ export interface PeerSessionSpec {
   mp_bgp: boolean;
   mp_bgp_transport?: MpBgpTransport | null;
   peering_strategy: PeeringStrategy;
+  psk?: string | null;
+  encrypt_endpoint?: boolean;
 }
 
 export interface SessionView {
@@ -157,6 +159,8 @@ export interface SessionView {
   state: SessionState;
   spec?: PeerSessionSpec;
   metadata?: SessionMetadata;
+  has_psk?: boolean;
+  has_encrypted_endpoint?: boolean;
   pending_operation_id?: string;
   pull_request_url?: string;
   message?: UiMessage;
@@ -272,6 +276,7 @@ export interface OidcProviderConfig {
   asn_claim: OidcClaimPath;
   mntner_claim: OidcClaimPath;
   description?: string;
+  dn42_issuer?: string;
 }
 
 export interface OidcProviderDiscovery {
