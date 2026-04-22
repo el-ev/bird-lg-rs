@@ -1339,6 +1339,13 @@ pub fn auto_peer_page() -> Html {
                 })
             };
 
+            let on_toggle_encrypt_endpoint = {
+                let draft = draft.clone();
+                Callback::from(move |_| {
+                    update_draft_state(&draft, |next| next.encrypt_endpoint = !next.encrypt_endpoint);
+                })
+            };
+
             let on_back_to_details = {
                 let config_stage = config_stage.clone();
                 Callback::from(move |_| config_stage.set(PeerConfigStage::SessionDetails))
@@ -1404,6 +1411,7 @@ pub fn auto_peer_page() -> Html {
                                     let editing_node = editing_node.clone();
                                     let config_stage = config_stage.clone();
                                     let error = error.clone();
+                                    let touched_fields = touched_fields.clone();
                                     let node_value = node.clone();
                                     let selected = selected_node_name == Some(node.name.as_str());
                                     let autopeer_disabled = node.autopeer == Some(false);
@@ -1435,19 +1443,25 @@ pub fn auto_peer_page() -> Html {
                                         match node_session_for_click.as_ref().map(|session| &session.state) {
                                             None => {
                                                 editing_node.set(None);
-                                                update_draft_state(&draft, |next| {
-                                                    next.node = node_value.name.clone();
-                                                    next.peering_strategy = PeeringStrategy::FullTable;
+                                                draft.set(SessionDraft {
+                                                    node: node_value.name.clone(),
+                                                    ..SessionDraft::default()
                                                 });
+                                                touched_fields.set(SessionDraftTouchedControls::new());
                                                 config_stage.set(PeerConfigStage::SessionDetails);
                                             }
                                             Some(SessionState::Managed) | Some(SessionState::Manual) => {
-                                                let Some(spec) = node_session_for_click.as_ref().and_then(|session| session.spec.clone()) else {
+                                                let Some(session) = node_session_for_click.as_ref() else {
                                                     error.set(Some(UiMessage::key("error.ui.session.missing_config")));
                                                     return;
                                                 };
+                                                if session.spec.is_none() {
+                                                    error.set(Some(UiMessage::key("error.ui.session.missing_config")));
+                                                    return;
+                                                }
                                                 editing_node.set(Some(node_value.name.clone()));
-                                                draft.set(SessionDraft::from_session(&node_value.name, &spec));
+                                                draft.set(SessionDraft::from_session_view(&node_value.name, session));
+                                                touched_fields.set(SessionDraftTouchedControls::new());
                                                 config_stage.set(PeerConfigStage::SessionDetails);
                                             }
                                             Some(SessionState::PendingPr) => {
@@ -1474,6 +1488,12 @@ pub fn auto_peer_page() -> Html {
                                                 <span class="autopeer-node-option-status">
                                                     <span class="autopeer-node-badge">{humanize_ip_support(&i18n, &node.ip_support)}</span>
                                                     <span class="autopeer-status-pill">{state_label}</span>
+                                                    if node_session.as_ref().is_some_and(|s| s.has_psk) {
+                                                        <span class="autopeer-node-badge">{i18n.t("session.badge.psk")}</span>
+                                                    }
+                                                    if node_session.as_ref().is_some_and(|s| s.has_encrypted_endpoint) {
+                                                        <span class="autopeer-node-badge">{i18n.t("session.badge.encrypted_endpoint")}</span>
+                                                    }
                                                 </span>
                                             </span>
                                             <span class="autopeer-node-meta">{node_context_line(&i18n, node)}</span>
@@ -1528,9 +1548,7 @@ pub fn auto_peer_page() -> Html {
                                         <p class="text-secondary">{comment.clone()}</p>
                                     }
                                 </div>
-                                if editing_node_value.is_none() {
-                                    <ShellButton text={i18n.t("action.choose_another_node")} onclick={on_change_node.clone()} disabled={loading} />
-                                }
+                                <ShellButton text={i18n.t("action.choose_another_node")} onclick={if editing_node_value.is_some() { on_cancel_edit.clone() } else { on_change_node.clone() }} disabled={loading} />
                             </div>
                         }
 
@@ -1785,6 +1803,25 @@ pub fn auto_peer_page() -> Html {
                                         disabled={loading}
                                     />
                                 </ShellLine>
+                                <ShellLine>
+                                    <ShellPrompt>{i18n.t("stage2.field.psk")}</ShellPrompt>
+                                    {" "}
+                                    <ShellInput
+                                        value={draft.psk.clone()}
+                                        on_change={update_text_field(|draft| &mut draft.psk)}
+                                        placeholder={i18n.t("stage2.field.psk.placeholder")}
+                                        disabled={loading}
+                                    />
+                                </ShellLine>
+                                <ShellLine>
+                                    <ShellPrompt>{i18n.t("stage2.field.encrypt_endpoint")}</ShellPrompt>
+                                    {" "}
+                                    <ShellToggle
+                                        active={draft.encrypt_endpoint}
+                                        on_toggle={on_toggle_encrypt_endpoint}
+                                        label={i18n.t("stage2.field.encrypt_endpoint")}
+                                    />
+                                </ShellLine>
                             </div>
                         </details>
 
@@ -1865,6 +1902,22 @@ pub fn auto_peer_page() -> Html {
                             {optional_review_item(i18n.t("stage3.review.own6"), &draft.own6)}
                             {optional_review_item(i18n.t("stage3.review.keepalive"), &draft.keepalive)}
                             {optional_review_item(i18n.t("stage3.review.mtu"), &draft.mtu)}
+                            {review_item(
+                                i18n.t("stage3.review.psk"),
+                                if draft.psk.trim().is_empty() {
+                                    i18n.t("stage3.review.psk.not_set").to_string()
+                                } else {
+                                    i18n.t("stage3.review.psk.set").to_string()
+                                },
+                            )}
+                            {review_item(
+                                i18n.t("stage3.review.encrypt_endpoint"),
+                                if draft.encrypt_endpoint {
+                                    i18n.t("stage3.review.encrypt_endpoint.enabled").to_string()
+                                } else {
+                                    i18n.t("stage3.review.encrypt_endpoint.disabled").to_string()
+                                },
+                            )}
                             {optional_review_item(i18n.t("stage3.review.note"), &draft.comment)}
                         </div>
 
