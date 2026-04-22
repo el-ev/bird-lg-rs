@@ -1015,13 +1015,8 @@ async function handleMutation(
     assertValidSessionSpec(node, authSession.asn, sessionPayload);
   }
 
-  if (sessionPayload && !vaultPassword) {
-    if (sessionPayload.psk) {
-      throw new HttpError("error.vault.not_configured", 501);
-    }
-    if (sessionPayload.encrypt_endpoint) {
-      throw new HttpError("error.vault.not_configured", 501);
-    }
+  if (sessionPayload && !vaultPassword && (sessionPayload.psk || sessionPayload.encrypt_endpoint)) {
+    throw new HttpError("error.vault.not_configured", 501);
   }
 
   const peerPath = PEER_FILE_PATH(nodeName);
@@ -1091,6 +1086,7 @@ async function handleMutation(
       workflow_run_url: null,
       pull_request_url: refreshedPr?.html_url ?? reusableOperation.pull_request_url ?? null,
       session_snapshot: mutation.sessionSnapshot,
+      created_at: nowIso(),
       updated_at: nowIso(),
     };
     await putOperation(env, updated);
@@ -1766,6 +1762,51 @@ async function router(request: Request, env: Env): Promise<Response> {
     const github = new GitHubClient(env);
     const refreshed = await refreshOperation(env, github, operation);
     return jsonWithCors(request, refreshed);
+  }
+
+  const operationRetryMatch = url.pathname.match(/^\/v1\/operations\/([^/]+)\/retry$/);
+  if (request.method === "POST" && operationRetryMatch) {
+    const authSession = await requireSession(env, request);
+    const operation = await getOperation(env, operationRetryMatch[1]);
+    if (!operation || operation.asn !== authSession.asn) {
+      throw new HttpError("error.request.operation.not_found", 404);
+    }
+    if (operation.state !== "failed" || !operation.pr_number || !operation.branch) {
+      throw new HttpError("error.request.operation.not_retryable", 409);
+    }
+
+    const github = new GitHubClient(env);
+    const pr = await github.getPullRequest(operation.pr_number);
+    if (pr.merged || pr.state !== "open") {
+      throw new HttpError("error.request.operation.pr_closed", 409);
+    }
+
+    const peerPath = PEER_FILE_PATH(operation.node);
+    const branchFile = await github.getFile(peerPath, operation.branch);
+    if (!branchFile.exists || !branchFile.text) {
+      throw new HttpError("error.request.operation.branch_missing", 502);
+    }
+
+    const baseSha = await github.getBranchHead(env.GITHUB_BASE_BRANCH);
+    await github.forcePushSingleFile({
+      branch: operation.branch,
+      baseSha,
+      path: peerPath,
+      content: branchFile.text,
+      message: `feat: autopeer ${operation.kind} AS${operation.asn} on ${operation.node}`,
+    });
+
+    const updated: OperationRecord = {
+      ...operation,
+      state: "pending_checks",
+      message: buildOperationMessage("pending_checks"),
+      failure_details: null,
+      workflow_run_url: null,
+      created_at: nowIso(),
+      updated_at: nowIso(),
+    };
+    await putOperation(env, updated);
+    return jsonWithCors(request, updated, 202);
   }
 
   throw new HttpError("error.request.route.not_found", 404);
