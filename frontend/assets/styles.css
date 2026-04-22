@@ -1617,6 +1617,9 @@ details[open] .summary-header {
     font-size: 0.76rem;
     background: var(--bg-secondary);
     color: var(--text-secondary);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 .autopeer-progress-step.is-complete,
