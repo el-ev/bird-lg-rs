@@ -75,6 +75,7 @@ pub struct SessionDraft {
     pub mp_bgp_transport: Option<MpBgpTransport>,
     pub peering_strategy: PeeringStrategy,
     pub psk: String,
+    pub has_psk: bool,
     pub encrypt_endpoint: bool,
 }
 
@@ -97,6 +98,7 @@ impl Default for SessionDraft {
             mp_bgp_transport: None,
             peering_strategy: PeeringStrategy::FullTable,
             psk: String::new(),
+            has_psk: false,
             encrypt_endpoint: false,
         }
     }
@@ -124,6 +126,7 @@ impl SessionDraft {
             mp_bgp_transport: spec.mp_bgp_transport,
             peering_strategy: spec.peering_strategy,
             psk: String::new(),
+            has_psk: false,
             encrypt_endpoint: spec.encrypt_endpoint.unwrap_or(false),
         }
     }
@@ -137,6 +140,7 @@ impl SessionDraft {
                 node: node.to_string(),
                 ..Default::default()
             });
+        draft.has_psk = view.has_psk;
         draft.encrypt_endpoint = view.has_encrypted_endpoint;
         draft
     }

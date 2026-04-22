@@ -1490,12 +1490,6 @@ pub fn auto_peer_page() -> Html {
                                                 <span class="autopeer-node-option-status">
                                                     <span class="autopeer-node-badge">{humanize_ip_support(&i18n, &node.ip_support)}</span>
                                                     <span class="autopeer-status-pill">{state_label}</span>
-                                                    if node_session.as_ref().is_some_and(|s| s.has_psk) {
-                                                        <span class="autopeer-node-badge">{i18n.t("session.badge.psk")}</span>
-                                                    }
-                                                    if node_session.as_ref().is_some_and(|s| s.has_encrypted_endpoint) {
-                                                        <span class="autopeer-node-badge">{i18n.t("session.badge.encrypted_endpoint")}</span>
-                                                    }
                                                 </span>
                                             </span>
                                             <span class="autopeer-node-meta">{node_context_line(&i18n, node)}</span>
@@ -1817,7 +1811,7 @@ pub fn auto_peer_page() -> Html {
                                     <ShellInput
                                         value={draft.psk.clone()}
                                         on_change={update_text_field(|draft| &mut draft.psk)}
-                                        placeholder={i18n.t("stage2.field.psk.placeholder")}
+                                        placeholder={if draft.has_psk { i18n.t("stage2.field.psk.placeholder.existing") } else { i18n.t("stage2.field.psk.placeholder") }}
                                         disabled={loading}
                                     />
                                 </ShellLine>
@@ -1903,10 +1897,12 @@ pub fn auto_peer_page() -> Html {
                             {optional_review_item(i18n.t("stage3.review.mtu"), &draft.mtu)}
                             {review_item(
                                 i18n.t("stage3.review.psk"),
-                                if draft.psk.trim().is_empty() {
-                                    i18n.t("stage3.review.psk.not_set").to_string()
-                                } else {
+                                if !draft.psk.trim().is_empty() {
                                     i18n.t("stage3.review.psk.set").to_string()
+                                } else if draft.has_psk {
+                                    i18n.t("stage3.review.psk.unchanged").to_string()
+                                } else {
+                                    i18n.t("stage3.review.psk.not_set").to_string()
                                 },
                             )}
                             {review_item(
@@ -2140,12 +2136,10 @@ pub fn auto_peer_page() -> Html {
                                         if let Some(run_url) = &operation_status.workflow_run_url {
                                             <a href={run_url.clone()} target="_blank" rel="noreferrer">{i18n.t("action.workflow_run")}</a>
                                         }
-                                    </div>
-                                    if operation_status.state.is_terminal() {
-                                        <div class="autopeer-operation-actions">
+                                        if operation_status.state.is_terminal() {
                                             if operation_status.state == OperationState::Failed && operation_status.pull_request_url.is_some() {
                                                 <button
-                                                    class="autopeer-btn autopeer-btn--retry"
+                                                    class="autopeer-link-button"
                                                     onclick={on_retry_operation.clone()}
                                                     disabled={loading}
                                                 >
@@ -2153,13 +2147,13 @@ pub fn auto_peer_page() -> Html {
                                                 </button>
                                             }
                                             <button
-                                                class="autopeer-btn autopeer-btn--dismiss"
+                                                class="autopeer-link-button autopeer-link-button--muted"
                                                 onclick={on_dismiss_operation.clone()}
                                             >
                                                 {i18n.t("action.dismiss_operation")}
                                             </button>
-                                        </div>
-                                    }
+                                        }
+                                    </div>
                                 </article>
                             }
                         </aside>
