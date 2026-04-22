@@ -29,6 +29,8 @@ pub(super) const TABLE: &[(&str, &str)] = &[
     ("action.delete_session", "删除会话"),
     ("action.open_pr", "查看拉取请求"),
     ("action.workflow_run", "查看工作流"),
+    ("action.retry", "重试"),
+    ("action.dismiss_operation", "关闭"),
     // Step: LoadingConfig / EnterAsn
     ("step.loading_config.prompt", "加载运行时配置"),
     ("step.loading_config.message", "正在加载运行时配置..."),
@@ -825,6 +827,9 @@ pub(super) const TABLE: &[(&str, &str)] = &[
         "{requested} 不存在于此 ASN 的 aut-num -> mnt-by 中。可用维护者：{available}。",
     ),
     ("error.request.operation.not_found", "操作未找到。"),
+    ("error.request.operation.not_retryable", "此操作无法重试。"),
+    ("error.request.operation.pr_closed", "拉取请求已关闭，无法重试。"),
+    ("error.request.operation.branch_missing", "操作分支在仓库中缺失。"),
     ("error.request.route.not_found", "未找到。"),
     (
         "error.vault.not_configured",
@@ -1052,6 +1057,10 @@ pub(super) const TABLE: &[(&str, &str)] = &[
     (
         "loading.delete_pr",
         "正在从仓库中删除会话并创建拉取请求……",
+    ),
+    (
+        "loading.retry_operation",
+        "正在重试失败的操作……",
     ),
 ];
 

@@ -324,6 +324,13 @@ fn require_api_base(
     value
 }
 
+fn save_pending_operation_id(id: Option<&str>) {
+    if let Some(mut persisted) = load_persisted_sessions() {
+        persisted.pending_operation_id = id.map(String::from);
+        save_persisted_sessions(&persisted);
+    }
+}
+
 fn set_authenticated_session(
     auth_session: &UseStateHandle<Option<AuthSessionResponse>>,
     host_session: &UseStateHandle<Option<AuthSessionResponse>>,
@@ -443,12 +450,34 @@ async fn finish_redirected_auth_session(
     clear_loading(ongoing_tasks, task_id);
 }
 
+async fn resume_persisted_operation(
+    api_url: &str,
+    session_token: &str,
+    operation_id: &str,
+    operation: &UseStateHandle<Option<OperationStatus>>,
+    poll_operation: &Callback<OperationStatus>,
+) {
+    match service::get_operation(api_url, session_token, operation_id).await {
+        Ok(status) => {
+            operation.set(Some(status.clone()));
+            if !status.state.is_terminal() {
+                poll_operation.emit(status);
+            }
+        }
+        Err(_) => {
+            save_pending_operation_id(None);
+        }
+    }
+}
+
 async fn restore_persisted_state(
     api_url: &str,
     persisted: PersistedSessions,
     session_handles: &SessionHandles,
     auth_handles: &AuthHandles,
     error: &UseStateHandle<Option<UiMessage>>,
+    operation: &UseStateHandle<Option<OperationStatus>>,
+    poll_operation: &Callback<OperationStatus>,
 ) {
     let mut valid_host_session = None::<AuthSessionResponse>;
     let mut valid_host_response = None::<SessionListResponse>;
@@ -475,12 +504,23 @@ async fn restore_persisted_state(
                 auth_handles.host_session.set(valid_host_session.clone());
                 apply_session_list(response, session_handles);
                 save_persisted_sessions(&PersistedSessions {
-                    auth_session: Some(active),
+                    auth_session: Some(active.clone()),
                     host_session: valid_host_session,
+                    pending_operation_id: persisted.pending_operation_id.clone(),
                 });
                 reset_session_selection(session_handles);
                 error.set(None);
                 auth_handles.step.set(AutoPeerStep::ManageSessions);
+                if let Some(op_id) = &persisted.pending_operation_id {
+                    resume_persisted_operation(
+                        api_url,
+                        &active.session_token,
+                        op_id,
+                        operation,
+                        poll_operation,
+                    )
+                    .await;
+                }
                 return;
             }
             Err(message) if is_stale_session_error(&message) => {}
@@ -498,11 +538,22 @@ async fn restore_persisted_state(
         apply_session_list(response, session_handles);
         save_persisted_sessions(&PersistedSessions {
             auth_session: Some(host.clone()),
-            host_session: Some(host),
+            host_session: Some(host.clone()),
+            pending_operation_id: persisted.pending_operation_id.clone(),
         });
         reset_session_selection(session_handles);
         error.set(None);
         auth_handles.step.set(AutoPeerStep::ManageSessions);
+        if let Some(op_id) = &persisted.pending_operation_id {
+            resume_persisted_operation(
+                api_url,
+                &host.session_token,
+                op_id,
+                operation,
+                poll_operation,
+            )
+            .await;
+        }
     } else {
         save_persisted_sessions(&PersistedSessions::default());
         reset_session_selection(session_handles);
@@ -564,6 +615,8 @@ pub struct AutoPeerController {
     pub on_submit_session: Callback<MouseEvent>,
     pub on_retire_selected_session: Callback<MouseEvent>,
     pub on_delete_selected_session: Callback<MouseEvent>,
+    pub on_retry_operation: Callback<MouseEvent>,
+    pub on_dismiss_operation: Callback<MouseEvent>,
 }
 
 #[hook]
@@ -646,6 +699,112 @@ pub fn use_autopeer_controller(
         registry_email_sent_to: registry_email_sent_to.clone(),
     };
 
+    let refresh_sessions = {
+        let api_base = api_base.clone();
+        let auth_session = auth_session.clone();
+        let error = error.clone();
+        let ongoing_tasks = ongoing_tasks.clone();
+        let session_handles = session_handles.clone();
+
+        Callback::from(move |_| {
+            let Some(api_base) = require_api_base(&api_base, &error) else {
+                return;
+            };
+            let Some(auth_session) = (*auth_session).clone() else {
+                return;
+            };
+
+            let task_id = start_loading(&ongoing_tasks, UiMessage::key("loading.fetch_sessions"));
+
+            let error = error.clone();
+            let ongoing_tasks = ongoing_tasks.clone();
+            let session_handles = session_handles.clone();
+
+            spawn_local(async move {
+                match service::list_sessions(&api_base, &auth_session.session_token).await {
+                    Ok(response) => {
+                        apply_session_list(response, &session_handles);
+                        if session_handles.editing_node.is_none() {
+                            session_handles
+                                .config_stage
+                                .set(PeerConfigStage::SelectNode);
+                        }
+                        error.set(None);
+                    }
+                    Err(message) => error.set(Some(message)),
+                }
+                clear_loading(&ongoing_tasks, task_id);
+            });
+        })
+    };
+
+    let poll_operation = {
+        let api_base = api_base.clone();
+        let auth_session = auth_session.clone();
+        let operation = operation.clone();
+        let error = error.clone();
+        let ongoing_tasks = ongoing_tasks.clone();
+        let session_handles = session_handles.clone();
+
+        Callback::from(move |initial_operation: OperationStatus| {
+            let Some(api_base) = (*api_base).clone() else {
+                return;
+            };
+            let Some(auth_session) = (*auth_session).clone() else {
+                return;
+            };
+
+            save_pending_operation_id(Some(&initial_operation.id));
+
+            let operation = operation.clone();
+            let error = error.clone();
+            let ongoing_tasks = ongoing_tasks.clone();
+            let session_handles = session_handles.clone();
+
+            spawn_local(async move {
+                let mut current = initial_operation;
+                operation.set(Some(current.clone()));
+
+                loop {
+                    if current.state.is_terminal() {
+                        let task_id = start_loading(
+                            &ongoing_tasks,
+                            UiMessage::key("loading.refresh_sessions"),
+                        );
+                        match service::list_sessions(&api_base, &auth_session.session_token).await {
+                            Ok(response) => {
+                                apply_session_list(response, &session_handles);
+                                reset_session_selection(&session_handles);
+                                error.set(None);
+                            }
+                            Err(message) => error.set(Some(message)),
+                        }
+                        clear_loading(&ongoing_tasks, task_id);
+                        break;
+                    }
+
+                    TimeoutFuture::new(3_000).await;
+                    match service::get_operation(
+                        &api_base,
+                        &auth_session.session_token,
+                        &current.id,
+                    )
+                    .await
+                    {
+                        Ok(updated) => {
+                            current = updated.clone();
+                            operation.set(Some(updated));
+                        }
+                        Err(message) => {
+                            error.set(Some(message));
+                            break;
+                        }
+                    }
+                }
+            });
+        })
+    };
+
     {
         let api_base = api_base.clone();
         let autopeer_site_href = autopeer_site_href.clone();
@@ -655,6 +814,8 @@ pub fn use_autopeer_controller(
         let ongoing_tasks = ongoing_tasks.clone();
         let session_handles = session_handles.clone();
         let auth_handles = auth_handles.clone();
+        let operation = operation.clone();
+        let poll_operation = poll_operation.clone();
 
         use_effect_with((), move |_| {
             spawn_local(async move {
@@ -720,16 +881,15 @@ pub fn use_autopeer_controller(
                             return;
                         }
 
-                        let persisted = PersistedSessions {
-                            auth_session: (*auth_handles.auth_session).clone(),
-                            host_session: (*auth_handles.host_session).clone(),
-                        };
+                        let persisted = load_persisted_sessions().unwrap_or_default();
                         restore_persisted_state(
                             &api_url,
                             persisted,
                             &session_handles,
                             &auth_handles,
                             &error,
+                            &operation,
+                            &poll_operation,
                         )
                         .await;
                     }
@@ -750,9 +910,11 @@ pub fn use_autopeer_controller(
         use_effect_with(
             ((*auth_session).clone(), (*host_session).clone()),
             move |(auth, host)| {
+                let existing = load_persisted_sessions().unwrap_or_default();
                 save_persisted_sessions(&PersistedSessions {
                     auth_session: auth.clone(),
                     host_session: host.clone(),
+                    pending_operation_id: existing.pending_operation_id,
                 });
                 || ()
             },
@@ -796,110 +958,6 @@ pub fn use_autopeer_controller(
             },
         );
     }
-
-    let refresh_sessions = {
-        let api_base = api_base.clone();
-        let auth_session = auth_session.clone();
-        let error = error.clone();
-        let ongoing_tasks = ongoing_tasks.clone();
-        let session_handles = session_handles.clone();
-
-        Callback::from(move |_| {
-            let Some(api_base) = require_api_base(&api_base, &error) else {
-                return;
-            };
-            let Some(auth_session) = (*auth_session).clone() else {
-                return;
-            };
-
-            let task_id = start_loading(&ongoing_tasks, UiMessage::key("loading.fetch_sessions"));
-
-            let error = error.clone();
-            let ongoing_tasks = ongoing_tasks.clone();
-            let session_handles = session_handles.clone();
-
-            spawn_local(async move {
-                match service::list_sessions(&api_base, &auth_session.session_token).await {
-                    Ok(response) => {
-                        apply_session_list(response, &session_handles);
-                        if session_handles.editing_node.is_none() {
-                            session_handles
-                                .config_stage
-                                .set(PeerConfigStage::SelectNode);
-                        }
-                        error.set(None);
-                    }
-                    Err(message) => error.set(Some(message)),
-                }
-                clear_loading(&ongoing_tasks, task_id);
-            });
-        })
-    };
-
-    let poll_operation = {
-        let api_base = api_base.clone();
-        let auth_session = auth_session.clone();
-        let operation = operation.clone();
-        let error = error.clone();
-        let ongoing_tasks = ongoing_tasks.clone();
-        let session_handles = session_handles.clone();
-
-        Callback::from(move |initial_operation: OperationStatus| {
-            let Some(api_base) = (*api_base).clone() else {
-                return;
-            };
-            let Some(auth_session) = (*auth_session).clone() else {
-                return;
-            };
-
-            let operation = operation.clone();
-            let error = error.clone();
-            let ongoing_tasks = ongoing_tasks.clone();
-            let session_handles = session_handles.clone();
-
-            spawn_local(async move {
-                let mut current = initial_operation;
-                operation.set(Some(current.clone()));
-
-                loop {
-                    if current.state.is_terminal() {
-                        let task_id = start_loading(
-                            &ongoing_tasks,
-                            UiMessage::key("loading.refresh_sessions"),
-                        );
-                        match service::list_sessions(&api_base, &auth_session.session_token).await {
-                            Ok(response) => {
-                                apply_session_list(response, &session_handles);
-                                reset_session_selection(&session_handles);
-                                error.set(None);
-                            }
-                            Err(message) => error.set(Some(message)),
-                        }
-                        clear_loading(&ongoing_tasks, task_id);
-                        break;
-                    }
-
-                    TimeoutFuture::new(3_000).await;
-                    match service::get_operation(
-                        &api_base,
-                        &auth_session.session_token,
-                        &current.id,
-                    )
-                    .await
-                    {
-                        Ok(updated) => {
-                            current = updated.clone();
-                            operation.set(Some(updated));
-                        }
-                        Err(message) => {
-                            error.set(Some(message));
-                            break;
-                        }
-                    }
-                }
-            });
-        })
-    };
 
     let on_asn_change = {
         let asn = asn.clone();
@@ -959,6 +1017,7 @@ pub fn use_autopeer_controller(
             let task_id = start_loading(&ongoing_tasks, UiMessage::key("loading.fetch_methods"));
             error.set(None);
             operation.set(None);
+            save_pending_operation_id(None);
 
             let auth_flow_handles = auth_flow_handles.clone();
             let oidc_methods = oidc_methods.clone();
@@ -1336,6 +1395,7 @@ pub fn use_autopeer_controller(
             auth_handles.host_session.set(None);
             clear_session_state(&session_handles);
             operation.set(None);
+            save_pending_operation_id(None);
             error.set(None);
             support_error.set(None);
             clear_all_loading(&ongoing_tasks);
@@ -1386,6 +1446,7 @@ pub fn use_autopeer_controller(
             error.set(None);
             support_error.set(None);
             operation.set(None);
+            save_pending_operation_id(None);
 
             let impersonate_mnt_value = (*impersonate_mnt).clone();
             let support_error = support_error.clone();
@@ -1707,6 +1768,62 @@ pub fn use_autopeer_controller(
         })
     };
 
+    let on_retry_operation = {
+        let api_base = api_base.clone();
+        let auth_session = auth_session.clone();
+        let operation = operation.clone();
+        let error = error.clone();
+        let ongoing_tasks = ongoing_tasks.clone();
+        let poll_operation = poll_operation.clone();
+
+        Callback::from(move |_| {
+            let Some(api_base) = require_api_base(&api_base, &error) else {
+                return;
+            };
+            let Some(auth_session) = (*auth_session).clone() else {
+                return;
+            };
+            let Some(current) = (*operation).clone() else {
+                return;
+            };
+
+            let task_id =
+                start_loading(&ongoing_tasks, UiMessage::key("loading.retry_operation"));
+            error.set(None);
+
+            let operation = operation.clone();
+            let error = error.clone();
+            let ongoing_tasks = ongoing_tasks.clone();
+            let poll_operation = poll_operation.clone();
+
+            spawn_local(async move {
+                match service::retry_operation(
+                    &api_base,
+                    &auth_session.session_token,
+                    &current.id,
+                )
+                .await
+                {
+                    Ok(status) => {
+                        operation.set(Some(status.clone()));
+                        poll_operation.emit(status);
+                    }
+                    Err(message) => error.set(Some(message)),
+                }
+                clear_loading(&ongoing_tasks, task_id);
+            });
+        })
+    };
+
+    let on_dismiss_operation = {
+        let operation = operation.clone();
+
+        Callback::from(move |_| {
+            operation.set(None);
+            save_pending_operation_id(None);
+        })
+    };
+
     AutoPeerController {
         autopeer_site_href,
         looking_glass_site_href,
@@ -1759,6 +1876,8 @@ pub fn use_autopeer_controller(
         on_submit_session,
         on_retire_selected_session,
         on_delete_selected_session,
+        on_retry_operation,
+        on_dismiss_operation,
     }
 }
 

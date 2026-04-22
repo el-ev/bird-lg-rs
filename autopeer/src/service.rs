@@ -358,3 +358,12 @@ pub async fn get_operation(
     let url = api_url(api_base, &format!("/v1/operations/{operation_id}"));
     send_get(&url, Some(session_token)).await
 }
+
+pub async fn retry_operation(
+    api_base: &str,
+    session_token: &str,
+    operation_id: &str,
+) -> Result<OperationStatus, UiMessage> {
+    let url = api_url(api_base, &format!("/v1/operations/{operation_id}/retry"));
+    send_json("POST", &url, Some(session_token), &()).await
+}

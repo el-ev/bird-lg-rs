@@ -14,7 +14,7 @@ import {
   type SessionView,
 } from "./types";
 import { defaultPeerPort, isTruthyRecord, normalizeAsn } from "./utils";
-import { vaultDecrypt, vaultEncrypt } from "./vault";
+import { isVaultEncrypted, vaultDecrypt, vaultEncrypt } from "./vault";
 
 const PEER_KEY_ORDER = ["comment", "wg", "bgp", "removed"] as const;
 const WG_KEY_ORDER = [
@@ -429,10 +429,10 @@ async function toSpec(peer: PeerEntry, vaultPassword?: string | null): Promise<P
   const wg = (peer.wg ?? {}) as YamlObject;
   const bgp = (peer.bgp ?? {}) as YamlObject;
   let endpoint = "";
-  if (isTaggedScalar(wg.endpoint)) {
+  if (isVaultEncrypted(wg.endpoint)) {
     if (vaultPassword) {
       try {
-        endpoint = await vaultDecrypt(wg.endpoint as TaggedScalar, vaultPassword);
+        endpoint = await vaultDecrypt(wg.endpoint, vaultPassword);
       } catch { /* leave empty if decryption fails */ }
     }
   } else {
@@ -467,7 +467,7 @@ function peerHasPsk(peer: PeerEntry): boolean {
 
 function peerHasEncryptedEndpoint(peer: PeerEntry): boolean {
   const wg = (peer.wg ?? {}) as YamlObject;
-  return isTaggedScalar(wg.endpoint);
+  return isVaultEncrypted(wg.endpoint);
 }
 
 function specToPeerEntry(
@@ -652,6 +652,13 @@ function validateWireGuardPublicKey(value: string): void {
   }
 }
 
+function validateWireGuardPsk(value: string): void {
+  const trimmed = value.trim();
+  if (trimmed.length !== 44 || !trimmed.endsWith("=") || !BASE64_LIKE.test(trimmed)) {
+    throw new Error("psk must be a 44-character base64 WireGuard pre-shared key");
+  }
+}
+
 function validatePeerIpv4(value: string): void {
   if (!isValidIpv4Address(value)) {
     throw new Error("peer4 must be a valid IPv4 address");
@@ -757,10 +764,7 @@ export function validateSessionSpec(node: InventoryHost, asn: string, spec: Peer
   }
   validateMtu(spec.mtu);
   if (spec.psk !== null && spec.psk !== undefined) {
-    const trimmedPsk = spec.psk.trim();
-    if (trimmedPsk.length !== 44 || !trimmedPsk.endsWith("=") || !BASE64_LIKE.test(trimmedPsk)) {
-      throw new Error("psk must be a 44-character base64 WireGuard pre-shared key");
-    }
+    validateWireGuardPsk(spec.psk);
   }
   ensureEndpointAllowed(node, spec.endpoint);
   normalizeAsn(asn);
@@ -866,44 +870,42 @@ export async function listSessionsForAsn(
 ): Promise<SessionView[]> {
   const sessions = new Map<string, SessionView>();
 
+  const matchingPeers: { host: InventoryHost; peer: PeerEntry }[] = [];
   for (const host of hosts) {
     const text = peerFiles.get(host.name);
-    if (!text) {
-      continue;
-    }
-
+    if (!text) continue;
     const data = normalizePeerFileData(parseYamlObject(text));
     for (const peer of data.peers) {
-      if (peerAsn(peer) !== asn || isRemovedPeer(peer)) {
-        continue;
-      }
-
-      const spec = await toSpec(peer, vaultPassword);
-      const hasPsk = peerHasPsk(peer);
-      const hasEncryptedEndpoint = peerHasEncryptedEndpoint(peer);
-
-      sessions.set(host.name, {
-        node: host.name,
-        asn,
-        state: isManagedPeer(peer) ? "managed" : "manual",
-        spec,
-        metadata: isManagedPeer(peer)
-          ? {
-              managed: true,
-              effective_mnt:
-                isTruthyRecord(peer.autopeer) && typeof peer.autopeer.effective_mnt === "string"
-                  ? String(peer.autopeer.effective_mnt)
-                  : undefined,
-              auth_provider:
-                isTruthyRecord(peer.autopeer) && typeof peer.autopeer.auth_provider === "string"
-                  ? String(peer.autopeer.auth_provider)
-                  : undefined,
-            }
-          : { managed: false },
-        has_psk: hasPsk || undefined,
-        has_encrypted_endpoint: hasEncryptedEndpoint || undefined,
-      });
+      if (peerAsn(peer) !== asn || isRemovedPeer(peer)) continue;
+      matchingPeers.push({ host, peer });
     }
+  }
+
+  const specs = await Promise.all(matchingPeers.map(({ peer }) => toSpec(peer, vaultPassword)));
+
+  for (let i = 0; i < matchingPeers.length; i++) {
+    const { host, peer } = matchingPeers[i];
+    sessions.set(host.name, {
+      node: host.name,
+      asn,
+      state: isManagedPeer(peer) ? "managed" : "manual",
+      spec: specs[i],
+      metadata: isManagedPeer(peer)
+        ? {
+            managed: true,
+            effective_mnt:
+              isTruthyRecord(peer.autopeer) && typeof peer.autopeer.effective_mnt === "string"
+                ? String(peer.autopeer.effective_mnt)
+                : undefined,
+            auth_provider:
+              isTruthyRecord(peer.autopeer) && typeof peer.autopeer.auth_provider === "string"
+                ? String(peer.autopeer.auth_provider)
+                : undefined,
+          }
+        : { managed: false },
+      has_psk: peerHasPsk(peer) || undefined,
+      has_encrypted_endpoint: peerHasEncryptedEndpoint(peer) || undefined,
+    });
   }
 
   for (const operation of operations) {
@@ -958,6 +960,23 @@ async function vaultProtectEntry(
   }
 }
 
+function sanitizeSnapshot(spec: PeerSessionSpec | null): PeerSessionSpec | null {
+  if (!spec) return null;
+  const { psk: _, ...rest } = spec;
+  return rest;
+}
+
+async function finalizeEntry(
+  next: PeerEntry,
+  spec: PeerSessionSpec | undefined,
+  existing: PeerEntry | undefined,
+  vaultPassword: string | null,
+): Promise<PeerSessionSpec | null> {
+  const snapshot = sanitizeSnapshot(await toSpec(next));
+  await vaultProtectEntry(next, spec, existing, vaultPassword);
+  return snapshot;
+}
+
 export async function mutatePeerFile(
   fileText: string,
   input: {
@@ -969,11 +988,6 @@ export async function mutatePeerFile(
     vaultPassword: string | null;
   },
 ): Promise<{ content: string; sessionSnapshot: PeerSessionSpec | null }> {
-  function sanitizeSnapshot(spec: PeerSessionSpec | null): PeerSessionSpec | null {
-    if (spec) { delete spec.psk; }
-    return spec;
-  }
-
   const data = parseYamlObject(fileText);
   const normalized = normalizePeerFileData(data);
   const peers = [...normalized.peers];
@@ -1003,8 +1017,7 @@ export async function mutatePeerFile(
           input.session,
           existing,
         );
-        const sessionSnapshot = sanitizeSnapshot(await toSpec(next));
-        await vaultProtectEntry(next, input.session, existing, input.vaultPassword);
+        const sessionSnapshot = await finalizeEntry(next, input.session, existing, input.vaultPassword);
         peers[match.index] = next;
         return {
           content: dumpPeerYaml(normalizePeerFileData({ peers })),
@@ -1025,8 +1038,7 @@ export async function mutatePeerFile(
       input.session,
       existing,
     );
-    const sessionSnapshot = sanitizeSnapshot(await toSpec(next));
-    await vaultProtectEntry(next, input.session, existing, input.vaultPassword);
+    const sessionSnapshot = await finalizeEntry(next, input.session, existing, input.vaultPassword);
     if (match) {
       peers[match.index] = next;
     } else {
@@ -1052,8 +1064,7 @@ export async function mutatePeerFile(
       await toSpec(existing, input.vaultPassword),
       existing,
     );
-    const sessionSnapshot = sanitizeSnapshot(await toSpec(next));
-    await vaultProtectEntry(next, undefined, existing, input.vaultPassword);
+    const sessionSnapshot = await finalizeEntry(next, undefined, existing, input.vaultPassword);
     peers[match.index] = next;
     return {
       content: dumpPeerYaml(normalizePeerFileData({ peers })),
@@ -1072,8 +1083,7 @@ export async function mutatePeerFile(
       input.session,
       existing,
     );
-    const sessionSnapshot = sanitizeSnapshot(await toSpec(next));
-    await vaultProtectEntry(next, input.session, existing, input.vaultPassword);
+    const sessionSnapshot = await finalizeEntry(next, input.session, existing, input.vaultPassword);
     peers[match.index] = next;
     return {
       content: dumpPeerYaml(normalizePeerFileData({ peers })),

@@ -29,6 +29,8 @@ pub(super) const TABLE: &[(&str, &str)] = &[
     ("action.delete_session", "Hanc Sessionem Delere"),
     ("action.open_pr", "PR Aperire"),
     ("action.workflow_run", "Workflow Currere"),
+    ("action.retry", "Iterare"),
+    ("action.dismiss_operation", "Dimittere"),
     // Step: LoadingConfig / EnterAsn
     (
         "step.loading_config.prompt",
@@ -837,6 +839,9 @@ pub(super) const TABLE: &[(&str, &str)] = &[
         "{requested} in aut-num -> mnt-by pro hoc ASN non adest. Custodes praesto: {available}.",
     ),
     ("error.request.operation.not_found", "Operatio non inventa."),
+    ("error.request.operation.not_retryable", "Haec operatio iterari non potest."),
+    ("error.request.operation.pr_closed", "Rogatio tractus clausa est et iterari non potest."),
+    ("error.request.operation.branch_missing", "Ramus operationis in repositorio deest."),
     ("error.request.route.not_found", "Non inventum."),
     (
         "error.vault.not_configured",
@@ -1064,6 +1069,10 @@ pub(super) const TABLE: &[(&str, &str)] = &[
     (
         "loading.delete_pr",
         "Sessionem e repositorio nostro delemus et rogationem tractus aperimus...",
+    ),
+    (
+        "loading.retry_operation",
+        "Operationem defectam iteramus...",
     ),
 ];
 

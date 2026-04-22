@@ -30,7 +30,6 @@ OIDC_PROVIDERS = """[
     "name": "kioubit",
     "label": "Kioubit",
     "issuer": "https://dn42.g-load.eu",
-    "dn42_issuer": "https://auth.dn42",
     "client_id": "5b6a7a8b-9783-4f9d-9484-091f235ef8dd",
     "client_secret_env": "KIOUBIT_OIDC_CLIENT_SECRET",
     "token_endpoint_auth_method": "client_secret_post",

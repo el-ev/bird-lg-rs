@@ -29,6 +29,8 @@ pub(super) const TABLE: &[(&str, &str)] = &[
     ("action.delete_session", "Delete This Session"),
     ("action.open_pr", "Open PR"),
     ("action.workflow_run", "Workflow Run"),
+    ("action.retry", "Retry"),
+    ("action.dismiss_operation", "Dismiss"),
     // Step: LoadingConfig / EnterAsn
     (
         "step.loading_config.prompt",
@@ -837,6 +839,9 @@ pub(super) const TABLE: &[(&str, &str)] = &[
         "{requested} is not present in aut-num -> mnt-by for this ASN. Available mntners: {available}.",
     ),
     ("error.request.operation.not_found", "Operation not found."),
+    ("error.request.operation.not_retryable", "This operation cannot be retried."),
+    ("error.request.operation.pr_closed", "The pull request has been closed and cannot be retried."),
+    ("error.request.operation.branch_missing", "The operation branch is missing from the repository."),
     ("error.request.route.not_found", "Not found."),
     (
         "error.vault.not_configured",
@@ -1064,6 +1069,10 @@ pub(super) const TABLE: &[(&str, &str)] = &[
     (
         "loading.delete_pr",
         "Deleting your session from our repo and opening a pull request...",
+    ),
+    (
+        "loading.retry_operation",
+        "Retrying your failed operation...",
     ),
 ];
 

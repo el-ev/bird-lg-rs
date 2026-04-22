@@ -402,6 +402,8 @@ pub struct PersistedSessions {
     pub auth_session: Option<AuthSessionResponse>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub host_session: Option<AuthSessionResponse>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub pending_operation_id: Option<String>,
 }
 
 fn local_storage() -> Option<web_sys::Storage> {
@@ -421,7 +423,10 @@ pub fn save_persisted_sessions(sessions: &PersistedSessions) {
         return;
     };
 
-    if sessions.auth_session.is_none() && sessions.host_session.is_none() {
+    if sessions.auth_session.is_none()
+        && sessions.host_session.is_none()
+        && sessions.pending_operation_id.is_none()
+    {
         let _ = storage.remove_item("bird-lg-rs.autopeer.sessions");
         return;
     }

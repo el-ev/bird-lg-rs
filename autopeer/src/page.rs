@@ -584,6 +584,8 @@ pub fn auto_peer_page() -> Html {
         on_submit_session,
         on_retire_selected_session,
         on_delete_selected_session,
+        on_retry_operation,
+        on_dismiss_operation,
     } = use_autopeer_controller(default_autopeer_home_href, default_looking_glass_href);
     let loading = !ongoing_tasks.is_empty();
     let focused_field = use_state(|| None::<SessionDraftField>);
@@ -2139,6 +2141,25 @@ pub fn auto_peer_page() -> Html {
                                             <a href={run_url.clone()} target="_blank" rel="noreferrer">{i18n.t("action.workflow_run")}</a>
                                         }
                                     </div>
+                                    if operation_status.state.is_terminal() {
+                                        <div class="autopeer-operation-actions">
+                                            if operation_status.state == OperationState::Failed && operation_status.pull_request_url.is_some() {
+                                                <button
+                                                    class="autopeer-btn autopeer-btn--retry"
+                                                    onclick={on_retry_operation.clone()}
+                                                    disabled={loading}
+                                                >
+                                                    {i18n.t("action.retry")}
+                                                </button>
+                                            }
+                                            <button
+                                                class="autopeer-btn autopeer-btn--dismiss"
+                                                onclick={on_dismiss_operation.clone()}
+                                            >
+                                                {i18n.t("action.dismiss_operation")}
+                                            </button>
+                                        </div>
+                                    }
                                 </article>
                             }
                         </aside>
