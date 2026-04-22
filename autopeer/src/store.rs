@@ -74,6 +74,8 @@ pub struct SessionDraft {
     pub mp_bgp: bool,
     pub mp_bgp_transport: Option<MpBgpTransport>,
     pub peering_strategy: PeeringStrategy,
+    pub psk: String,
+    pub encrypt_endpoint: bool,
 }
 
 impl Default for SessionDraft {
@@ -94,6 +96,8 @@ impl Default for SessionDraft {
             mp_bgp: true,
             mp_bgp_transport: None,
             peering_strategy: PeeringStrategy::FullTable,
+            psk: String::new(),
+            encrypt_endpoint: false,
         }
     }
 }
@@ -119,7 +123,22 @@ impl SessionDraft {
             mp_bgp: spec.mp_bgp,
             mp_bgp_transport: spec.mp_bgp_transport,
             peering_strategy: spec.peering_strategy,
+            psk: String::new(),
+            encrypt_endpoint: spec.encrypt_endpoint.unwrap_or(false),
         }
+    }
+
+    pub fn from_session_view(node: &str, view: &crate::models::SessionView) -> Self {
+        let mut draft = view
+            .spec
+            .as_ref()
+            .map(|spec| Self::from_session(node, spec))
+            .unwrap_or_else(|| Self {
+                node: node.to_string(),
+                ..Default::default()
+            });
+        draft.encrypt_endpoint = view.has_encrypted_endpoint;
+        draft
     }
 
     pub fn families_label_key(&self) -> &'static str {
@@ -355,6 +374,8 @@ impl SessionDraft {
             mp_bgp: self.mp_bgp,
             mp_bgp_transport: self.mp_bgp.then_some(self.mp_bgp_transport).flatten(),
             peering_strategy: self.peering_strategy,
+            psk: optional_string(&self.psk),
+            encrypt_endpoint: if self.encrypt_endpoint { Some(true) } else { None },
         })
     }
 }
@@ -1122,6 +1143,8 @@ mod tests {
             mp_bgp: true,
             mp_bgp_transport: None,
             peering_strategy: PeeringStrategy::Transit,
+            psk: None,
+            encrypt_endpoint: None,
         };
 
         let roundtrip = SessionDraft::from_session("lax-01", &spec)
@@ -1148,6 +1171,8 @@ mod tests {
             mp_bgp: false,
             mp_bgp_transport: None,
             peering_strategy: PeeringStrategy::Transit,
+            psk: None,
+            encrypt_endpoint: None,
         };
 
         let roundtrip = SessionDraft::from_session("lax-01", &spec)

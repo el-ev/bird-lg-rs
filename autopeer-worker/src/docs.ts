@@ -348,6 +348,14 @@ const components = {
           type: "string",
           enum: ["full_table", "transit", "peer", "downstream"],
         },
+        psk: {
+          type: "string",
+          description: "WireGuard pre-shared key (write-only, 44-char base64)",
+        },
+        encrypt_endpoint: {
+          type: "boolean",
+          description: "Encrypt the endpoint field with Ansible Vault in the git repo",
+        },
       },
     },
     SessionView: {
@@ -362,6 +370,8 @@ const components = {
         },
         spec: ref("PeerSessionSpec"),
         metadata: ref("SessionMetadata"),
+        has_psk: { type: "boolean", description: "Whether a WireGuard PSK is configured" },
+        has_encrypted_endpoint: { type: "boolean", description: "Whether the endpoint is vault-encrypted" },
         pending_operation_id: { type: "string" },
         pull_request_url: { type: "string", format: "uri" },
         message: ref("UiMessage"),

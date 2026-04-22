@@ -284,6 +284,14 @@ export function readSecret(
   return readNamedSecret(env, name);
 }
 
+export function readOptionalSecret(
+  env: Env,
+  name: "ANSIBLE_VAULT_PASSWORD",
+): string | null {
+  const value = (env as unknown as Record<string, unknown>)[name];
+  return typeof value === "string" && value.length > 0 ? value : null;
+}
+
 export function timingSafeEqual(left: string, right: string): boolean {
   const leftBytes = new TextEncoder().encode(left);
   const rightBytes = new TextEncoder().encode(right);

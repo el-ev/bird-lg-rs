@@ -1567,6 +1567,12 @@ pub fn auto_peer_page() -> Html {
                                     placeholder={i18n.t("stage2.field.endpoint.placeholder")}
                                     disabled={loading}
                                 />
+                                {" "}
+                                <ShellToggle
+                                    active={draft.encrypt_endpoint}
+                                    on_toggle={on_toggle_encrypt_endpoint}
+                                    label={i18n.t("stage2.field.encrypt_endpoint")}
+                                />
                             </ShellLine>
                             <ShellLine>
                                 <ShellPrompt>{i18n.t("stage2.field.wg_key")}</ShellPrompt>
@@ -1811,15 +1817,6 @@ pub fn auto_peer_page() -> Html {
                                         on_change={update_text_field(|draft| &mut draft.psk)}
                                         placeholder={i18n.t("stage2.field.psk.placeholder")}
                                         disabled={loading}
-                                    />
-                                </ShellLine>
-                                <ShellLine>
-                                    <ShellPrompt>{i18n.t("stage2.field.encrypt_endpoint")}</ShellPrompt>
-                                    {" "}
-                                    <ShellToggle
-                                        active={draft.encrypt_endpoint}
-                                        on_toggle={on_toggle_encrypt_endpoint}
-                                        label={i18n.t("stage2.field.encrypt_endpoint")}
                                     />
                                 </ShellLine>
                             </div>

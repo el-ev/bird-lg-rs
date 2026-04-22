@@ -177,8 +177,8 @@ describe("network peer mutations", () => {
       mp_bgp: true
 `;
 
-  it("creates a managed peer entry in canonical order", () => {
-    const result = mutatePeerFile(baseFile, {
+  it("creates a managed peer entry in canonical order", async () => {
+    const result = await mutatePeerFile(baseFile, {
       asn: "4242421234",
       effectiveMnt: "EXAMPLE-MNT",
       authMethod,
@@ -199,6 +199,7 @@ describe("network peer mutations", () => {
         mp_bgp: true,
         peering_strategy: "full_table",
       },
+      vaultPassword: null,
     });
 
     expect(result.content).toContain("comment: 'autopeer test'");
@@ -211,8 +212,8 @@ describe("network peer mutations", () => {
     expect(result.content).not.toContain("-     ");
   });
 
-  it("emits explicit mp_bgp_transport when requested", () => {
-    const result = mutatePeerFile(baseFile, {
+  it("emits explicit mp_bgp_transport when requested", async () => {
+    const result = await mutatePeerFile(baseFile, {
       asn: "4242421234",
       effectiveMnt: "EXAMPLE-MNT",
       authMethod,
@@ -234,13 +235,14 @@ describe("network peer mutations", () => {
         mp_bgp_transport: "ipv4",
         peering_strategy: "full_table",
       },
+      vaultPassword: null,
     });
 
     expect(result.content).toContain("mp_bgp_transport: 'ipv4'");
   });
 
-  it("omits legacy mp_bgp_transport when the session leaves it unset", () => {
-    const result = mutatePeerFile(baseFile, {
+  it("omits legacy mp_bgp_transport when the session leaves it unset", async () => {
+    const result = await mutatePeerFile(baseFile, {
       asn: "4242421234",
       effectiveMnt: "EXAMPLE-MNT",
       authMethod,
@@ -262,12 +264,13 @@ describe("network peer mutations", () => {
         mp_bgp_transport: null,
         peering_strategy: "full_table",
       },
+      vaultPassword: null,
     });
 
     expect(result.content).not.toContain("mp_bgp_transport");
   });
 
-  it("silently adopts a manual peer during create", () => {
+  it("silently adopts a manual peer during create", async () => {
     const file = `peers:
   - comment: 'autopeer test'
     wg:
@@ -288,7 +291,7 @@ describe("network peer mutations", () => {
       mp_bgp: true
 `;
 
-    const result = mutatePeerFile(file, {
+    const result = await mutatePeerFile(file, {
       asn: "4242421234",
       effectiveMnt: "EXAMPLE-MNT",
       authMethod,
@@ -309,6 +312,7 @@ describe("network peer mutations", () => {
         mp_bgp: true,
         peering_strategy: "full_table",
       },
+      vaultPassword: null,
     });
 
     expect(result.content).toContain("managed: true");
@@ -316,7 +320,7 @@ describe("network peer mutations", () => {
     expect(result.content).toContain("auth_provider: 'migration'");
   });
 
-  it("silently adopts a manual peer during update", () => {
+  it("silently adopts a manual peer during update", async () => {
     const file = `peers:
   - comment: 'autopeer test'
     wg:
@@ -337,7 +341,7 @@ describe("network peer mutations", () => {
       mp_bgp: true
 `;
 
-    const result = mutatePeerFile(file, {
+    const result = await mutatePeerFile(file, {
       asn: "4242421234",
       effectiveMnt: "EXAMPLE-MNT",
       authMethod,
@@ -358,6 +362,7 @@ describe("network peer mutations", () => {
         mp_bgp: true,
         peering_strategy: "full_table",
       },
+      vaultPassword: null,
     });
 
     expect(result.content).toContain("comment: 'updated autopeer test'");
@@ -369,7 +374,7 @@ describe("network peer mutations", () => {
     expect(result.content).toContain("auth_provider: 'migration'");
   });
 
-  it("marks managed peers as removed instead of deleting them", () => {
+  it("marks managed peers as removed instead of deleting them", async () => {
     const file = `peers:
   - comment: 'autopeer test'
     wg:
@@ -394,18 +399,19 @@ describe("network peer mutations", () => {
       auth_provider: 'registry_ssh'
 `;
 
-    const result = mutatePeerFile(file, {
+    const result = await mutatePeerFile(file, {
       asn: "4242421234",
       effectiveMnt: "EXAMPLE-MNT",
       authMethod,
       kind: "delete",
+      vaultPassword: null,
     });
 
     expect(result.content).toContain("removed: true");
     expect(result.content).toContain("auth_provider: 'registry_ssh'");
   });
 
-  it("keeps content identical when an update does not change the session", () => {
+  it("keeps content identical when an update does not change the session", async () => {
     const file = `peers:
   - comment: 'autopeer test'
     wg:
@@ -430,7 +436,7 @@ describe("network peer mutations", () => {
       auth_provider: 'registry_ssh'
 `;
 
-    const result = mutatePeerFile(file, {
+    const result = await mutatePeerFile(file, {
       asn: "4242421234",
       effectiveMnt: "EXAMPLE-MNT",
       authMethod,
@@ -451,12 +457,13 @@ describe("network peer mutations", () => {
         mp_bgp: true,
         peering_strategy: "full_table",
       },
+      vaultPassword: null,
     });
 
     expect(result.content).toBe(file);
   });
 
-  it("converts a manual peer into a managed migration entry", () => {
+  it("converts a manual peer into a managed migration entry", async () => {
     const file = `peers:
   - comment: autopeer test
     wg:
@@ -477,7 +484,7 @@ describe("network peer mutations", () => {
       mp_bgp: true
 `;
 
-    const result = mutatePeerFile(file, {
+    const result = await mutatePeerFile(file, {
       asn: "4242421234",
       effectiveMnt: "EXAMPLE-MNT",
       authMethod: {
@@ -487,6 +494,7 @@ describe("network peer mutations", () => {
         provider: "migration",
       },
       kind: "migrate",
+      vaultPassword: null,
     });
 
     expect(result.content).toContain("managed: true");
@@ -494,7 +502,7 @@ describe("network peer mutations", () => {
     expect(result.content).toContain("auth_provider: 'migration'");
   });
 
-  it("matches the ansible normalizer's explicit quoting and vault layout", () => {
+  it("matches the ansible normalizer's explicit quoting and vault layout", async () => {
     const file = `peers:
   - comment: Minecon724
     wg:
@@ -520,7 +528,7 @@ describe("network peer mutations", () => {
       mp_bgp: false
 `;
 
-    const result = mutatePeerFile(file, {
+    const result = await mutatePeerFile(file, {
       asn: "4242420129",
       effectiveMnt: "EXAMPLE-MNT",
       authMethod: {
@@ -530,6 +538,7 @@ describe("network peer mutations", () => {
         provider: "migration",
       },
       kind: "migrate",
+      vaultPassword: null,
     });
 
     expect(result.content).toContain("comment: 'Minecon724'");
@@ -542,8 +551,8 @@ describe("network peer mutations", () => {
     expect(result.content).not.toContain("\n        \n      peer4:");
   });
 
-  it("preserves IPv6 ULA peers and explicit BGP feature toggles", () => {
-    const result = mutatePeerFile(baseFile, {
+  it("preserves IPv6 ULA peers and explicit BGP feature toggles", async () => {
+    const result = await mutatePeerFile(baseFile, {
       asn: "4242422172",
       effectiveMnt: "EXAMPLE-MNT",
       authMethod,
@@ -564,6 +573,7 @@ describe("network peer mutations", () => {
         mp_bgp: false,
         peering_strategy: "full_table",
       },
+      vaultPassword: null,
     });
 
     expect(result.content).toContain("peer4: '172.20.193.67'");
@@ -572,8 +582,8 @@ describe("network peer mutations", () => {
     expect(result.content).toContain("mp_bgp: false");
   });
 
-  it("writes non-default peering strategies into peer YAML", () => {
-    const result = mutatePeerFile(baseFile, {
+  it("writes non-default peering strategies into peer YAML", async () => {
+    const result = await mutatePeerFile(baseFile, {
       asn: "4242423001",
       effectiveMnt: "EXAMPLE-MNT",
       authMethod,
@@ -594,6 +604,7 @@ describe("network peer mutations", () => {
         mp_bgp: true,
         peering_strategy: "downstream",
       },
+      vaultPassword: null,
     });
 
     expect(result.content).toContain("peering_strategy: 'downstream'");
@@ -601,7 +612,7 @@ describe("network peer mutations", () => {
 });
 
 describe("session listing", () => {
-  it("overlays pending operations onto repo-backed sessions", () => {
+  it("overlays pending operations onto repo-backed sessions", async () => {
     const peerFiles = new Map<string, string>([
       [
         "lax-01",
@@ -650,11 +661,12 @@ describe("session listing", () => {
       },
     ];
 
-    const sessions = listSessionsForAsn(
+    const sessions = await listSessionsForAsn(
       "4242421234",
       peerFiles,
       [{ name: "lax-01", ip_support: "dual", region: undefined, country: undefined, comment: undefined }],
       operations,
+      null,
     );
 
     expect(sessions).toHaveLength(1);

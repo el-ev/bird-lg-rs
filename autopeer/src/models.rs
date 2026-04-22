@@ -300,6 +300,10 @@ pub struct PeerSessionSpec {
     pub mp_bgp_transport: Option<MpBgpTransport>,
     #[serde(default, skip_serializing_if = "is_default_peering_strategy")]
     pub peering_strategy: PeeringStrategy,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub psk: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub encrypt_endpoint: Option<bool>,
 }
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize, PartialEq, Eq)]
@@ -311,6 +315,10 @@ pub struct SessionView {
     pub spec: Option<PeerSessionSpec>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub metadata: Option<SessionMetadata>,
+    #[serde(default)]
+    pub has_psk: bool,
+    #[serde(default)]
+    pub has_encrypted_endpoint: bool,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub pending_operation_id: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
