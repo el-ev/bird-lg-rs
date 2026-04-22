@@ -1206,6 +1206,7 @@ mod tests {
                 expires_at: "2026-04-18T10:00:00Z".into(),
             }),
             host_session: None,
+            pending_operation_id: Some("op-123".into()),
         };
 
         let encoded = serde_json::to_string(&sessions).unwrap();
