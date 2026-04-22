@@ -279,6 +279,7 @@ fn operation_kind_label(i18n: &I18n, kind: &OperationKind) -> &'static str {
     match kind {
         OperationKind::Create => i18n.t("operation.kind.create"),
         OperationKind::Update => i18n.t("operation.kind.update"),
+        OperationKind::Retire => i18n.t("operation.kind.retire"),
         OperationKind::Delete => i18n.t("operation.kind.delete"),
         OperationKind::Migrate => i18n.t("operation.kind.migrate"),
     }
@@ -440,6 +441,14 @@ fn retire_button_text(i18n: &I18n, retire_confirmation: bool) -> &'static str {
     }
 }
 
+fn delete_button_text(i18n: &I18n, delete_confirmation: bool) -> &'static str {
+    if delete_confirmation {
+        i18n.t("action.confirm_deletion")
+    } else {
+        i18n.t("action.delete_session")
+    }
+}
+
 fn render_flow_steps(
     i18n: &I18n,
     stage: PeerConfigStage,
@@ -541,6 +550,7 @@ pub fn auto_peer_page() -> Html {
         editing_node,
         config_stage,
         retire_confirmation,
+        delete_confirmation,
         operation,
         error,
         support_error,
@@ -573,6 +583,7 @@ pub fn auto_peer_page() -> Html {
         on_return_to_host,
         on_submit_session,
         on_retire_selected_session,
+        on_delete_selected_session,
     } = use_autopeer_controller(default_autopeer_home_href, default_looking_glass_href);
     let loading = !ongoing_tasks.is_empty();
     let focused_field = use_state(|| None::<SessionDraftField>);
@@ -1103,6 +1114,7 @@ pub fn auto_peer_page() -> Html {
             let selected_node = selected_node_name
                 .and_then(|name| nodes.iter().find(|node| node.name == name).cloned());
             let retire_confirmation_value = *retire_confirmation;
+            let delete_confirmation_value = *delete_confirmation;
             let active_asn = auth_summary
                 .as_ref()
                 .map(|session| session.asn.clone())
@@ -1787,6 +1799,11 @@ pub fn auto_peer_page() -> Html {
                                     onclick={on_retire_selected_session.clone()}
                                     disabled={loading}
                                 />
+                                <ShellButton
+                                    text={delete_button_text(&i18n, delete_confirmation_value)}
+                                    onclick={on_delete_selected_session.clone()}
+                                    disabled={loading}
+                                />
                             } else {
                                 <ShellButton text={i18n.t("action.back_to_nodes")} onclick={on_change_node.clone()} disabled={loading} />
                             }
@@ -2120,7 +2137,10 @@ pub fn auto_peer_page() -> Html {
 mod tests {
     use std::collections::BTreeSet;
 
-    use super::{autopeer_node_endpoint_port, displayed_peer_config_stage, retire_button_text};
+    use super::{
+        autopeer_node_endpoint_port, delete_button_text, displayed_peer_config_stage,
+        retire_button_text,
+    };
     use crate::{
         controller::{configured_href, filter_supported_methods, validate_ssh_signature_input},
         models::{AuthMethod, AuthMethodKind, MpBgpTransport, PeeringStrategy, UiMessage},
@@ -2228,6 +2248,13 @@ mod tests {
         let i18n = crate::i18n::I18n::test_default();
         assert_eq!(retire_button_text(&i18n, false), "Retire This Session");
         assert_eq!(retire_button_text(&i18n, true), "Confirm Retirement");
+    }
+
+    #[test]
+    fn delete_button_requires_confirmation_click() {
+        let i18n = crate::i18n::I18n::test_default();
+        assert_eq!(delete_button_text(&i18n, false), "Delete This Session");
+        assert_eq!(delete_button_text(&i18n, true), "Confirm Deletion");
     }
 
     #[test]

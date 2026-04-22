@@ -25,6 +25,8 @@ pub(super) const TABLE: &[(&str, &str)] = &[
     ("action.resend_signin_link", "Nexum Subscriptionis Remittere"),
     ("action.confirm_retirement", "Retractum Confirmare"),
     ("action.retire_session", "Hanc Sessionem Retrahere"),
+    ("action.confirm_deletion", "Deletionem Confirmare"),
+    ("action.delete_session", "Hanc Sessionem Delere"),
     ("action.open_pr", "PR Aperire"),
     ("action.workflow_run", "Workflow Currere"),
     // Step: LoadingConfig / EnterAsn
@@ -422,6 +424,7 @@ pub(super) const TABLE: &[(&str, &str)] = &[
     ("session_state.conflict", "Conflictus"),
     ("operation.kind.create", "Creare"),
     ("operation.kind.update", "Renovare"),
+    ("operation.kind.retire", "Retrahere"),
     ("operation.kind.delete", "Delere"),
     ("operation.kind.migrate", "Migrare"),
     ("operation.state.pending_pull_request", "PR Paratur"),
@@ -569,6 +572,10 @@ pub(super) const TABLE: &[(&str, &str)] = &[
     (
         "error.ui.session.choose_managed_to_retire",
         "Unam ex sessionibus tuis elige antequam eam retrahas",
+    ),
+    (
+        "error.ui.session.choose_managed_to_delete",
+        "Sessionem tuam elige antequam eam deleas",
     ),
     (
         "error.ui.auth.authenticate_first",
@@ -1036,6 +1043,10 @@ pub(super) const TABLE: &[(&str, &str)] = &[
     (
         "loading.retire_pr",
         "Sessionem tuam in repositorio nostro retrahimus et petitionem tractionis aperimus...",
+    ),
+    (
+        "loading.delete_pr",
+        "Sessionem e repositorio nostro delemus et rogationem tractus aperimus...",
     ),
 ];
 

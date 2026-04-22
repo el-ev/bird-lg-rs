@@ -25,6 +25,8 @@ pub(super) const TABLE: &[(&str, &str)] = &[
     ("action.resend_signin_link", "重新发送登入链接"),
     ("action.confirm_retirement", "确认停用"),
     ("action.retire_session", "停用会话"),
+    ("action.confirm_deletion", "确认删除"),
+    ("action.delete_session", "删除会话"),
     ("action.open_pr", "查看拉取请求"),
     ("action.workflow_run", "查看工作流"),
     // Step: LoadingConfig / EnterAsn
@@ -410,6 +412,7 @@ pub(super) const TABLE: &[(&str, &str)] = &[
     ("session_state.conflict", "冲突"),
     ("operation.kind.create", "创建"),
     ("operation.kind.update", "更新"),
+    ("operation.kind.retire", "停用"),
     ("operation.kind.delete", "删除"),
     ("operation.kind.migrate", "迁移"),
     ("operation.state.pending_pull_request", "准备拉取请求"),
@@ -557,6 +560,10 @@ pub(super) const TABLE: &[(&str, &str)] = &[
     (
         "error.ui.session.choose_managed_to_retire",
         "请先选择你的一个会话再停用",
+    ),
+    (
+        "error.ui.session.choose_managed_to_delete",
+        "请先选择一个会话再删除",
     ),
     (
         "error.ui.auth.authenticate_first",
@@ -1024,6 +1031,10 @@ pub(super) const TABLE: &[(&str, &str)] = &[
     (
         "loading.retire_pr",
         "正在我们的仓库中停用你的会话并创建拉取请求...",
+    ),
+    (
+        "loading.delete_pr",
+        "正在从仓库中删除会话并创建拉取请求……",
     ),
 ];
 

@@ -330,13 +330,23 @@ pub async fn update_session(
     send_json("PATCH", &url, Some(session_token), request).await
 }
 
-pub async fn delete_session(
+pub async fn retire_session(
     api_base: &str,
     session_token: &str,
     node: &str,
     asn: &str,
 ) -> Result<OperationStatus, UiMessage> {
     let url = api_url(api_base, &format!("/v1/sessions/{node}/{asn}"));
+    send_delete(&url, session_token).await
+}
+
+pub async fn delete_session(
+    api_base: &str,
+    session_token: &str,
+    node: &str,
+    asn: &str,
+) -> Result<OperationStatus, UiMessage> {
+    let url = api_url(api_base, &format!("/v1/sessions/{node}/{asn}?purge=true"));
     send_delete(&url, session_token).await
 }
 

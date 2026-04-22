@@ -530,6 +530,7 @@ pub struct AutoPeerController {
     pub editing_node: UseStateHandle<Option<String>>,
     pub config_stage: UseStateHandle<PeerConfigStage>,
     pub retire_confirmation: UseStateHandle<bool>,
+    pub delete_confirmation: UseStateHandle<bool>,
     pub operation: UseStateHandle<Option<OperationStatus>>,
     pub error: UseStateHandle<Option<UiMessage>>,
     pub support_error: UseStateHandle<Option<UiMessage>>,
@@ -562,6 +563,7 @@ pub struct AutoPeerController {
     pub on_return_to_host: Callback<MouseEvent>,
     pub on_submit_session: Callback<MouseEvent>,
     pub on_retire_selected_session: Callback<MouseEvent>,
+    pub on_delete_selected_session: Callback<MouseEvent>,
 }
 
 #[hook]
@@ -601,6 +603,7 @@ pub fn use_autopeer_controller(
     let editing_node = use_state(|| None::<String>);
     let config_stage = use_state(|| PeerConfigStage::SelectNode);
     let retire_confirmation = use_state(|| false);
+    let delete_confirmation = use_state(|| false);
     let operation = use_state(|| None::<OperationStatus>);
     let error = use_state(|| None::<UiMessage>);
     let support_error = use_state(|| None::<UiMessage>);
@@ -777,6 +780,7 @@ pub fn use_autopeer_controller(
 
     {
         let retire_confirmation = retire_confirmation.clone();
+        let delete_confirmation = delete_confirmation.clone();
         let draft_node = draft.node.clone();
         use_effect_with(
             (
@@ -787,6 +791,7 @@ pub fn use_autopeer_controller(
             ),
             move |_| {
                 retire_confirmation.set(false);
+                delete_confirmation.set(false);
                 || ()
             },
         );
@@ -1564,6 +1569,7 @@ pub fn use_autopeer_controller(
         let poll_operation = poll_operation.clone();
         let session_handles = session_handles.clone();
         let retire_confirmation = retire_confirmation.clone();
+        let delete_confirmation = delete_confirmation.clone();
 
         Callback::from(move |_| {
             let Some(api_base) = require_api_base(&api_base, &error) else {
@@ -1588,6 +1594,7 @@ pub fn use_autopeer_controller(
             };
             if !*retire_confirmation {
                 retire_confirmation.set(true);
+                delete_confirmation.set(false);
                 error.set(None);
                 return;
             }
@@ -1596,6 +1603,81 @@ pub fn use_autopeer_controller(
             reset_session_selection(&session_handles);
 
             let task_id = start_loading(&ongoing_tasks, UiMessage::key("loading.retire_pr"));
+            error.set(None);
+
+            let operation = operation.clone();
+            let error = error.clone();
+            let ongoing_tasks = ongoing_tasks.clone();
+            let poll_operation = poll_operation.clone();
+            let session_asn = auth_session.asn.clone();
+
+            spawn_local(async move {
+                match service::retire_session(
+                    &api_base,
+                    &auth_session.session_token,
+                    &node,
+                    &session_asn,
+                )
+                .await
+                {
+                    Ok(status) => {
+                        operation.set(Some(status.clone()));
+                        poll_operation.emit(status);
+                    }
+                    Err(message) => error.set(Some(message)),
+                }
+
+                clear_loading(&ongoing_tasks, task_id);
+            });
+        })
+    };
+
+    let on_delete_selected_session = {
+        let api_base = api_base.clone();
+        let auth_session = auth_session.clone();
+        let draft = draft.clone();
+        let sessions = sessions.clone();
+        let editing_node = editing_node.clone();
+        let operation = operation.clone();
+        let error = error.clone();
+        let ongoing_tasks = ongoing_tasks.clone();
+        let poll_operation = poll_operation.clone();
+        let session_handles = session_handles.clone();
+        let delete_confirmation = delete_confirmation.clone();
+        let retire_confirmation = retire_confirmation.clone();
+
+        Callback::from(move |_| {
+            let Some(api_base) = require_api_base(&api_base, &error) else {
+                return;
+            };
+            let Some(auth_session) = (*auth_session).clone() else {
+                error.set(Some(UiMessage::key("error.ui.auth.authenticate_first")));
+                return;
+            };
+            let selected_node = selected_session_node_name((*editing_node).as_deref(), &draft)
+                .and_then(|node| {
+                    sessions
+                        .iter()
+                        .find(|session| session.node == node)
+                        .map(|_| node)
+                });
+            let Some(node) = selected_node else {
+                error.set(Some(UiMessage::key(
+                    "error.ui.session.choose_managed_to_delete",
+                )));
+                return;
+            };
+            if !*delete_confirmation {
+                delete_confirmation.set(true);
+                retire_confirmation.set(false);
+                error.set(None);
+                return;
+            }
+
+            delete_confirmation.set(false);
+            reset_session_selection(&session_handles);
+
+            let task_id = start_loading(&ongoing_tasks, UiMessage::key("loading.delete_pr"));
             error.set(None);
 
             let operation = operation.clone();
@@ -1643,6 +1725,7 @@ pub fn use_autopeer_controller(
         editing_node,
         config_stage,
         retire_confirmation,
+        delete_confirmation,
         operation,
         error,
         support_error,
@@ -1675,6 +1758,7 @@ pub fn use_autopeer_controller(
         on_return_to_host,
         on_submit_session,
         on_retire_selected_session,
+        on_delete_selected_session,
     }
 }
 

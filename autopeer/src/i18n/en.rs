@@ -25,6 +25,8 @@ pub(super) const TABLE: &[(&str, &str)] = &[
     ("action.resend_signin_link", "Resend Sign-In Link"),
     ("action.confirm_retirement", "Confirm Retirement"),
     ("action.retire_session", "Retire This Session"),
+    ("action.confirm_deletion", "Confirm Deletion"),
+    ("action.delete_session", "Delete This Session"),
     ("action.open_pr", "Open PR"),
     ("action.workflow_run", "Workflow Run"),
     // Step: LoadingConfig / EnterAsn
@@ -422,6 +424,7 @@ pub(super) const TABLE: &[(&str, &str)] = &[
     ("session_state.conflict", "Conflict"),
     ("operation.kind.create", "Create"),
     ("operation.kind.update", "Update"),
+    ("operation.kind.retire", "Retire"),
     ("operation.kind.delete", "Delete"),
     ("operation.kind.migrate", "Migrate"),
     ("operation.state.pending_pull_request", "Preparing PR"),
@@ -569,6 +572,10 @@ pub(super) const TABLE: &[(&str, &str)] = &[
     (
         "error.ui.session.choose_managed_to_retire",
         "Choose one of your sessions before you retire it",
+    ),
+    (
+        "error.ui.session.choose_managed_to_delete",
+        "Choose one of your sessions before you delete it",
     ),
     (
         "error.ui.auth.authenticate_first",
@@ -1036,6 +1043,10 @@ pub(super) const TABLE: &[(&str, &str)] = &[
     (
         "loading.retire_pr",
         "Retiring your session in our repo and opening a pull request...",
+    ),
+    (
+        "loading.delete_pr",
+        "Deleting your session from our repo and opening a pull request...",
     ),
 ];
 

@@ -346,6 +346,9 @@ pub enum OperationKind {
     #[default]
     Create,
     Update,
+    #[serde(rename = "delete")]
+    Retire,
+    #[serde(rename = "purge")]
     Delete,
     Migrate,
 }
