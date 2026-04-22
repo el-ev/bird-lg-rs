@@ -1,6 +1,6 @@
 pub(super) const TABLE: &[(&str, &str)] = &[
     // App chrome
-    ("app.title", "DN42 Autopeer"),
+    ("app.title", "dn42 Autopeer"),
     ("app.title.footnote", "of IRIS-AS 4242421023"),
     ("nav.looking_glass", "Looking Glass"),
     ("nav.language", "Language"),
@@ -38,7 +38,7 @@ pub(super) const TABLE: &[(&str, &str)] = &[
     ),
     (
         "step.enter_asn.prompt",
-        "Enter your DN42 ASN for registry SSH, PGP, or email auth.",
+        "Enter your dn42 ASN for registry SSH, PGP, or email auth.",
     ),
     ("step.enter_asn.placeholder", "424242xxxx"),
     (
@@ -55,7 +55,7 @@ pub(super) const TABLE: &[(&str, &str)] = &[
     ("auth_method.registry_ssh.label", "Registry SSH Signature"),
     (
         "auth_method.registry_ssh.description",
-        "Sign our challenge with an SSH key from your DN42 maintainer object.",
+        "Sign our challenge with an SSH key from your dn42 maintainer object.",
     ),
     ("auth_method.registry_pgp.label", "Registry PGP Signature"),
     (
@@ -309,7 +309,7 @@ pub(super) const TABLE: &[(&str, &str)] = &[
     ("stage2.section.families", "Route Families"),
     (
         "stage2.section.families.help",
-        "Choose which DN42 route families your session should carry.",
+        "Choose which dn42 route families your session should carry.",
     ),
     ("stage2.section.bgp", "BGP Behavior"),
     (
@@ -331,7 +331,7 @@ pub(super) const TABLE: &[(&str, &str)] = &[
     ("stage2.field.peer4", "Peer IPv4 address"),
     (
         "stage2.field.peer4.placeholder",
-        "Your DN42 IPv4 address, e.g. 172.21.111.111",
+        "Your dn42 IPv4 address, e.g. 172.21.111.111",
     ),
     ("stage2.field.peer6", "Peer IPv6 address"),
     (
@@ -650,11 +650,11 @@ pub(super) const TABLE: &[(&str, &str)] = &[
     ),
     (
         "error.auth.asn.not_found",
-        "AS{asn} is invalid because it does not exist in the DN42 registry.",
+        "AS{asn} is invalid because it does not exist in the dn42 registry.",
     ),
     (
         "error.auth.asn.no_supported_auth",
-        "AS{asn} exists in DN42, but it does not publish maintainer auth we can use yet.",
+        "AS{asn} exists in dn42, but it does not publish maintainer auth we can use yet.",
     ),
     (
         "error.auth.registry_email.unavailable",
@@ -938,7 +938,7 @@ pub(super) const TABLE: &[(&str, &str)] = &[
     ),
     (
         "validation.peer4.range",
-        "Peer IPv4 address must be a valid DN42 IPv4 address",
+        "Peer IPv4 address must be a valid dn42 IPv4 address",
     ),
     (
         "validation.peer6.invalid",
@@ -946,7 +946,7 @@ pub(super) const TABLE: &[(&str, &str)] = &[
     ),
     (
         "validation.peer6.scope",
-        "Peer IPv6 address must be a valid DN42 ULA or link-local IPv6 address",
+        "Peer IPv6 address must be a valid dn42 ULA or link-local IPv6 address",
     ),
     (
         "validation.own6.invalid",
@@ -987,7 +987,7 @@ pub(super) const TABLE: &[(&str, &str)] = &[
     ),
     (
         "loading.fetch_methods",
-        "Fetching your DN42 registry authentication methods...",
+        "Fetching your dn42 registry authentication methods...",
     ),
     (
         "loading.redirect_oidc",
@@ -995,7 +995,7 @@ pub(super) const TABLE: &[(&str, &str)] = &[
     ),
     (
         "loading.fetch_challenge",
-        "Fetching a fresh DN42 registry challenge for you...",
+        "Fetching a fresh dn42 registry challenge for you...",
     ),
     (
         "loading.send_email",
@@ -1003,11 +1003,11 @@ pub(super) const TABLE: &[(&str, &str)] = &[
     ),
     (
         "loading.check_ssh",
-        "Checking your SSH signature against the DN42 registry...",
+        "Checking your SSH signature against the dn42 registry...",
     ),
     (
         "loading.check_pgp",
-        "Checking your PGP signature against the DN42 registry...",
+        "Checking your PGP signature against the dn42 registry...",
     ),
     (
         "loading.check_email",
@@ -1019,7 +1019,7 @@ pub(super) const TABLE: &[(&str, &str)] = &[
     ),
     (
         "loading.authing_asn",
-        "Authenticating the ASN against the DN42 registry...",
+        "Authenticating the ASN against the dn42 registry...",
     ),
     (
         "loading.restore_host",

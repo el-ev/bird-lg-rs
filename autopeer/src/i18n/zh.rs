@@ -1,6 +1,6 @@
 #[allow(dead_code)]
 pub(super) const TABLE: &[(&str, &str)] = &[
-    ("app.title", "DN42 自助对等"),
+    ("app.title", "dn42 自助对等"),
     ("app.title.footnote", "之于 IRIS-AS 4242421023"),
     ("nav.looking_glass", "镜子"),
     ("nav.language", "语言"),
@@ -32,7 +32,7 @@ pub(super) const TABLE: &[(&str, &str)] = &[
     ("step.loading_config.message", "正在加载运行时配置..."),
     (
         "step.enter_asn.prompt",
-        "输入你的 DN42 ASN 以使用注册库 SSH、PGP 或邮件认证。",
+        "输入你的 dn42 ASN 以使用注册库 SSH、PGP 或邮件认证。",
     ),
     ("step.enter_asn.placeholder", "424242xxxx"),
     (
@@ -49,7 +49,7 @@ pub(super) const TABLE: &[(&str, &str)] = &[
     ("auth_method.registry_ssh.label", "注册库 SSH 签名"),
     (
         "auth_method.registry_ssh.description",
-        "使用来自你的 DN42 维护者（mntner）对象的 SSH 密钥签名我们的质询。",
+        "使用来自你的 dn42 维护者（mntner）对象的 SSH 密钥签名我们的质询。",
     ),
     ("auth_method.registry_pgp.label", "注册库 PGP 签名"),
     (
@@ -297,7 +297,7 @@ pub(super) const TABLE: &[(&str, &str)] = &[
     ("stage2.section.families", "路由族"),
     (
         "stage2.section.families.help",
-        "选择你的会话应承载的 DN42 路由族。",
+        "选择你的会话应承载的 dn42 路由族。",
     ),
     ("stage2.section.bgp", "BGP 行为"),
     (
@@ -319,7 +319,7 @@ pub(super) const TABLE: &[(&str, &str)] = &[
     ("stage2.field.peer4", "对端 IPv4 地址"),
     (
         "stage2.field.peer4.placeholder",
-        "你的 DN42 IPv4 地址，如 172.21.111.111",
+        "你的 dn42 IPv4 地址，如 172.21.111.111",
     ),
     ("stage2.field.peer6", "对端 IPv6 地址"),
     (
@@ -638,11 +638,11 @@ pub(super) const TABLE: &[(&str, &str)] = &[
     ),
     (
         "error.auth.asn.not_found",
-        "AS{asn} 无效，因其不存在于 DN42 注册库中。",
+        "AS{asn} 无效，因其不存在于 dn42 注册库中。",
     ),
     (
         "error.auth.asn.no_supported_auth",
-        "AS{asn} 存在于 DN42 中，但尚未发布我们可使用的维护者认证信息。",
+        "AS{asn} 存在于 dn42 中，但尚未发布我们可使用的维护者认证信息。",
     ),
     (
         "error.auth.registry_email.unavailable",
@@ -926,7 +926,7 @@ pub(super) const TABLE: &[(&str, &str)] = &[
     ),
     (
         "validation.peer4.range",
-        "对端 IPv4 地址必须为有效的 DN42 IPv4 地址",
+        "对端 IPv4 地址必须为有效的 dn42 IPv4 地址",
     ),
     (
         "validation.peer6.invalid",
@@ -934,7 +934,7 @@ pub(super) const TABLE: &[(&str, &str)] = &[
     ),
     (
         "validation.peer6.scope",
-        "对端 IPv6 地址必须为有效的 DN42 ULA 或链路本地 IPv6 地址",
+        "对端 IPv6 地址必须为有效的 dn42 ULA 或链路本地 IPv6 地址",
     ),
     (
         "validation.own6.invalid",
@@ -975,7 +975,7 @@ pub(super) const TABLE: &[(&str, &str)] = &[
     ),
     (
         "loading.fetch_methods",
-        "正在获取你的 DN42 注册库认证方式...",
+        "正在获取你的 dn42 注册库认证方式...",
     ),
     (
         "loading.redirect_oidc",
@@ -983,7 +983,7 @@ pub(super) const TABLE: &[(&str, &str)] = &[
     ),
     (
         "loading.fetch_challenge",
-        "正在为你获取新的 DN42 注册库质询...",
+        "正在为你获取新的 dn42 注册库质询...",
     ),
     (
         "loading.send_email",
@@ -991,11 +991,11 @@ pub(super) const TABLE: &[(&str, &str)] = &[
     ),
     (
         "loading.check_ssh",
-        "正在根据 DN42 注册库验证你的 SSH 签名...",
+        "正在根据 dn42 注册库验证你的 SSH 签名...",
     ),
     (
         "loading.check_pgp",
-        "正在根据 DN42 注册库验证你的 PGP 签名...",
+        "正在根据 dn42 注册库验证你的 PGP 签名...",
     ),
     (
         "loading.check_email",
@@ -1007,7 +1007,7 @@ pub(super) const TABLE: &[(&str, &str)] = &[
     ),
     (
         "loading.authing_asn",
-        "正在根据 DN42 注册库认证该 ASN...",
+        "正在根据 dn42 注册库认证该 ASN...",
     ),
     (
         "loading.restore_host",

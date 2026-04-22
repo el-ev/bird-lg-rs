@@ -27,7 +27,7 @@ pub fn header(props: &HeaderProps) -> Html {
                             { " " }
                             <span onclick={select_text}> { &info.asn } </span>
                             { " on " }
-                            <a href="https://dn42.dev" style="color: inherit;"> {"DN42"} </a>
+                            <a href="https://dn42.dev" style="color: inherit;"> {"dn42"} </a>
                         }
                         <RouteDropdown
                             current_path={route_info.path.clone()}

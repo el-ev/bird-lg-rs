@@ -1,6 +1,6 @@
 pub(super) const TABLE: &[(&str, &str)] = &[
     // App chrome
-    ("app.title", "DN42 Autopeer"),
+    ("app.title", "dn42 Autopeer"),
     ("app.title.footnote", "ex IRIS-AS 4242421023"),
     ("nav.looking_glass", "Speculum"),
     ("nav.language", "Lingua"),
@@ -38,7 +38,7 @@ pub(super) const TABLE: &[(&str, &str)] = &[
     ),
     (
         "step.enter_asn.prompt",
-        "Inscribe ASN tuum DN42 pro auctoritate SSH, PGP, vel electronica.",
+        "Inscribe ASN tuum dn42 pro auctoritate SSH, PGP, vel electronica.",
     ),
     ("step.enter_asn.placeholder", "424242xxxx"),
     (
@@ -55,7 +55,7 @@ pub(super) const TABLE: &[(&str, &str)] = &[
     ("auth_method.registry_ssh.label", "Subscriptio SSH Registri"),
     (
         "auth_method.registry_ssh.description",
-        "Signa provocationem nostram cum clave SSH ex obiecto custodis tui DN42.",
+        "Signa provocationem nostram cum clave SSH ex obiecto custodis tui dn42.",
     ),
     ("auth_method.registry_pgp.label", "Subscriptio PGP Registri"),
     (
@@ -309,7 +309,7 @@ pub(super) const TABLE: &[(&str, &str)] = &[
     ("stage2.section.families", "Familiae Itinerum"),
     (
         "stage2.section.families.help",
-        "Elige quas familias itinerum DN42 sessio tua portare debet.",
+        "Elige quas familias itinerum dn42 sessio tua portare debet.",
     ),
     ("stage2.section.bgp", "Comportamentum BGP"),
     (
@@ -331,7 +331,7 @@ pub(super) const TABLE: &[(&str, &str)] = &[
     ("stage2.field.peer4", "Inscriptio IPv4 paris"),
     (
         "stage2.field.peer4.placeholder",
-        "Inscriptio tua IPv4 DN42, e.g. 172.21.111.111",
+        "Inscriptio tua IPv4 dn42, e.g. 172.21.111.111",
     ),
     ("stage2.field.peer6", "Inscriptio IPv6 paris"),
     (
@@ -650,11 +650,11 @@ pub(super) const TABLE: &[(&str, &str)] = &[
     ),
     (
         "error.auth.asn.not_found",
-        "AS{asn} invalidus est quia in registro DN42 non exsistit.",
+        "AS{asn} invalidus est quia in registro dn42 non exsistit.",
     ),
     (
         "error.auth.asn.no_supported_auth",
-        "AS{asn} in DN42 exsistit, sed auctoritatem custodis quam uti possumus nondum publicat.",
+        "AS{asn} in dn42 exsistit, sed auctoritatem custodis quam uti possumus nondum publicat.",
     ),
     (
         "error.auth.registry_email.unavailable",
@@ -938,7 +938,7 @@ pub(super) const TABLE: &[(&str, &str)] = &[
     ),
     (
         "validation.peer4.range",
-        "Inscriptio IPv4 paris inscriptio IPv4 DN42 valida esse debet",
+        "Inscriptio IPv4 paris inscriptio IPv4 dn42 valida esse debet",
     ),
     (
         "validation.peer6.invalid",
@@ -946,7 +946,7 @@ pub(super) const TABLE: &[(&str, &str)] = &[
     ),
     (
         "validation.peer6.scope",
-        "Inscriptio IPv6 paris inscriptio ULA DN42 valida vel nexus localis IPv6 esse debet",
+        "Inscriptio IPv6 paris inscriptio ULA dn42 valida vel nexus localis IPv6 esse debet",
     ),
     (
         "validation.own6.invalid",
@@ -987,7 +987,7 @@ pub(super) const TABLE: &[(&str, &str)] = &[
     ),
     (
         "loading.fetch_methods",
-        "Modos autenticationis registri DN42 tui petimus...",
+        "Modos autenticationis registri dn42 tui petimus...",
     ),
     (
         "loading.redirect_oidc",
@@ -995,7 +995,7 @@ pub(super) const TABLE: &[(&str, &str)] = &[
     ),
     (
         "loading.fetch_challenge",
-        "Provocationem recentem registri DN42 pro te petimus...",
+        "Provocationem recentem registri dn42 pro te petimus...",
     ),
     (
         "loading.send_email",
@@ -1003,11 +1003,11 @@ pub(super) const TABLE: &[(&str, &str)] = &[
     ),
     (
         "loading.check_ssh",
-        "Subscriptionem SSH tuam contra registrum DN42 probamus...",
+        "Subscriptionem SSH tuam contra registrum dn42 probamus...",
     ),
     (
         "loading.check_pgp",
-        "Subscriptionem PGP tuam contra registrum DN42 probamus...",
+        "Subscriptionem PGP tuam contra registrum dn42 probamus...",
     ),
     (
         "loading.check_email",
@@ -1019,7 +1019,7 @@ pub(super) const TABLE: &[(&str, &str)] = &[
     ),
     (
         "loading.authing_asn",
-        "ASN contra registrum DN42 autenticamus...",
+        "ASN contra registrum dn42 autenticamus...",
     ),
     (
         "loading.restore_host",
