@@ -5,7 +5,6 @@ edition = "2024"
 license = "MIT"
 
 [dependencies]
-autopeer = { path = "../autopeer" }
 common = { path = "../common" }
 ui_components = { package = "components", path = "../components" }
 yew = { version = "0.21", features = ["csr"] }
