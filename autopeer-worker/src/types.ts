@@ -135,7 +135,7 @@ export type MpBgpTransport = (typeof MP_BGP_TRANSPORTS)[number];
 
 export interface PeerSessionSpec {
   comment?: string | null;
-  endpoint: string;
+  endpoint?: string | null;
   wg_public_key: string;
   port?: number | null;
   peer4?: string | null;

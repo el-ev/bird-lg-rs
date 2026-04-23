@@ -978,7 +978,6 @@ pub(super) const TABLE: &[(&str, &str)] = &[
         "validation.own6.must_differ_from_peer6",
         "对端链路本地 IPv6 必须与我方链路本地 IPv6 不同",
     ),
-    ("validation.endpoint.required", "端点为必填项"),
     (
         "validation.endpoint.no_spaces",
         "远程端点不能包含空格",

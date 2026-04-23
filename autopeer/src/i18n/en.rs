@@ -993,7 +993,6 @@ pub(super) const TABLE: &[(&str, &str)] = &[
         "validation.own6.must_differ_from_peer6",
         "Peer link-local IPv6 must differ from our link-local IPv6",
     ),
-    ("validation.endpoint.required", "endpoint is required"),
     (
         "validation.endpoint.no_spaces",
         "Remote endpoint cannot contain spaces",

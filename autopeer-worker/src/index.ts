@@ -251,7 +251,7 @@ function parseRequestSessionSpec(value: unknown): PeerSessionSpec {
   }
   return {
     comment: requireOptionalRequestString(record.comment, "session.comment"),
-    endpoint: requireRequestString(record.endpoint, "session.endpoint"),
+    endpoint: requireOptionalRequestString(record.endpoint, "session.endpoint"),
     wg_public_key: requireRequestString(record.wg_public_key, "session.wg_public_key"),
     port: requireOptionalRequestInteger(record.port, "session.port"),
     peer4: requireOptionalRequestString(record.peer4, "session.peer4"),

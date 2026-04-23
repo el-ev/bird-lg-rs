@@ -1674,9 +1674,10 @@ pub fn auto_peer_page() -> Html {
                                 />
                                 {" "}
                                 <ShellToggle
-                                    active={draft.encrypt_endpoint}
+                                    active={draft.encrypt_endpoint && !draft.endpoint.trim().is_empty()}
                                     on_toggle={on_toggle_encrypt_endpoint}
                                     label={i18n.t("stage2.field.encrypt_endpoint")}
+                                    disabled={draft.endpoint.trim().is_empty()}
                                 />
                             </ShellLine>
                             <ShellLine>
@@ -2606,7 +2607,7 @@ mod tests {
 
     #[test]
     fn invalid_field_boxes_flag_empty_required_fields() {
-        assert!(should_mark_field_invalid(
+        assert!(!should_mark_field_invalid(
             &SessionDraft::default(),
             SessionDraftField::Endpoint,
         ));

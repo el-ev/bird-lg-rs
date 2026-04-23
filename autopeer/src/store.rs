@@ -112,7 +112,7 @@ impl SessionDraft {
         Self {
             node: node.to_string(),
             comment: spec.comment.clone().unwrap_or_default(),
-            endpoint: spec.endpoint.clone(),
+            endpoint: spec.endpoint.clone().unwrap_or_default(),
             wg_public_key: spec.wg_public_key.clone(),
             peer4: spec.peer4.clone().unwrap_or_default(),
             peer6: spec.peer6.clone().unwrap_or_default(),
@@ -351,6 +351,11 @@ impl SessionDraft {
         }
 
         let endpoint = validate_endpoint(&self.endpoint)?;
+        let encrypt_endpoint = if self.encrypt_endpoint && endpoint.is_some() {
+            Some(true)
+        } else {
+            None
+        };
         let wg_public_key = validate_wireguard_public_key(&self.wg_public_key)?;
         let peer4 =
             validate_peer_ipv4(peer4, "validation.peer4.invalid", "validation.peer4.range")?;
@@ -388,7 +393,7 @@ impl SessionDraft {
             } else {
                 validate_optional_psk(&self.psk)?
             },
-            encrypt_endpoint: if self.encrypt_endpoint { Some(true) } else { None },
+            encrypt_endpoint,
         })
     }
 }
@@ -458,8 +463,12 @@ fn required(value: &str, error_key: &str) -> Result<String, String> {
     }
 }
 
-fn validate_endpoint(value: &str) -> Result<String, String> {
-    let endpoint = required(value, "validation.endpoint.required")?;
+fn validate_endpoint(value: &str) -> Result<Option<String>, String> {
+    let trimmed = value.trim();
+    if trimmed.is_empty() {
+        return Ok(None);
+    }
+    let endpoint = trimmed.to_string();
 
     if endpoint.contains(char::is_whitespace) {
         return Err("validation.endpoint.no_spaces".to_string());
@@ -471,7 +480,7 @@ fn validate_endpoint(value: &str) -> Result<String, String> {
         };
         parse_ipv6(ipv6, "validation.endpoint.ipv6_invalid")?;
         parse_port_component(port)?;
-        return Ok(endpoint);
+        return Ok(Some(endpoint));
     }
 
     if endpoint.matches(':').count() != 1 {
@@ -488,7 +497,7 @@ fn validate_endpoint(value: &str) -> Result<String, String> {
         return Err("validation.endpoint.host_invalid".to_string());
     }
     parse_port_component(port)?;
-    Ok(endpoint)
+    Ok(Some(endpoint))
 }
 
 fn validate_wireguard_public_key(value: &str) -> Result<String, String> {
@@ -695,7 +704,7 @@ mod tests {
         };
 
         let spec = draft.to_spec().unwrap();
-        assert_eq!(spec.endpoint, "peer.example.net:21023");
+        assert_eq!(spec.endpoint.as_deref(), Some("peer.example.net:21023"));
         assert_eq!(spec.wg_public_key, VALID_WG_KEY);
         assert_eq!(spec.peer6, Some("fe80::1234".into()));
         assert_eq!(spec.port, None);
@@ -1161,7 +1170,7 @@ mod tests {
     fn field_error_roundtrip_preserves_legacy_mp_bgp_transport_omission() {
         let spec = PeerSessionSpec {
             comment: Some("peer note".into()),
-            endpoint: "peer.example.net:21023".into(),
+            endpoint: Some("peer.example.net:21023".into()),
             wg_public_key: VALID_WG_KEY.into(),
             port: None,
             peer4: Some("172.20.193.67".into()),
@@ -1189,7 +1198,7 @@ mod tests {
     fn from_session_roundtrip_preserves_flags_and_strategy() {
         let spec = PeerSessionSpec {
             comment: Some("peer note".into()),
-            endpoint: "peer.example.net:21023".into(),
+            endpoint: Some("peer.example.net:21023".into()),
             wg_public_key: VALID_WG_KEY.into(),
             port: None,
             peer4: Some("172.20.193.67".into()),

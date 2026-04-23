@@ -990,7 +990,6 @@ pub(super) const TABLE: &[(&str, &str)] = &[
         "validation.own6.must_differ_from_peer6",
         "IPv6 nexus localis paris differre debet ab IPv6 nexu locali nostro",
     ),
-    ("validation.endpoint.required", "terminus necessarius est"),
     (
         "validation.endpoint.no_spaces",
         "Terminus remotus spatia continere non potest",

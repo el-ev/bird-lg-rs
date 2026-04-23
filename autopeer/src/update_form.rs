@@ -285,7 +285,7 @@ pub fn should_mark_field_invalid(draft: &SessionDraft, field: SessionDraftField)
     };
 
     if value.trim().is_empty() {
-        matches!(field, SessionDraftField::WgPublicKey | SessionDraftField::Endpoint)
+        matches!(field, SessionDraftField::WgPublicKey)
     } else {
         draft.field_error(field).is_some()
     }

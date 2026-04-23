@@ -7,6 +7,8 @@ pub struct ShellToggleProps {
     #[prop_or_default]
     pub label: Option<AttrValue>,
     #[prop_or_default]
+    pub disabled: bool,
+    #[prop_or_default]
     pub children: Children,
 }
 
@@ -19,6 +21,7 @@ pub fn shell_toggle(props: &ShellToggleProps) -> Html {
             type="button"
             class={classes!("shell-toggle", if props.active { "active" } else { "" })}
             onclick={onclick}
+            disabled={props.disabled}
             role="switch"
             aria-checked={if props.active { "true" } else { "false" }}
         >

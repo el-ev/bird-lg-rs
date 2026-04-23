@@ -310,7 +310,8 @@ impl<'de> Deserialize<'de> for PskField {
 pub struct PeerSessionSpec {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub comment: Option<String>,
-    pub endpoint: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub endpoint: Option<String>,
     pub wg_public_key: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub port: Option<u16>,

@@ -500,7 +500,7 @@ function specToPeerEntry(
     wg: {
       ...existingWg,
       port: spec.port ?? defaultPeerPort(asn),
-      endpoint: spec.endpoint,
+      endpoint: spec.endpoint ?? null,
       wg_pubkey: spec.wg_public_key,
       psk: pskValue,
       peer4: spec.peer4 ?? null,
@@ -705,7 +705,9 @@ export function validateSessionSpec(node: InventoryHost, asn: string, spec: Peer
     throw new Error(`mp_bgp_transport must be one of ${MP_BGP_TRANSPORTS.join(", ")}`);
   }
   const transport = resolveMpBgpTransport(spec.mp_bgp_transport ?? null, peer4, peer6);
-  parseEndpoint(spec.endpoint);
+  if (spec.endpoint) {
+    parseEndpoint(spec.endpoint);
+  }
   if (!spec.wg_public_key.trim()) {
     throw new Error("wg_public_key is required");
   }
@@ -774,7 +776,9 @@ export function validateSessionSpec(node: InventoryHost, asn: string, spec: Peer
   if (spec.psk !== null && spec.psk !== undefined) {
     validateWireGuardPsk(spec.psk);
   }
-  ensureEndpointAllowed(node, spec.endpoint);
+  if (spec.endpoint) {
+    ensureEndpointAllowed(node, spec.endpoint);
+  }
   normalizeAsn(asn);
 }
 
