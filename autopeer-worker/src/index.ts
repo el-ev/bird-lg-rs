@@ -995,7 +995,7 @@ async function listSessionsResponse(
   );
 
   const vaultPassword = readOptionalSecret(env, "ANSIBLE_VAULT_PASSWORD");
-  const sessions = await listSessionsForAsn(session.asn, peerFiles, hosts, operations, vaultPassword);
+  const sessions = await listSessionsForAsn(session.asn, peerFiles, hosts, operations, vaultPassword, github);
   return jsonWithCors(request, {
     asn: session.asn,
     nodes: buildNodeViews(hosts),
@@ -1028,7 +1028,7 @@ async function handleMutation(
   const repo = await loadRepoState(env, github);
   const operations = await listOperationsForAsn(env, authSession.asn);
   const vaultPassword = readOptionalSecret(env, "ANSIBLE_VAULT_PASSWORD");
-  const sessions = await listSessionsForAsn(authSession.asn, repo.peerFiles, repo.hosts, operations, vaultPassword);
+  const sessions = await listSessionsForAsn(authSession.asn, repo.peerFiles, repo.hosts, operations, vaultPassword, github);
 
   let nodeName = nodeFromPath;
   let sessionPayload: CreateSessionRequest["session"] | UpdateSessionRequest["session"] | undefined;

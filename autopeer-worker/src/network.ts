@@ -875,6 +875,7 @@ export async function listSessionsForAsn(
   hosts: InventoryHost[],
   operations: OperationRecord[],
   vaultPassword: string | null,
+  github?: { getPullRequest(number: number): Promise<{ state: string; merged: boolean }> },
 ): Promise<SessionView[]> {
   const sessions = new Map<string, SessionView>();
 
@@ -924,7 +925,18 @@ export async function listSessionsForAsn(
     if (isPending) {
       overrideState = "pending_pr";
     } else if (operation.state === "failed" && operation.pr_number && operation.pull_request_url) {
-      overrideState = "stalled_pr";
+      if (github) {
+        try {
+          const pr = await github.getPullRequest(operation.pr_number);
+          if (!pr.merged && pr.state === "open") {
+            overrideState = "stalled_pr";
+          }
+        } catch {
+          // PR inaccessible — don't show stalled banner
+        }
+      } else {
+        overrideState = "stalled_pr";
+      }
     }
 
     if (overrideState) {
