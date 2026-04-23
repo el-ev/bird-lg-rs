@@ -4,7 +4,7 @@ use yew_router::prelude::*;
 use crate::{
     components::{main_view::MainView, protocols::Protocols, wireguard::WireGuard},
     hooks::use_app_data::use_app_data,
-    pages::{Dn42Page, NcsiPage, NodePage, PeeringPage},
+    pages::{Dn42Page, NcsiPage, NodePage, PeerRoutesPage, PeeringPage},
     routes::Route,
     store::{LgState, LgStateHandle, route_info::RouteInfoProvider},
 };
@@ -38,6 +38,9 @@ fn switch(routes: Route) -> Html {
         },
         Route::Node { .. } => html! {
             <NodePage/>
+        },
+        Route::PeerRoutes { .. } => html! {
+            <PeerRoutesPage/>
         },
         Route::WireGuard => html! {
             <WireGuard/>

@@ -44,6 +44,12 @@ pub enum AppRequest {
         #[serde(default)]
         version: String,
     },
+    #[serde(rename = "pr_routes")]
+    PeerRoutes {
+        request_id: String,
+        node: String,
+        peer: String,
+    },
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, ToSchema)]
@@ -147,7 +153,8 @@ mod tests {
             AppRequest::Traceroute { request_id, .. }
             | AppRequest::RouteLookup { request_id, .. }
             | AppRequest::ProtocolDetails { request_id, .. }
-            | AppRequest::Ping { request_id, .. } => Some(request_id.as_str()),
+            | AppRequest::Ping { request_id, .. }
+            | AppRequest::PeerRoutes { request_id, .. } => Some(request_id.as_str()),
         }
     }
 
@@ -203,6 +210,11 @@ mod tests {
                 node: "edge-a".to_string(),
                 target: "1.1.1.1".to_string(),
                 version: "6".to_string(),
+            },
+            AppRequest::PeerRoutes {
+                request_id: "req-123".to_string(),
+                node: "edge-a".to_string(),
+                peer: "bgp_peer1".to_string(),
             },
         ];
 

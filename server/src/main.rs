@@ -60,6 +60,10 @@ async fn main() -> anyhow::Result<()> {
         )
         .route("/api/ping/{node_name}", get(ping::proxy_ping))
         .route("/api/routes/{node_name}", get(route::get_route))
+        .route(
+            "/api/routes/{node_name}/peer/{peer_name}",
+            get(route::get_peer_routes),
+        )
         .route("/api/info", get(info::get_network_info))
         .route(
             "/api/info/port/{port}",

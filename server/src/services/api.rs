@@ -172,6 +172,61 @@ pub async fn perform_route_lookup(
     }
 }
 
+pub async fn perform_peer_routes(
+    state: AppState,
+    config: Arc<Config>,
+    request_id: String,
+    node: String,
+    peer: String,
+) -> BoxStream {
+    let client = NodeClient::new(state.http_client.clone());
+    let node_config = match resolve_node_or_error(&client, &config, &node, |error| {
+        AppResponse::RouteLookupError {
+            request_id: request_id.clone(),
+            node: node.clone(),
+            error,
+        }
+    }) {
+        Ok(node_config) => node_config,
+        Err(response) => {
+            return response;
+        }
+    };
+
+    match client.peer_routes_stream(&node_config, &peer).await {
+        Ok(byte_stream) => stream_with_terminal_events(
+            byte_stream,
+            AppResponse::RouteLookupInit {
+                request_id: request_id.clone(),
+                node: node.clone(),
+            },
+            {
+                let node = node.clone();
+                let request_id = request_id.clone();
+                move |lines| AppResponse::RouteLookupUpdate {
+                    request_id: request_id.clone(),
+                    node: node.clone(),
+                    lines,
+                }
+            },
+            AppResponse::RouteLookupDone { request_id, node },
+        ),
+        Err(error) => {
+            warn!(
+                node = %node,
+                peer = %peer,
+                error = %error,
+                "Failed to fetch peer routes"
+            );
+            boxed_once(AppResponse::RouteLookupError {
+                request_id,
+                node,
+                error,
+            })
+        }
+    }
+}
+
 pub async fn get_protocol_details(
     state: AppState,
     config: Arc<Config>,

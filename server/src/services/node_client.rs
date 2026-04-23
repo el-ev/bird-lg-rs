@@ -104,6 +104,15 @@ impl NodeClient {
         post_stream(&self.client, node, "/bird", &command).await
     }
 
+    pub async fn peer_routes_stream(
+        &self,
+        node: &NodeConfig,
+        peer: &str,
+    ) -> Result<ByteStream, String> {
+        let command = format!("show route protocol {}", peer);
+        post_stream(&self.client, node, "/bird", &command).await
+    }
+
     pub async fn protocol_details_stream(
         &self,
         node: &NodeConfig,

@@ -7,7 +7,11 @@ use axum::{
 use serde::Deserialize;
 
 use super::response_stream_to_sse;
-use crate::{config::Config, services::api::perform_route_lookup, state::AppState};
+use crate::{
+    config::Config,
+    services::api::{perform_peer_routes, perform_route_lookup},
+    state::AppState,
+};
 
 #[derive(Deserialize)]
 pub struct RouteLookupQuery {
@@ -49,6 +53,47 @@ pub async fn get_route(
         node_name,
         params.target,
         params.all,
+    )
+    .await;
+
+    Sse::new(response_stream_to_sse(response_stream))
+}
+
+#[derive(Deserialize)]
+pub struct PeerRoutesQuery {
+    pub request_id: String,
+}
+
+#[utoipa::path(
+    get,
+    path = "/api/routes/{node_name}/peer/{peer_name}",
+    tag = "tools",
+    params(
+        ("node_name" = String, Path, description = "Node name"),
+        ("peer_name" = String, Path, description = "Protocol/peer name to filter routes by"),
+        ("request_id" = String, Query, description = "Client-supplied request identifier"),
+    ),
+    responses(
+        (
+            status = 200,
+            description = "Server-Sent Events stream of routes filtered by peer.",
+            content_type = "text/event-stream",
+            body = String
+        )
+    )
+)]
+pub async fn get_peer_routes(
+    Path((node_name, peer_name)): Path<(String, String)>,
+    Query(params): Query<PeerRoutesQuery>,
+    Extension(config): Extension<Arc<Config>>,
+    Extension(state): Extension<AppState>,
+) -> Sse<impl futures_util::Stream<Item = Result<Event, Infallible>>> {
+    let response_stream = perform_peer_routes(
+        state,
+        config,
+        params.request_id,
+        node_name,
+        peer_name,
     )
     .await;
 

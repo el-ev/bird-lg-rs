@@ -195,5 +195,12 @@ async fn handle_request(
                 .await
                 .right_stream()
         }
+        AppRequest::PeerRoutes {
+            request_id,
+            node,
+            peer,
+        } => crate::services::api::perform_peer_routes(state, config, request_id, node, peer)
+            .await
+            .right_stream(),
     }
 }

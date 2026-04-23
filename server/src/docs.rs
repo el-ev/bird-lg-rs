@@ -14,6 +14,7 @@ use utoipa::OpenApi;
         crate::handlers::traceroute::proxy_traceroute,
         crate::handlers::ping::proxy_ping,
         crate::handlers::route::get_route,
+        crate::handlers::route::get_peer_routes,
         crate::handlers::info::get_network_info,
         crate::handlers::info::get_network_info_with_port,
         crate::handlers::info::get_node_peering,
