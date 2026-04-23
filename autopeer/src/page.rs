@@ -263,7 +263,13 @@ fn node_context_line(i18n: &I18n, node: &NodeView) -> String {
         parts.push(region);
     }
     if let Some(country) = &node.country {
-        parts.push(country.to_string());
+        let key = format!("location.country.{}", country.to_lowercase());
+        let translated = i18n.translate_owned(&key);
+        if translated != key {
+            parts.push(translated);
+        } else {
+            parts.push(country.to_string());
+        }
     }
 
     if parts.is_empty() {
