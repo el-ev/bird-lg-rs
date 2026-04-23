@@ -332,14 +332,3 @@ export interface InventoryHost {
   peering?: PeeringInfo;
   autopeer?: boolean;
 }
-
-export interface AutopeerEnvConfig {
-  githubOwner: string;
-  githubRepo: string;
-  githubBaseBranch: string;
-  dn42RegistryOwner: string;
-  dn42RegistryRepo: string;
-  dn42RegistryBranch: string;
-  dn42RegistryBaseUrl: string;
-  oidcProviders: OidcProviderConfig[];
-}

@@ -1310,6 +1310,18 @@ pub(super) const TABLE: &[(&str, &str)] = &[
         "Sessionem tuam in repositorio nostro retrahimus et petitionem tractionis aperimus...",
     ),
     (
+        "operation.message.workflow_failed",
+        "Processus in gradu {stage} defecit ({conclusion})",
+    ),
+    (
+        "operation.message.workflow_failed.step",
+        "Processus in gradu {stage}, passu \"{step}\" defecit ({conclusion})",
+    ),
+    (
+        "operation.message.workflow_failed.full",
+        "Processus in gradu {stage}, passu \"{step}\" defecit: {annotation} ({conclusion})",
+    ),
+    (
         "loading.delete_pr",
         "Sessionem e repositorio nostro delemus et rogationem tractus aperimus...",
     ),

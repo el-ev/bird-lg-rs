@@ -1298,6 +1298,18 @@ pub(super) const TABLE: &[(&str, &str)] = &[
         "正在我们的仓库中停用你的会话并创建拉取请求...",
     ),
     (
+        "operation.message.workflow_failed",
+        "工作流在 {stage} 阶段失败（{conclusion}）",
+    ),
+    (
+        "operation.message.workflow_failed.step",
+        "工作流在 {stage} 阶段的步骤「{step}」失败（{conclusion}）",
+    ),
+    (
+        "operation.message.workflow_failed.full",
+        "工作流在 {stage} 阶段的步骤「{step}」失败：{annotation}（{conclusion}）",
+    ),
+    (
         "loading.delete_pr",
         "正在从仓库中删除会话并创建拉取请求……",
     ),

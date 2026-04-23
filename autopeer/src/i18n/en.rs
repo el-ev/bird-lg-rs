@@ -1313,6 +1313,18 @@ pub(super) const TABLE: &[(&str, &str)] = &[
         "Retiring your session in our repo and opening a pull request...",
     ),
     (
+        "operation.message.workflow_failed",
+        "Workflow failed at {stage} stage ({conclusion})",
+    ),
+    (
+        "operation.message.workflow_failed.step",
+        "Workflow failed at {stage} stage, step \"{step}\" ({conclusion})",
+    ),
+    (
+        "operation.message.workflow_failed.full",
+        "Workflow failed at {stage} stage, step \"{step}\": {annotation} ({conclusion})",
+    ),
+    (
         "loading.delete_pr",
         "Deleting your session from our repo and opening a pull request...",
     ),

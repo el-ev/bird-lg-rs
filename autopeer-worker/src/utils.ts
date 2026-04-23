@@ -1,4 +1,4 @@
-import type { ApiError, AutopeerEnvConfig, UiMessage } from "./types";
+import type { ApiError, UiMessage } from "./types";
 
 const ASN_PATTERN = /^424242\d+$/;
 export const UNSUPPORTED_ASN_RANGE_MESSAGE = "error.auth.asn.unsupported";
@@ -43,6 +43,10 @@ export class I18nError extends Error {
 
 export function nowIso(): string {
   return new Date().toISOString();
+}
+
+export function isExpired(iso: string): boolean {
+  return Date.parse(iso) <= Date.now();
 }
 
 export function addSeconds(iso: string, seconds: number): string {
@@ -234,19 +238,6 @@ export function parseJsonEnv<T>(raw: string, field: string): T {
   }
 }
 
-export function readEnvConfig(env: Env): AutopeerEnvConfig {
-  return {
-    githubOwner: env.GITHUB_OWNER,
-    githubRepo: env.GITHUB_REPO,
-    githubBaseBranch: env.GITHUB_BASE_BRANCH,
-    dn42RegistryOwner: env.DN42_REGISTRY_OWNER,
-    dn42RegistryRepo: env.DN42_REGISTRY_REPO,
-    dn42RegistryBranch: env.DN42_REGISTRY_BRANCH,
-    dn42RegistryBaseUrl: env.DN42_REGISTRY_BASE_URL,
-    oidcProviders: parseJsonEnv(env.OIDC_PROVIDERS, "OIDC_PROVIDERS"),
-  };
-}
-
 export function isTerminalOperationState(state: string): boolean {
   return state === "completed" || state === "failed" || state === "conflict";
 }
@@ -266,21 +257,6 @@ export function readOptionalEnvString(env: Env, name: string): string | null {
   }
   const trimmed = value.trim();
   return trimmed.length > 0 ? trimmed : null;
-}
-
-export function readNonNegativeIntegerEnv(
-  env: Env,
-  name: string,
-  fallback: number,
-): number {
-  const raw = readOptionalEnvString(env, name);
-  if (raw === null) {
-    return fallback;
-  }
-  if (!/^\d+$/.test(raw)) {
-    throw new Error(`${name} must be a non-negative integer`);
-  }
-  return Number(raw);
 }
 
 export function readSecret(

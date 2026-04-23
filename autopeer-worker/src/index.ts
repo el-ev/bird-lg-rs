@@ -30,14 +30,13 @@ import {
 } from "./db";
 import { branchName, GitHubClient } from "./github";
 import type { GitHubWorkflowJob, GitHubWorkflowRun } from "./github";
-import { type WorkerLocale, resolveLocale, t } from "./i18n";
+import { resolveLocale, t } from "./i18n";
 import { sendRegistryEmailAuthMessage } from "./mailer";
 import {
   buildNodeViews,
   listSessionsForAsn,
   loadInventoryHosts,
   mutatePeerFile,
-  nodeIsAvailable,
   validateSessionSpec,
 } from "./network";
 import {
@@ -79,7 +78,6 @@ import type {
   RegistryPgpVerifyRequest,
   RegistrySshVerifyRequest,
   SessionRecord,
-  SessionView,
   UiMessage,
   UpdateSessionRequest,
 } from "./types";
@@ -103,6 +101,7 @@ import {
   requireOptionalString,
   requireRecord,
   I18nError,
+  isExpired,
   stripOperatorHints,
   readOptionalSecret,
   timingSafeEqual,
@@ -119,6 +118,23 @@ const CHECK_WORKFLOW_GRACE_MS = 5 * 60 * 1000;
 const APPLY_WORKFLOW_ID = "peer-session-apply.yml";
 const APPLY_WORKFLOW_GRACE_MS = 10 * 60 * 1000;
 const CONFIG_PATH = "/config.json";
+
+function commitMessage(kind: string, asn: string, node: string): string {
+  return `feat: autopeer ${kind} AS${asn} on ${node}`;
+}
+
+async function requireOwnedOperation(
+  env: Env,
+  request: Request,
+  operationId: string,
+): Promise<{ authSession: SessionRecord; operation: OperationRecord }> {
+  const authSession = await requireSession(env, request);
+  const operation = await getOperation(env, operationId);
+  if (!operation || operation.asn !== authSession.asn) {
+    throw new HttpError("error.request.operation.not_found", 404);
+  }
+  return { authSession, operation };
+}
 const OIDC_CALLBACK_PREFIX = "/oidc/callback/";
 const REGISTRY_EMAIL_CALLBACK_PATH = "/auth/email/callback";
 
@@ -513,7 +529,7 @@ async function requireSession(env: Env, request: Request): Promise<SessionRecord
   if (!session) {
     throw new HttpError("error.auth.session.unknown", 401);
   }
-  if (Date.parse(session.expires_at) <= Date.now()) {
+  if (isExpired(session.expires_at)) {
     throw new HttpError("error.auth.session.expired", 401);
   }
 
@@ -521,12 +537,14 @@ async function requireSession(env: Env, request: Request): Promise<SessionRecord
 }
 
 async function loadRepoState(env: Env, github: GitHubClient) {
-  const inventoryFile = await github.getFile(INVENTORY_PATH, env.GITHUB_BASE_BRANCH);
+  const [inventoryFile, policyFile] = await Promise.all([
+    github.getFile(INVENTORY_PATH, env.GITHUB_BASE_BRANCH),
+    github.getFile(AUTOPEER_POLICY_PATH, env.GITHUB_BASE_BRANCH),
+  ]);
   if (!inventoryFile.exists || !inventoryFile.text) {
     throw new HttpError("error.repo.inventory.missing", 502);
   }
 
-  const policyFile = await github.getFile(AUTOPEER_POLICY_PATH, env.GITHUB_BASE_BRANCH);
   const hosts = loadInventoryHosts(inventoryFile.text, policyFile.text ?? null);
   const peerFileEntries = await Promise.all(
     hosts.map(async (host) => {
@@ -681,18 +699,20 @@ async function buildWorkflowFailureDetails(
 }
 
 function failureMessageFromDetails(details: OperationFailureDetails): UiMessage {
-  const stage =
-    details.stage === "preflight"
-      ? "Preflight"
-      : details.stage === "checks"
-        ? "peer-session-check"
-        : details.stage === "merge"
-          ? "Merge"
-          : "peer-session-apply";
-  const parts = [`${stage} failed with ${details.conclusion ?? "unknown"}`];
-  if (details.step) parts.push(`(step: ${details.step})`);
-  if (details.annotation) parts.push(`— ${details.annotation}`);
-  return uiMessage(parts.join(" "));
+  const params: Record<string, string> = {
+    stage: details.stage,
+    conclusion: details.conclusion ?? "unknown",
+  };
+  if (details.step) params.step = details.step;
+  if (details.annotation) params.annotation = details.annotation;
+
+  const key = details.step && details.annotation
+    ? "operation.message.workflow_failed.full"
+    : details.step
+      ? "operation.message.workflow_failed.step"
+      : "operation.message.workflow_failed";
+
+  return uiMessage(key, params);
 }
 
 function buildNoChangeOperation(
@@ -895,8 +915,9 @@ async function refreshOperation(
     message = uiMessage("operation.message.pull_request_closed");
   } else {
     const validationRuns = await github.listWorkflowRuns(CHECK_WORKFLOW_ID, {
+      branch: operation.branch,
       event: "pull_request",
-      perPage: 20,
+      perPage: 5,
     });
     const validationRun = validationRuns.workflow_runs.find(
       (candidate) => candidate.head_sha === pr.head.sha,
@@ -915,8 +936,9 @@ async function refreshOperation(
 
     if (checkGate.state === "applying") {
       const applyRuns = await github.listWorkflowRuns(APPLY_WORKFLOW_ID, {
+        branch: operation.branch,
         event: "pull_request",
-        perPage: 20,
+        perPage: 5,
       });
       const applyRun = applyRuns.workflow_runs.find(
         (candidate) => candidate.head_sha === pr.head.sha,
@@ -963,7 +985,7 @@ async function refreshOperation(
                     baseSha,
                     path: peerPath,
                     content: branchFile.text,
-                    message: `feat: autopeer ${operation.kind} AS${operation.asn} on ${operation.node}`,
+                    message: commitMessage(operation.kind, operation.asn, operation.node),
                   });
                   nextState = "pending_checks";
                   message = buildOperationMessage(nextState);
@@ -1020,8 +1042,10 @@ async function listSessionsResponse(
   session: SessionRecord,
 ): Promise<Response> {
   const github = new GitHubClient(env);
-  const { hosts, peerFiles } = await loadRepoState(env, github);
-  const existingOperations = await listOperationsForAsn(env, session.asn);
+  const [{ hosts, peerFiles }, existingOperations] = await Promise.all([
+    loadRepoState(env, github),
+    listOperationsForAsn(env, session.asn),
+  ]);
   const operations = await Promise.all(
     existingOperations.map((operation) => refreshOperation(env, github, operation)),
   );
@@ -1057,8 +1081,10 @@ async function handleMutation(
     );
   }
   const github = new GitHubClient(env);
-  const repo = await loadRepoState(env, github);
-  const operations = await listOperationsForAsn(env, authSession.asn);
+  const [repo, operations] = await Promise.all([
+    loadRepoState(env, github),
+    listOperationsForAsn(env, authSession.asn),
+  ]);
   const vaultPassword = readOptionalSecret(env, "ANSIBLE_VAULT_PASSWORD");
   const sessions = await listSessionsForAsn(authSession.asn, repo.peerFiles, repo.hosts, operations, vaultPassword, github);
 
@@ -1155,7 +1181,7 @@ async function handleMutation(
       baseSha,
       path: peerPath,
       content: mutation.content,
-      message: `feat: autopeer ${kind} AS${authSession.asn} on ${nodeName}`,
+      message: commitMessage(kind, authSession.asn, nodeName),
     });
 
     const refreshedPr = reusableOperation.pr_number
@@ -1204,7 +1230,7 @@ async function handleMutation(
     branch: operation.branch,
     sha: currentFile.sha,
     content: mutation.content,
-    message: `feat: autopeer ${kind} AS${authSession.asn} on ${nodeName}`,
+    message: commitMessage(kind, authSession.asn, nodeName),
   });
 
   const locale = resolveLocale(request);
@@ -1472,7 +1498,7 @@ async function router(request: Request, env: Env): Promise<Response> {
       throw new HttpError("error.auth.registry_email.already_completed", 409);
     }
 
-    if (Date.parse(emailAuthRequest.expires_at) <= Date.now()) {
+    if (isExpired(emailAuthRequest.expires_at)) {
       await deleteRegistryEmailAuthRequest(env, challengeId);
       throw new HttpError("error.auth.registry_email.state.expired", 400);
     }
@@ -1502,7 +1528,7 @@ async function router(request: Request, env: Env): Promise<Response> {
       if (!pendingRequest) {
         throw new HttpError("error.auth.registry_email.state.missing", 404);
       }
-      if (Date.parse(pendingRequest.expires_at) <= Date.now()) {
+      if (isExpired(pendingRequest.expires_at)) {
         await deleteRegistryEmailAuthRequest(env, pendingRequest.challenge_id);
         throw new HttpError("error.auth.registry_email.state.expired", 400);
       }
@@ -1521,7 +1547,7 @@ async function router(request: Request, env: Env): Promise<Response> {
     if (!session) {
       throw new HttpError("error.auth.registry_email.session.missing", 404);
     }
-    if (Date.parse(session.expires_at) <= Date.now()) {
+    if (isExpired(session.expires_at)) {
       throw new HttpError("error.auth.registry_email.session.expired", 401);
     }
     return jsonWithCors(request, authSessionResponseForEnv(env, session));
@@ -1627,7 +1653,7 @@ async function router(request: Request, env: Env): Promise<Response> {
       );
     }
 
-    if (Date.parse(authRequest.expires_at) <= Date.now()) {
+    if (isExpired(authRequest.expires_at)) {
       await deleteOidcAuthRequest(env, authRequest.state);
       return siteRedirectResponse(
         env,
@@ -1754,7 +1780,7 @@ async function router(request: Request, env: Env): Promise<Response> {
       );
     }
 
-    if (Date.parse(emailAuthRequest.expires_at) <= Date.now()) {
+    if (isExpired(emailAuthRequest.expires_at)) {
       await deleteRegistryEmailAuthRequest(env, emailAuthRequest.challenge_id);
       return siteRedirectResponse(
         env,
@@ -1798,7 +1824,7 @@ async function router(request: Request, env: Env): Promise<Response> {
     if (!authRequest) {
       throw new HttpError("error.auth.oidc.state.missing", 404);
     }
-    if (!authRequest.session_token && Date.parse(authRequest.expires_at) <= Date.now()) {
+    if (!authRequest.session_token && isExpired(authRequest.expires_at)) {
       await deleteOidcAuthRequest(env, authRequest.state);
       throw new HttpError("error.auth.oidc.state.expired", 400);
     }
@@ -1811,7 +1837,7 @@ async function router(request: Request, env: Env): Promise<Response> {
     if (!session) {
       throw new HttpError("error.auth.oidc.session.missing", 404);
     }
-    if (Date.parse(session.expires_at) <= Date.now()) {
+    if (isExpired(session.expires_at)) {
       throw new HttpError("error.auth.oidc.session.expired", 401);
     }
 
@@ -1855,12 +1881,7 @@ async function router(request: Request, env: Env): Promise<Response> {
 
   const operationMatch = url.pathname.match(/^\/v1\/operations\/([^/]+)$/);
   if (request.method === "GET" && operationMatch) {
-    const authSession = await requireSession(env, request);
-    const operation = await getOperation(env, operationMatch[1]);
-    if (!operation || operation.asn !== authSession.asn) {
-      throw new HttpError("error.request.operation.not_found", 404);
-    }
-
+    const { operation } = await requireOwnedOperation(env, request, operationMatch[1]);
     const github = new GitHubClient(env);
     const refreshed = await refreshOperation(env, github, operation);
     return jsonWithCors(request, refreshed);
@@ -1868,11 +1889,7 @@ async function router(request: Request, env: Env): Promise<Response> {
 
   const operationRetryMatch = url.pathname.match(/^\/v1\/operations\/([^/]+)\/retry$/);
   if (request.method === "POST" && operationRetryMatch) {
-    const authSession = await requireSession(env, request);
-    const operation = await getOperation(env, operationRetryMatch[1]);
-    if (!operation || operation.asn !== authSession.asn) {
-      throw new HttpError("error.request.operation.not_found", 404);
-    }
+    const { operation } = await requireOwnedOperation(env, request, operationRetryMatch[1]);
     if (operation.state !== "failed" || !operation.pr_number || !operation.branch) {
       throw new HttpError("error.request.operation.not_retryable", 409);
     }
@@ -1895,7 +1912,7 @@ async function router(request: Request, env: Env): Promise<Response> {
       baseSha,
       path: peerPath,
       content: branchFile.text,
-      message: `feat: autopeer ${operation.kind} AS${operation.asn} on ${operation.node}`,
+      message: commitMessage(operation.kind, operation.asn, operation.node),
     });
 
     const updated: OperationRecord = {
@@ -1913,11 +1930,7 @@ async function router(request: Request, env: Env): Promise<Response> {
 
   const operationDropMatch = url.pathname.match(/^\/v1\/operations\/([^/]+)\/drop$/);
   if (request.method === "POST" && operationDropMatch) {
-    const authSession = await requireSession(env, request);
-    const operation = await getOperation(env, operationDropMatch[1]);
-    if (!operation || operation.asn !== authSession.asn) {
-      throw new HttpError("error.request.operation.not_found", 404);
-    }
+    const { operation } = await requireOwnedOperation(env, request, operationDropMatch[1]);
     if (operation.state !== "failed" || !operation.pr_number) {
       throw new HttpError("error.request.operation.not_droppable", 409);
     }
@@ -1954,13 +1967,13 @@ async function refreshActiveOperations(env: Env): Promise<void> {
   if (operations.length === 0) return;
 
   const github = new GitHubClient(env);
-  for (const operation of operations) {
-    try {
-      await refreshOperation(env, github, operation);
-    } catch (error) {
-      console.error(`cron: failed to refresh operation ${operation.id}`, error);
-    }
-  }
+  await Promise.all(
+    operations.map((operation) =>
+      refreshOperation(env, github, operation).catch((error) =>
+        console.error(`cron: failed to refresh operation ${operation.id}`, error),
+      ),
+    ),
+  );
 }
 
 export default {

@@ -1,10 +1,6 @@
 import type { OperationRecord } from "./types";
 import { joinPath, readSecret, toBase64 } from "./utils";
 
-interface GitHubRepoResponse {
-  default_branch: string;
-}
-
 interface GitHubRefResponse {
   object: { sha: string };
 }
@@ -24,15 +20,6 @@ interface GitHubPrResponse {
   merged_at: string | null;
   merge_commit_sha: string | null;
   head: { sha: string };
-}
-
-interface GitHubCheckRunsResponse {
-  check_runs: Array<{
-    name: string;
-    status: string;
-    conclusion: string | null;
-    html_url?: string;
-  }>;
 }
 
 export interface GitHubWorkflowRun {
@@ -129,12 +116,6 @@ export class GitHubClient {
     }
 
     return (await response.json()) as T;
-  }
-
-  async getRepo(): Promise<GitHubRepoResponse> {
-    return this.request<GitHubRepoResponse>(
-      `/repos/${joinPath(this.env.GITHUB_OWNER, this.env.GITHUB_REPO)}`,
-    );
   }
 
   async getBranchHead(branch: string): Promise<string> {
@@ -322,12 +303,6 @@ export class GitHubClient {
     await this.request<void>(
       `/repos/${joinPath(this.env.GITHUB_OWNER, this.env.GITHUB_REPO)}/git/refs/heads/${encodeURIComponent(branch)}`,
       { method: "DELETE" },
-    );
-  }
-
-  async listCheckRuns(ref: string): Promise<GitHubCheckRunsResponse> {
-    return this.request<GitHubCheckRunsResponse>(
-      `/repos/${joinPath(this.env.GITHUB_OWNER, this.env.GITHUB_REPO)}/commits/${encodeURIComponent(ref)}/check-runs`,
     );
   }
 

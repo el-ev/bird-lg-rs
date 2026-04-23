@@ -963,10 +963,6 @@ export async function listSessionsForAsn(
   return [...sessions.values()].sort((left, right) => left.node.localeCompare(right.node));
 }
 
-export function nodeIsAvailable(node: InventoryHost, sessions: SessionView[]): boolean {
-  return !sessions.some((session) => session.node === node.name && session.state !== "manual");
-}
-
 async function vaultProtectEntry(
   entry: PeerEntry,
   spec: PeerSessionSpec | undefined,
