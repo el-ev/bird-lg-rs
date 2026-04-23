@@ -97,6 +97,7 @@ function mapRegistryEmailAuthRequestRow(
     code: String(row.code),
     token: String(row.token),
     session_token: row.session_token === null ? null : String(row.session_token),
+    locale: row.locale === null || row.locale === undefined ? null : String(row.locale),
     created_at: String(row.created_at),
     expires_at: String(row.expires_at),
   };
@@ -227,8 +228,8 @@ export async function putRegistryEmailAuthRequest(
 ): Promise<void> {
   await env.DB.prepare(
     `INSERT OR REPLACE INTO registry_email_auth_requests
-      (challenge_id, effective_mnt, email_snapshot, code, token, session_token, created_at, expires_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      (challenge_id, effective_mnt, email_snapshot, code, token, session_token, locale, created_at, expires_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
   )
     .bind(
       record.challenge_id,
@@ -237,6 +238,7 @@ export async function putRegistryEmailAuthRequest(
       record.code,
       record.token,
       record.session_token ?? null,
+      record.locale ?? null,
       record.created_at,
       record.expires_at,
     )
@@ -248,7 +250,7 @@ export async function getRegistryEmailAuthRequest(
   challengeId: string,
 ): Promise<RegistryEmailAuthRequestRecord | null> {
   const row = await env.DB.prepare(
-    `SELECT challenge_id, effective_mnt, email_snapshot, code, token, session_token, created_at, expires_at
+    `SELECT challenge_id, effective_mnt, email_snapshot, code, token, session_token, locale, created_at, expires_at
       FROM registry_email_auth_requests WHERE challenge_id = ?`,
   )
     .bind(challengeId)
@@ -262,7 +264,7 @@ export async function getRegistryEmailAuthRequestByToken(
   token: string,
 ): Promise<RegistryEmailAuthRequestRecord | null> {
   const row = await env.DB.prepare(
-    `SELECT challenge_id, effective_mnt, email_snapshot, code, token, session_token, created_at, expires_at
+    `SELECT challenge_id, effective_mnt, email_snapshot, code, token, session_token, locale, created_at, expires_at
       FROM registry_email_auth_requests WHERE token = ?`,
   )
     .bind(token)
@@ -278,7 +280,7 @@ export async function consumeCompletedRegistryEmailAuthRequestByToken(
   const row = await env.DB.prepare(
     `DELETE FROM registry_email_auth_requests
       WHERE token = ? AND session_token IS NOT NULL
-      RETURNING challenge_id, effective_mnt, email_snapshot, code, token, session_token, created_at, expires_at`,
+      RETURNING challenge_id, effective_mnt, email_snapshot, code, token, session_token, locale, created_at, expires_at`,
   )
     .bind(token)
     .first<Record<string, unknown>>();
