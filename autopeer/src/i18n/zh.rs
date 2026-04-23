@@ -712,6 +712,30 @@ pub(super) const TABLE: &[(&str, &str)] = &[
         "冒充功能仅在认证了我们配置的主 ASN 之一后可用。",
     ),
     (
+        "error.runtime.decode_failed",
+        "响应解码失败：{detail}",
+    ),
+    (
+        "error.runtime.http_failed",
+        "HTTP 请求失败，状态码 {status}",
+    ),
+    (
+        "error.runtime.encode_failed",
+        "载荷编码失败：{detail}",
+    ),
+    (
+        "error.runtime.unsupported_method",
+        "不支持的 HTTP 方法 {method}",
+    ),
+    (
+        "error.runtime.request_failed",
+        "请求失败：{detail}",
+    ),
+    (
+        "error.runtime.config.load_failed",
+        "加载 config.json 失败：{detail}",
+    ),
+    (
         "error.runtime.browser.unavailable",
         "浏览器窗口不可用",
     ),
@@ -917,6 +941,115 @@ pub(super) const TABLE: &[(&str, &str)] = &[
         "error.vault.not_configured",
         "此服务器未配置 Vault 加密。PSK 和 Endpoint 加密功能不可用。",
     ),
+    // Backend error messages
+    (
+        "error.repo.inventory.missing",
+        "网络仓库缺少 inventory.yaml",
+    ),
+    (
+        "error.repo.peer_file.missing",
+        "网络仓库缺少 {path}",
+    ),
+    (
+        "error.node.not_eligible",
+        "节点 {node} 不符合 Autopeer 条件",
+    ),
+    (
+        "error.node.not_accepting_changes",
+        "{node} 当前不接受 Autopeer 变更",
+    ),
+    (
+        "error.session.duplicate_on_node",
+        "AS{asn} 在 {node} 上已有会话或待处理操作",
+    ),
+    (
+        "error.auth.asn.no_registry_auth.oidc_hint",
+        "AS{asn} 未公开支持的注册库 SSH、PGP 或邮件认证方式。请改用已配置的 OIDC 登录选项。",
+    ),
+    (
+        "error.auth.impersonation.host_asn.cannot_mutate",
+        "AS{asn} 是我们的主 ASN 会话之一；请先冒充你想要管理的 ASN，再进行开启或修改操作",
+    ),
+    (
+        "error.auth.impersonation.asn.not_host",
+        "AS{asn} 未被配置为可冒充的主 ASN",
+    ),
+    (
+        "error.auth.registry_email.already_completed",
+        "注册库邮件登录已完成；请通过已发送的邮件登录链接完成操作。",
+    ),
+    (
+        "error.request.session.mp_bgp_transport.invalid",
+        "session.mp_bgp_transport 必须为 ipv4 或 ipv6 之一",
+    ),
+    (
+        "error.request.session_payload.invalid",
+        "会话载荷无效",
+    ),
+    (
+        "error.peer.duplicate",
+        "对端文件中存在重复的 ASN AS{asn}",
+    ),
+    (
+        "error.peer.create.session_required",
+        "创建操作需要会话载荷",
+    ),
+    (
+        "error.peer.managed.already_exists",
+        "托管对端 AS{asn} 已存在于此节点",
+    ),
+    (
+        "error.peer.not_found",
+        "对端 AS{asn} 在此节点上不存在",
+    ),
+    (
+        "error.peer.already_managed",
+        "对端 AS{asn} 已由 Autopeer 管理",
+    ),
+    (
+        "error.peer.update.session_required",
+        "更新操作需要会话载荷",
+    ),
+    (
+        "error.peer.manual.cannot_modify",
+        "手动对端 AS{asn} 无法由 Autopeer 修改",
+    ),
+    (
+        "error.data.yaml_root.invalid",
+        "YAML 根节点必须为映射",
+    ),
+    (
+        "error.data.peer_entry.invalid",
+        "对端条目必须为映射",
+    ),
+    (
+        "error.data.peer_entry.missing_bgp",
+        "对端条目缺少 BGP 映射",
+    ),
+    (
+        "error.data.peer_entry.missing_asn",
+        "对端条目缺少有效的 bgp.asn",
+    ),
+    (
+        "error.data.peer.missing_wg",
+        "活跃对端 AS{asn} 缺少 WireGuard 映射",
+    ),
+    (
+        "error.data.peer_file.missing_peers",
+        "对端文件必须包含顶层 peers 列表",
+    ),
+    (
+        "error.data.inventory.missing_all",
+        "inventory.yaml 缺少顶层 all 键",
+    ),
+    (
+        "error.data.inventory.missing_children",
+        "inventory.yaml 缺少 all.children",
+    ),
+    (
+        "error.data.inventory.missing_hosts",
+        "inventory.yaml 必须定义 nodes.hosts 和 dn42.hosts",
+    ),
     // Frontend validation
     (
         "validation.tunnel.required",
@@ -1069,6 +1202,31 @@ pub(super) const TABLE: &[(&str, &str)] = &[
 (
         "validation.psk.charset",
         "预共享密钥包含无效的 Base64 字符",
+    ),
+    // Backend-only validation
+    (
+        "validation.mp_bgp_transport.invalid",
+        "MP-BGP 传输层必须为 ipv4 或 ipv6 之一",
+    ),
+    (
+        "validation.peering_strategy.invalid",
+        "互联策略必须为 standard 或 aggressive",
+    ),
+    (
+        "validation.port.range",
+        "端口必须在 1 到 65535 之间",
+    ),
+    (
+        "validation.endpoint.required",
+        "远程端点为必填项",
+    ),
+    (
+        "validation.endpoint.node_ipv6_only",
+        "{node} 仅支持 IPv6；请使用域名或 IPv6 端点",
+    ),
+    (
+        "validation.endpoint.node_ipv4_only",
+        "{node} 仅支持 IPv4；请使用域名或 IPv4 端点",
     ),
     // Loading messages
     (

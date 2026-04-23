@@ -102,6 +102,7 @@ import {
   requireOptionalInteger,
   requireOptionalString,
   requireRecord,
+  I18nError,
   stripOperatorHints,
   readOptionalSecret,
   timingSafeEqual,
@@ -246,10 +247,7 @@ function parseRequestSessionSpec(value: unknown): PeerSessionSpec {
     mpBgpTransport !== undefined &&
     !(MP_BGP_TRANSPORTS as readonly string[]).includes(mpBgpTransport)
   ) {
-    throw new HttpError(
-      `session.mp_bgp_transport must be one of ${MP_BGP_TRANSPORTS.join(", ")}`,
-      400,
-    );
+    throw new HttpError("error.request.session.mp_bgp_transport.invalid", 400);
   }
   return {
     comment: requireOptionalRequestString(record.comment, "session.comment"),
@@ -283,7 +281,10 @@ function assertValidSessionSpec(
   try {
     validateSessionSpec(node, asn, spec);
   } catch (error) {
-    throw new HttpError(errorMessage(error, "session payload is invalid"), 400);
+    if (error instanceof I18nError) {
+      throw new HttpError(error.uiMessage, 400);
+    }
+    throw new HttpError(errorMessage(error, "error.request.session_payload.invalid"), 400);
   }
 }
 
@@ -522,7 +523,7 @@ async function requireSession(env: Env, request: Request): Promise<SessionRecord
 async function loadRepoState(env: Env, github: GitHubClient) {
   const inventoryFile = await github.getFile(INVENTORY_PATH, env.GITHUB_BASE_BRANCH);
   if (!inventoryFile.exists || !inventoryFile.text) {
-    throw new HttpError("network repo is missing inventory.yaml", 502);
+    throw new HttpError("error.repo.inventory.missing", 502);
   }
 
   const policyFile = await github.getFile(AUTOPEER_POLICY_PATH, env.GITHUB_BASE_BRANCH);
@@ -531,7 +532,7 @@ async function loadRepoState(env: Env, github: GitHubClient) {
     hosts.map(async (host) => {
       const file = await github.getFile(PEER_FILE_PATH(host.name), env.GITHUB_BASE_BRANCH);
       if (!file.exists || !file.text) {
-        throw new HttpError(`network repo is missing ${PEER_FILE_PATH(host.name)}`, 502);
+        throw new HttpError(uiMessage("error.repo.peer_file.missing", { path: PEER_FILE_PATH(host.name) }), 502);
       }
       return [host.name, file.text] as const;
     }),
@@ -1008,7 +1009,7 @@ async function listSessionsResponse(
 function findNodeOrThrow(name: string, nodes: Awaited<ReturnType<typeof loadRepoState>>["hosts"]) {
   const node = nodes.find((candidate) => candidate.name === name);
   if (!node) {
-    throw new HttpError(`node ${name} is not autopeer-eligible`, 400);
+    throw new HttpError(uiMessage("error.node.not_eligible", { node: name }), 400);
   }
   return node;
 }
@@ -1022,7 +1023,7 @@ async function handleMutation(
   const authSession = await requireSession(env, request);
   if (!sessionCanMutate(env, authSession)) {
     throw new HttpError(
-      `AS${authSession.asn} is one of our host ASN sessions; impersonate the ASN you want to manage before opening or modifying sessions`,
+      uiMessage("error.auth.impersonation.host_asn.cannot_mutate", { asn: authSession.asn }),
       403,
     );
   }
@@ -1050,7 +1051,7 @@ async function handleMutation(
   const node = findNodeOrThrow(nodeName, repo.hosts);
 
   if (node.autopeer === false) {
-    throw new HttpError(`${nodeName} is not accepting autopeer changes right now`, 403);
+    throw new HttpError(uiMessage("error.node.not_accepting_changes", { node: nodeName }), 403);
   }
 
   if (kind === "create") {
@@ -1058,7 +1059,7 @@ async function handleMutation(
       throw new HttpError("error.request.session_payload.required", 400);
     }
     if (sessions.some((session) => session.node === nodeName && session.state !== "manual")) {
-      throw new HttpError(`ASN ${authSession.asn} already has a session or pending operation on ${nodeName}`, 409);
+      throw new HttpError(uiMessage("error.session.duplicate_on_node", { asn: authSession.asn, node: nodeName }), 409);
     }
     assertValidSessionSpec(node, authSession.asn, sessionPayload);
   }
@@ -1074,7 +1075,7 @@ async function handleMutation(
   const peerPath = PEER_FILE_PATH(nodeName);
   const currentFile = await github.getFile(peerPath, env.GITHUB_BASE_BRANCH);
   if (!currentFile.exists || !currentFile.text || !currentFile.sha) {
-    throw new HttpError(`network repo is missing ${peerPath}`, 502);
+    throw new HttpError(uiMessage("error.repo.peer_file.missing", { path: peerPath }), 502);
   }
 
   const mutationAuthMethod =
@@ -1096,6 +1097,9 @@ async function handleMutation(
       vaultPassword,
     });
   } catch (error) {
+    if (error instanceof I18nError) {
+      throw new HttpError(error.uiMessage, 409);
+    }
     throw new HttpError(String((error as Error).message), 409);
   }
 
@@ -1289,10 +1293,10 @@ async function router(request: Request, env: Env): Promise<Response> {
     });
 
     if (challenge.methods.length === 0) {
-      const message = configuredOidcProviders(env).length > 0
-        ? `AS${asn} does not expose supported registry SSH, PGP, or email auth methods. Use one of the configured OIDC login options instead.`
-        : `AS${asn} does not expose any supported auth methods you can use in the registry`;
-      throw new HttpError(message, 400);
+      const key = configuredOidcProviders(env).length > 0
+        ? "error.auth.asn.no_registry_auth.oidc_hint"
+        : "error.auth.asn.no_supported_auth";
+      throw new HttpError(uiMessage(key, { asn }), 400);
     }
 
     await putChallenge(env, challenge);
@@ -1310,7 +1314,7 @@ async function router(request: Request, env: Env): Promise<Response> {
     const impersonatorSession = await requireSession(env, request);
     if (!sessionCanImpersonate(env, impersonatorSession)) {
       throw new HttpError(
-        `AS${impersonatorSession.asn} is not configured as a host ASN for impersonation`,
+        uiMessage("error.auth.impersonation.asn.not_host", { asn: impersonatorSession.asn }),
         403,
       );
     }
@@ -1436,10 +1440,7 @@ async function router(request: Request, env: Env): Promise<Response> {
     }
 
     if (emailAuthRequest.session_token) {
-      throw new HttpError(
-        "Registry email login has already completed; finish it from the emailed sign-in link.",
-        409,
-      );
+      throw new HttpError("error.auth.registry_email.already_completed", 409);
     }
 
     if (Date.parse(emailAuthRequest.expires_at) <= Date.now()) {

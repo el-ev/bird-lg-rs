@@ -756,7 +756,7 @@ describe("session validation", () => {
         mtu: 11451,
         extended_next_hop: false,
       }),
-    ).toThrow("endpoint host must be an IPv4 address or fully qualified hostname");
+    ).toThrow("validation.endpoint.host_invalid");
   });
 
   it("rejects IPv4 tunnel addresses outside 172.20.0.0/14", () => {
@@ -765,7 +765,7 @@ describe("session validation", () => {
         ...baseSpec,
         peer4: "0.0.0.0",
       }),
-    ).toThrow("peer4 must be within 172.20.0.0/14");
+    ).toThrow("validation.peer4.range");
   });
 
   it("rejects peer6 values that are neither ULA nor link-local", () => {
@@ -775,7 +775,7 @@ describe("session validation", () => {
         peer4: null,
         peer6: "::",
       }),
-    ).toThrow("peer6 must be a ULA or link-local IPv6 address");
+    ).toThrow("validation.peer6.scope");
   });
 
   it("rejects IPv6 transport MP-BGP without an IPv6 tunnel address", () => {
@@ -787,7 +787,7 @@ describe("session validation", () => {
         extended_next_hop: false,
         mp_bgp_transport: "ipv6",
       }),
-    ).toThrow("peer6 is required for MP-BGP over IPv6 transport");
+    ).toThrow("validation.peer6.required_mp_bgp");
   });
 
   it("rejects IPv4 transport MP-BGP without an IPv4 tunnel address", () => {
@@ -799,7 +799,7 @@ describe("session validation", () => {
         extended_next_hop: false,
         mp_bgp_transport: "ipv4",
       }),
-    ).toThrow("peer4 is required for MP-BGP over IPv4 transport");
+    ).toThrow("validation.peer4.required_mp_bgp");
   });
 
   it("rejects extended next hop without MP-BGP", () => {
@@ -808,7 +808,7 @@ describe("session validation", () => {
         ...baseSpec,
         mp_bgp: false,
       }),
-    ).toThrow("extended_next_hop requires MP-BGP");
+    ).toThrow("validation.extended_next_hop.requires_mp_bgp");
   });
 
   it("rejects extended next hop without IPv4 routes", () => {
@@ -817,7 +817,7 @@ describe("session validation", () => {
         ...baseSpec,
         ipv4: false,
       }),
-    ).toThrow("extended_next_hop requires IPv4 routes");
+    ).toThrow("validation.extended_next_hop.requires_ipv4");
   });
 
   it("rejects extended next hop over IPv4 transport", () => {
@@ -826,7 +826,7 @@ describe("session validation", () => {
         ...baseSpec,
         mp_bgp_transport: "ipv4",
       }),
-    ).toThrow("extended_next_hop requires IPv6 transport");
+    ).toThrow("validation.extended_next_hop.requires_ipv6_transport");
   });
 
   it("rejects IPv4 over IPv6 transport without peer4 or extended next hop", () => {
@@ -838,7 +838,7 @@ describe("session validation", () => {
         extended_next_hop: false,
         mp_bgp_transport: "ipv6",
       }),
-    ).toThrow("ipv4 over IPv6 transport requires peer4 or extended_next_hop");
+    ).toThrow("validation.ipv4_over_ipv6_transport.requires_peer4_or_enh");
   });
 
   it("rejects IPv6 routes without peer6 even if peer4 exists", () => {
@@ -850,7 +850,7 @@ describe("session validation", () => {
         extended_next_hop: false,
         mp_bgp: false,
       }),
-    ).toThrow("peer6 is required for IPv6 routes");
+    ).toThrow("validation.peer6.required_ipv6");
   });
 
   it("rejects IPv4 routes without peer4 even if peer6 exists", () => {
@@ -862,7 +862,7 @@ describe("session validation", () => {
         extended_next_hop: false,
         mp_bgp: false,
       }),
-    ).toThrow("peer4 is required for IPv4 routes");
+    ).toThrow("validation.peer4.required_ipv4");
   });
 
   it("rejects MTUs outside the operational range", () => {
@@ -871,7 +871,7 @@ describe("session validation", () => {
         ...baseSpec,
         mtu: 11451,
       }),
-    ).toThrow("mtu must be between 1280 and 1500");
+    ).toThrow("validation.mtu.range");
   });
 
   it("rejects malformed WireGuard public keys", () => {
@@ -880,6 +880,6 @@ describe("session validation", () => {
         ...baseSpec,
         wg_public_key: "not-a-valid-key",
       }),
-    ).toThrow("wg_public_key must be a 44-character base64 public key");
+    ).toThrow("validation.wg_public_key.length");
   });
 });

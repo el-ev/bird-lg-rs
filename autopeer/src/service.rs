@@ -44,14 +44,12 @@ async fn decode_json<T: DeserializeOwned>(response: Response) -> Result<T, UiMes
         response
             .json::<T>()
             .await
-            .map_err(|error| UiMessage::raw(format!("Failed to decode response: {error}")))
+            .map_err(|error| UiMessage::key("error.runtime.decode_failed").with_param("detail", error.to_string()))
     } else {
         let status = response.status();
         match response.json::<ErrorResponse>().await {
             Ok(body) => Err(body.error),
-            Err(_) => Err(UiMessage::raw(format!(
-                "HTTP request failed with status {status}"
-            ))),
+            Err(_) => Err(UiMessage::key("error.runtime.http_failed").with_param("status", status.to_string())),
         }
     }
 }
@@ -63,12 +61,12 @@ async fn send_json<B: Serialize, T: DeserializeOwned>(
     body: &B,
 ) -> Result<T, UiMessage> {
     let payload = serde_json::to_string(body)
-        .map_err(|error| UiMessage::raw(format!("Failed to encode payload: {error}")))?;
+        .map_err(|error| UiMessage::key("error.runtime.encode_failed").with_param("detail", error.to_string()))?;
 
     let request = match method {
         "POST" => Request::post(url),
         "PATCH" => Request::patch(url),
-        other => return Err(UiMessage::raw(format!("Unsupported HTTP method {other}"))),
+        other => return Err(UiMessage::key("error.runtime.unsupported_method").with_param("method", other.to_string())),
     };
 
     let request = if let Some(token) = token {
@@ -87,7 +85,7 @@ async fn send_json<B: Serialize, T: DeserializeOwned>(
         .body(payload)
         .send()
         .await
-        .map_err(|error| UiMessage::raw(format!("Request failed: {error}")))?;
+        .map_err(|error| UiMessage::key("error.runtime.request_failed").with_param("detail", error.to_string()))?;
 
     decode_json(response).await
 }
@@ -103,7 +101,7 @@ async fn send_delete<T: DeserializeOwned>(url: &str, token: &str) -> Result<T, U
     let response = request
         .send()
         .await
-        .map_err(|error| UiMessage::raw(format!("Request failed: {error}")))?;
+        .map_err(|error| UiMessage::key("error.runtime.request_failed").with_param("detail", error.to_string()))?;
 
     decode_json(response).await
 }
@@ -123,7 +121,7 @@ async fn send_get<T: DeserializeOwned>(url: &str, token: Option<&str>) -> Result
     let response = request
         .send()
         .await
-        .map_err(|error| UiMessage::raw(format!("Request failed: {error}")))?;
+        .map_err(|error| UiMessage::key("error.runtime.request_failed").with_param("detail", error.to_string()))?;
 
     decode_json(response).await
 }
@@ -153,17 +151,14 @@ pub async fn load_runtime_config() -> Result<RuntimeConfig, UiMessage> {
     let response = Request::get(CONFIG_PATH)
         .send()
         .await
-        .map_err(|error| UiMessage::raw(format!("Failed to load config.json: {error}")))?;
+        .map_err(|error| UiMessage::key("error.runtime.config.load_failed").with_param("detail", error.to_string()))?;
 
     if response.status() == 404 {
         return Ok(RuntimeConfig::default());
     }
 
     if !response.ok() {
-        return Err(UiMessage::raw(format!(
-            "Config endpoint responded with HTTP {}",
-            response.status()
-        )));
+        return Err(UiMessage::key("error.runtime.http_failed").with_param("status", response.status().to_string()));
     }
 
     match response.json::<RuntimeConfig>().await {

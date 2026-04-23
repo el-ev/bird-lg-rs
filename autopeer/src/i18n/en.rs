@@ -727,6 +727,30 @@ pub(super) const TABLE: &[(&str, &str)] = &[
         "Impersonation is only available after you authenticate one of our configured host ASNs.",
     ),
     (
+        "error.runtime.decode_failed",
+        "Failed to decode response: {detail}",
+    ),
+    (
+        "error.runtime.http_failed",
+        "HTTP request failed with status {status}",
+    ),
+    (
+        "error.runtime.encode_failed",
+        "Failed to encode payload: {detail}",
+    ),
+    (
+        "error.runtime.unsupported_method",
+        "Unsupported HTTP method {method}",
+    ),
+    (
+        "error.runtime.request_failed",
+        "Request failed: {detail}",
+    ),
+    (
+        "error.runtime.config.load_failed",
+        "Failed to load config.json: {detail}",
+    ),
+    (
         "error.runtime.browser.unavailable",
         "Browser window is unavailable",
     ),
@@ -932,6 +956,115 @@ pub(super) const TABLE: &[(&str, &str)] = &[
         "error.vault.not_configured",
         "Vault encryption is not configured on this server. PSK and endpoint encryption are unavailable.",
     ),
+    // Backend error messages
+    (
+        "error.repo.inventory.missing",
+        "Network repo is missing inventory.yaml",
+    ),
+    (
+        "error.repo.peer_file.missing",
+        "Network repo is missing {path}",
+    ),
+    (
+        "error.node.not_eligible",
+        "Node {node} is not autopeer-eligible",
+    ),
+    (
+        "error.node.not_accepting_changes",
+        "{node} is not accepting autopeer changes right now",
+    ),
+    (
+        "error.session.duplicate_on_node",
+        "AS{asn} already has a session or pending operation on {node}",
+    ),
+    (
+        "error.auth.asn.no_registry_auth.oidc_hint",
+        "AS{asn} does not expose supported registry SSH, PGP, or email auth methods. Use one of the configured OIDC login options instead.",
+    ),
+    (
+        "error.auth.impersonation.host_asn.cannot_mutate",
+        "AS{asn} is one of our host ASN sessions; impersonate the ASN you want to manage before opening or modifying sessions",
+    ),
+    (
+        "error.auth.impersonation.asn.not_host",
+        "AS{asn} is not configured as a host ASN for impersonation",
+    ),
+    (
+        "error.auth.registry_email.already_completed",
+        "Registry email login has already completed; finish it from the emailed sign-in link.",
+    ),
+    (
+        "error.request.session.mp_bgp_transport.invalid",
+        "session.mp_bgp_transport must be one of ipv4, ipv6",
+    ),
+    (
+        "error.request.session_payload.invalid",
+        "Session payload is invalid",
+    ),
+    (
+        "error.peer.duplicate",
+        "Duplicate ASN AS{asn} exists in the peer file",
+    ),
+    (
+        "error.peer.create.session_required",
+        "Create operation requires a session payload",
+    ),
+    (
+        "error.peer.managed.already_exists",
+        "Managed peer AS{asn} already exists on this node",
+    ),
+    (
+        "error.peer.not_found",
+        "Peer AS{asn} does not exist on this node",
+    ),
+    (
+        "error.peer.already_managed",
+        "Peer AS{asn} is already managed by autopeer",
+    ),
+    (
+        "error.peer.update.session_required",
+        "Update operation requires a session payload",
+    ),
+    (
+        "error.peer.manual.cannot_modify",
+        "Manual peer AS{asn} cannot be modified by autopeer",
+    ),
+    (
+        "error.data.yaml_root.invalid",
+        "YAML root must be a mapping",
+    ),
+    (
+        "error.data.peer_entry.invalid",
+        "Peer entry must be a mapping",
+    ),
+    (
+        "error.data.peer_entry.missing_bgp",
+        "Peer entry is missing BGP mapping",
+    ),
+    (
+        "error.data.peer_entry.missing_asn",
+        "Peer entry is missing valid bgp.asn",
+    ),
+    (
+        "error.data.peer.missing_wg",
+        "Active peer AS{asn} is missing WireGuard mapping",
+    ),
+    (
+        "error.data.peer_file.missing_peers",
+        "Peer file must contain a top-level peers list",
+    ),
+    (
+        "error.data.inventory.missing_all",
+        "inventory.yaml is missing the top-level all key",
+    ),
+    (
+        "error.data.inventory.missing_children",
+        "inventory.yaml is missing all.children",
+    ),
+    (
+        "error.data.inventory.missing_hosts",
+        "inventory.yaml must define nodes.hosts and dn42.hosts",
+    ),
     // Frontend validation
     (
         "validation.tunnel.required",
@@ -1084,6 +1217,31 @@ pub(super) const TABLE: &[(&str, &str)] = &[
 (
         "validation.psk.charset",
         "Pre-shared key contains invalid base64 characters",
+    ),
+    // Backend-only validation
+    (
+        "validation.mp_bgp_transport.invalid",
+        "MP-BGP transport must be one of ipv4, ipv6",
+    ),
+    (
+        "validation.peering_strategy.invalid",
+        "Peering strategy must be standard or aggressive",
+    ),
+    (
+        "validation.port.range",
+        "Port must be between 1 and 65535",
+    ),
+    (
+        "validation.endpoint.required",
+        "Remote endpoint is required",
+    ),
+    (
+        "validation.endpoint.node_ipv6_only",
+        "{node} is IPv6-only; use a hostname or IPv6 endpoint",
+    ),
+    (
+        "validation.endpoint.node_ipv4_only",
+        "{node} is IPv4-only; use a hostname or IPv4 endpoint",
     ),
     // Loading messages
     (

@@ -35,6 +35,12 @@ export class HttpError extends Error {
   }
 }
 
+export class I18nError extends Error {
+  constructor(public readonly uiMessage: UiMessage) {
+    super(uiMessage.key);
+  }
+}
+
 export function nowIso(): string {
   return new Date().toISOString();
 }

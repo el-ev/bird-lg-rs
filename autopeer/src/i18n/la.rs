@@ -724,6 +724,30 @@ pub(super) const TABLE: &[(&str, &str)] = &[
         "Personatio solum praesto est postquam unum ex ASN-ibus hospitis configuratis nostris autenticaveris.",
     ),
     (
+        "error.runtime.decode_failed",
+        "Responsio decodere defecit: {detail}",
+    ),
+    (
+        "error.runtime.http_failed",
+        "Rogatio HTTP cum statu {status} defecit",
+    ),
+    (
+        "error.runtime.encode_failed",
+        "Sarcina codificare defecit: {detail}",
+    ),
+    (
+        "error.runtime.unsupported_method",
+        "Methodus HTTP {method} non sustinetur",
+    ),
+    (
+        "error.runtime.request_failed",
+        "Rogatio defecit: {detail}",
+    ),
+    (
+        "error.runtime.config.load_failed",
+        "config.json onerare defecit: {detail}",
+    ),
+    (
         "error.runtime.browser.unavailable",
         "Fenestra navigatri praesto non est",
     ),
@@ -929,6 +953,115 @@ pub(super) const TABLE: &[(&str, &str)] = &[
         "error.vault.not_configured",
         "Encryptio Vault in hoc servo non configurata est. PSK et encryptio terminationis non praesto sunt.",
     ),
+    // Backend error messages
+    (
+        "error.repo.inventory.missing",
+        "Repositorium retis inventory.yaml caret",
+    ),
+    (
+        "error.repo.peer_file.missing",
+        "Repositorium retis {path} caret",
+    ),
+    (
+        "error.node.not_eligible",
+        "Nodus {node} ad Autopeer idoneus non est",
+    ),
+    (
+        "error.node.not_accepting_changes",
+        "{node} mutationes Autopeer nunc non accipit",
+    ),
+    (
+        "error.session.duplicate_on_node",
+        "AS{asn} iam sessionem vel operationem pendentem in {node} habet",
+    ),
+    (
+        "error.auth.asn.no_registry_auth.oidc_hint",
+        "AS{asn} methodos authentificationis SSH, PGP, vel electronicae registri non exponit. Utere una ex optionibus OIDC configuratis.",
+    ),
+    (
+        "error.auth.impersonation.host_asn.cannot_mutate",
+        "AS{asn} una ex sessionibus ASN hospitum nostrorum est; persona ASN quem administrare vis ante sessiones aperiendas vel modificandas",
+    ),
+    (
+        "error.auth.impersonation.asn.not_host",
+        "AS{asn} non configuratus est ut ASN hospitis pro personatione",
+    ),
+    (
+        "error.auth.registry_email.already_completed",
+        "Ingressus electronici registri iam completus est; perfice eum per nexum ingressus missum.",
+    ),
+    (
+        "error.request.session.mp_bgp_transport.invalid",
+        "session.mp_bgp_transport unum ex ipv4, ipv6 esse debet",
+    ),
+    (
+        "error.request.session_payload.invalid",
+        "Sarcina sessionis invalida est",
+    ),
+    (
+        "error.peer.duplicate",
+        "ASN AS{asn} duplicatus in fasciculo parium exstat",
+    ),
+    (
+        "error.peer.create.session_required",
+        "Operatio creationis sarcinam sessionis requirit",
+    ),
+    (
+        "error.peer.managed.already_exists",
+        "Par administratus AS{asn} iam in hoc nodo exstat",
+    ),
+    (
+        "error.peer.not_found",
+        "Par AS{asn} in hoc nodo non exstat",
+    ),
+    (
+        "error.peer.already_managed",
+        "Par AS{asn} iam ab Autopeer administratur",
+    ),
+    (
+        "error.peer.update.session_required",
+        "Operatio renovationis sarcinam sessionis requirit",
+    ),
+    (
+        "error.peer.manual.cannot_modify",
+        "Par manualis AS{asn} ab Autopeer modificari non potest",
+    ),
+    (
+        "error.data.yaml_root.invalid",
+        "Radix YAML tabula esse debet",
+    ),
+    (
+        "error.data.peer_entry.invalid",
+        "Introitus paris tabula esse debet",
+    ),
+    (
+        "error.data.peer_entry.missing_bgp",
+        "Introitus paris tabulam BGP caret",
+    ),
+    (
+        "error.data.peer_entry.missing_asn",
+        "Introitus paris bgp.asn validum caret",
+    ),
+    (
+        "error.data.peer.missing_wg",
+        "Par activus AS{asn} tabulam WireGuard caret",
+    ),
+    (
+        "error.data.peer_file.missing_peers",
+        "Fasciculus parium indicem peers summo gradu continere debet",
+    ),
+    (
+        "error.data.inventory.missing_all",
+        "inventory.yaml clavem summi gradus all caret",
+    ),
+    (
+        "error.data.inventory.missing_children",
+        "inventory.yaml all.children caret",
+    ),
+    (
+        "error.data.inventory.missing_hosts",
+        "inventory.yaml nodes.hosts et dn42.hosts definire debet",
+    ),
     // Frontend validation
     (
         "validation.tunnel.required",
@@ -1081,6 +1214,31 @@ pub(super) const TABLE: &[(&str, &str)] = &[
 (
         "validation.psk.charset",
         "Clavis praecommunicata characteres Base64 invalidos continet",
+    ),
+    // Backend-only validation
+    (
+        "validation.mp_bgp_transport.invalid",
+        "Transitus MP-BGP unum ex ipv4, ipv6 esse debet",
+    ),
+    (
+        "validation.peering_strategy.invalid",
+        "Strategia parium standard vel aggressive esse debet",
+    ),
+    (
+        "validation.port.range",
+        "Portus inter 1 et 65535 esse debet",
+    ),
+    (
+        "validation.endpoint.required",
+        "Terminus remotus necessarius est",
+    ),
+    (
+        "validation.endpoint.node_ipv6_only",
+        "{node} solum IPv6 sustinet; nomine vel termino IPv6 utere",
+    ),
+    (
+        "validation.endpoint.node_ipv4_only",
+        "{node} solum IPv4 sustinet; nomine vel termino IPv4 utere",
     ),
     // Loading messages
     (

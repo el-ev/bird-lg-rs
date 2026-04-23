@@ -14,7 +14,7 @@ import {
   type SessionState,
   type SessionView,
 } from "./types";
-import { defaultPeerPort, isTerminalOperationState, isTruthyRecord, normalizeAsn } from "./utils";
+import { I18nError, defaultPeerPort, isTerminalOperationState, isTruthyRecord, normalizeAsn, uiMessage } from "./utils";
 import { isVaultEncrypted, vaultDecrypt, vaultEncrypt } from "./vault";
 
 const PEER_KEY_ORDER = ["comment", "wg", "bgp", "removed"] as const;
@@ -102,7 +102,7 @@ function parseYamlObject(text: string): YamlObject {
   const doc = parseDocument(text);
   const root = nodeToValue(doc.contents);
   if (!isTruthyRecord(root)) {
-    throw new Error("YAML root must be a mapping");
+    throw new Error("error.data.yaml_root.invalid");
   }
   return root as YamlObject;
 }
@@ -111,7 +111,7 @@ function toPlainObject(text: string): Record<string, unknown> {
   const doc = parseDocument(text);
   const value = doc.toJS();
   if (!isTruthyRecord(value)) {
-    throw new Error("YAML root must be a mapping");
+    throw new Error("error.data.yaml_root.invalid");
   }
   return value;
 }
@@ -176,57 +176,57 @@ function isMpBgpTransport(value: unknown): value is MpBgpTransport {
     (MP_BGP_TRANSPORTS as readonly string[]).includes(value);
 }
 
-function normalizePeeringStrategy(value: YamlValue | undefined, field: string): PeeringStrategy {
+function normalizePeeringStrategy(value: YamlValue | undefined, _field: string): PeeringStrategy {
   if (value === undefined || value === null) {
     return DEFAULT_PEERING_STRATEGY;
   }
   if (typeof value !== "string") {
-    throw new Error(`${field} must be one of ${PEERING_STRATEGIES.join(", ")}`);
+    throw new Error("validation.peering_strategy.invalid");
   }
   const normalized = value.trim();
   if (!isPeeringStrategy(normalized)) {
-    throw new Error(`${field} must be one of ${PEERING_STRATEGIES.join(", ")}`);
+    throw new Error("validation.peering_strategy.invalid");
   }
   return normalized;
 }
 
 function normalizeMpBgpTransport(
   value: YamlValue | undefined,
-  field: string,
+  _field: string,
 ): MpBgpTransport | undefined {
   if (value === undefined || value === null) {
     return undefined;
   }
   if (typeof value !== "string") {
-    throw new Error(`${field} must be one of ${MP_BGP_TRANSPORTS.join(", ")}`);
+    throw new Error("validation.mp_bgp_transport.invalid");
   }
   const normalized = value.trim();
   if (!isMpBgpTransport(normalized)) {
-    throw new Error(`${field} must be one of ${MP_BGP_TRANSPORTS.join(", ")}`);
+    throw new Error("validation.mp_bgp_transport.invalid");
   }
   return normalized;
 }
 
 function normalizePeerEntry(peer: PeerEntry): PeerEntry {
   if (!isTruthyRecord(peer)) {
-    throw new Error("peer entry must be a mapping");
+    throw new Error("error.data.peer_entry.invalid");
   }
 
   const bgp = isTruthyRecord(peer.bgp) ? (peer.bgp as YamlObject) : null;
   if (!bgp) {
-    throw new Error("peer entry is missing bgp mapping");
+    throw new Error("error.data.peer_entry.missing_bgp");
   }
 
   const asn = coerceInt(bgp.asn);
   if (asn === undefined) {
-    throw new Error("peer entry is missing valid bgp.asn");
+    throw new Error("error.data.peer_entry.missing_asn");
   }
   const peerLabel = `peer AS${asn}`;
 
   const removed = Boolean(peer.removed);
   const wg = isTruthyRecord(peer.wg) ? (peer.wg as YamlObject) : {};
   if (!removed && !isTruthyRecord(peer.wg)) {
-    throw new Error(`active peer AS${asn} is missing wg mapping`);
+    throw new I18nError(uiMessage("error.data.peer.missing_wg", { asn: String(asn) }));
   }
 
   const normalizedPeer: PeerEntry = {};
@@ -310,7 +310,7 @@ function normalizePeerEntry(peer: PeerEntry): PeerEntry {
 function normalizePeerFileData(data: YamlObject): { peers: PeerEntry[] } {
   const peers = Array.isArray(data.peers) ? data.peers : null;
   if (!peers) {
-    throw new Error("peer file must contain a top-level peers list");
+    throw new Error("error.data.peer_file.missing_peers");
   }
 
   return {
@@ -410,7 +410,7 @@ function peerAsn(peer: PeerEntry): string {
   const bgp = isTruthyRecord(peer.bgp) ? (peer.bgp as YamlObject) : {};
   const asn = coerceInt(bgp.asn);
   if (asn === undefined) {
-    throw new Error("peer entry is missing valid bgp.asn");
+    throw new Error("error.data.peer_entry.missing_asn");
   }
   return String(asn);
 }
@@ -547,29 +547,29 @@ function migrationAuthMethod(authMethod: AuthMethod): AuthMethod {
 function ensureEndpointAllowed(node: InventoryHost, endpoint: string): void {
   const { kind } = parseEndpoint(endpoint);
   if (kind === "ipv4" && node.ip_support === "ipv6") {
-    throw new Error(`${node.name} is IPv6-only; use a hostname or IPv6 endpoint`);
+    throw new I18nError(uiMessage("validation.endpoint.node_ipv6_only", { node: node.name }));
   }
   if (kind === "ipv6" && node.ip_support === "ipv4") {
-    throw new Error(`${node.name} is IPv4-only; use a hostname or IPv4 endpoint`);
+    throw new I18nError(uiMessage("validation.endpoint.node_ipv4_only", { node: node.name }));
   }
 }
 
 function parseEndpoint(endpoint: string): { host: string; port: number; kind: "hostname" | "ipv4" | "ipv6" } {
   const trimmed = endpoint.trim();
   if (!trimmed) {
-    throw new Error("endpoint is required");
+    throw new Error("validation.endpoint.required");
   }
   if (/\s/.test(trimmed)) {
-    throw new Error("endpoint cannot contain spaces");
+    throw new Error("validation.endpoint.no_spaces");
   }
 
   if (trimmed.startsWith("[")) {
     const match = trimmed.match(/^\[([^\]]+)\]:(\d+)$/);
     if (!match) {
-      throw new Error("endpoint must use host:port or [ipv6]:port");
+      throw new Error("validation.endpoint.ipv6_format");
     }
     if (!isValidIpv6Address(match[1])) {
-      throw new Error("endpoint IPv6 address must be valid");
+      throw new Error("validation.endpoint.ipv6_invalid");
     }
     return {
       host: match[1],
@@ -579,19 +579,19 @@ function parseEndpoint(endpoint: string): { host: string; port: number; kind: "h
   }
 
   if (trimmed.split(":").length !== 2) {
-    throw new Error("endpoint must use host:port or [ipv6]:port");
+    throw new Error("validation.endpoint.host_port_format");
   }
 
   const [host, portText] = trimmed.split(":");
   if (!host) {
-    throw new Error("endpoint host is required");
+    throw new Error("validation.endpoint.host_required");
   }
   const port = parsePortComponent(portText, "endpoint port");
   if (isValidIpv4Address(host)) {
     return { host, port, kind: "ipv4" };
   }
   if (!isValidEndpointHostname(host)) {
-    throw new Error("endpoint host must be an IPv4 address or fully qualified hostname");
+    throw new Error("validation.endpoint.host_invalid");
   }
   return { host, port, kind: "hostname" };
 }
@@ -599,7 +599,7 @@ function parseEndpoint(endpoint: string): { host: string; port: number; kind: "h
 function parsePortComponent(value: string, label: string): number {
   const port = Number(value);
   if (!Number.isInteger(port) || port < 1 || port > 65535) {
-    throw new Error(`${label} must be between 1 and 65535`);
+    throw new Error("validation.endpoint.port.range");
   }
   return port;
 }
@@ -656,32 +656,32 @@ function isLinkLocalIpv6Address(value: string): boolean {
 function validateWireGuardPublicKey(value: string): void {
   const trimmed = value.trim();
   if (trimmed.length !== 44 || !trimmed.endsWith("=") || !BASE64_LIKE.test(trimmed)) {
-    throw new Error("wg_public_key must be a 44-character base64 public key");
+    throw new Error("validation.wg_public_key.length");
   }
 }
 
 function validateWireGuardPsk(value: string): void {
   const trimmed = value.trim();
   if (trimmed.length !== 44 || !trimmed.endsWith("=") || !BASE64_LIKE.test(trimmed)) {
-    throw new Error("psk must be a 44-character base64 WireGuard pre-shared key");
+    throw new Error("validation.psk.length");
   }
 }
 
 function validatePeerIpv4(value: string): void {
   if (!isValidIpv4Address(value)) {
-    throw new Error("peer4 must be a valid IPv4 address");
+    throw new Error("validation.peer4.invalid");
   }
   if (!isDn42TunnelIpv4(value)) {
-    throw new Error("peer4 must be within 172.20.0.0/14");
+    throw new Error("validation.peer4.range");
   }
 }
 
 function validatePeerIpv6(value: string): void {
   if (!isValidIpv6Address(value)) {
-    throw new Error("peer6 must be a valid IPv6 address");
+    throw new Error("validation.peer6.invalid");
   }
   if (!isLinkLocalIpv6Address(value) && !isUlaIpv6Address(value)) {
-    throw new Error("peer6 must be a ULA or link-local IPv6 address");
+    throw new Error("validation.peer6.scope");
   }
 }
 
@@ -690,7 +690,7 @@ function validateMtu(value: number | null | undefined): void {
     return;
   }
   if (value < 1280 || value > 1500) {
-    throw new Error("mtu must be between 1280 and 1500");
+    throw new Error("validation.mtu.range");
   }
 }
 
@@ -702,18 +702,18 @@ export function validateSessionSpec(node: InventoryHost, asn: string, spec: Peer
     spec.mp_bgp_transport !== undefined &&
     !isMpBgpTransport(spec.mp_bgp_transport)
   ) {
-    throw new Error(`mp_bgp_transport must be one of ${MP_BGP_TRANSPORTS.join(", ")}`);
+    throw new Error("validation.mp_bgp_transport.invalid");
   }
   const transport = resolveMpBgpTransport(spec.mp_bgp_transport ?? null, peer4, peer6);
   if (spec.endpoint) {
     parseEndpoint(spec.endpoint);
   }
   if (!spec.wg_public_key.trim()) {
-    throw new Error("wg_public_key is required");
+    throw new Error("validation.wg_public_key.required");
   }
   validateWireGuardPublicKey(spec.wg_public_key);
   if (!peer4 && !peer6) {
-    throw new Error("add at least one tunnel address: IPv4 or IPv6");
+    throw new Error("validation.tunnel.required");
   }
   if (peer4) {
     validatePeerIpv4(peer4);
@@ -722,55 +722,55 @@ export function validateSessionSpec(node: InventoryHost, asn: string, spec: Peer
     validatePeerIpv6(peer6);
   }
   if (!spec.ipv4 && !spec.ipv6) {
-    throw new Error("at least one BGP family must be enabled");
+    throw new Error("validation.bgp_family.required");
   }
   const peer4RequiredForTransport = spec.mp_bgp && transport === "ipv4";
   const peer6RequiredForTransport = spec.mp_bgp && transport === "ipv6";
   const peer4RequiredForRoutes = spec.ipv4 && !spec.mp_bgp;
   const peer6RequiredForRoutes = spec.ipv6 && !spec.mp_bgp;
   if (peer6RequiredForTransport && !peer6) {
-    throw new Error("peer6 is required for MP-BGP over IPv6 transport");
+    throw new Error("validation.peer6.required_mp_bgp");
   }
   if (peer4RequiredForTransport && !peer4) {
-    throw new Error("peer4 is required for MP-BGP over IPv4 transport");
+    throw new Error("validation.peer4.required_mp_bgp");
   }
   if (peer4RequiredForRoutes && !peer4) {
-    throw new Error("peer4 is required for IPv4 routes");
+    throw new Error("validation.peer4.required_ipv4");
   }
   if (peer6RequiredForRoutes && !peer6) {
-    throw new Error("peer6 is required for IPv6 routes");
+    throw new Error("validation.peer6.required_ipv6");
   }
   if (spec.extended_next_hop && !spec.mp_bgp) {
-    throw new Error("extended_next_hop requires MP-BGP");
+    throw new Error("validation.extended_next_hop.requires_mp_bgp");
   }
   if (spec.extended_next_hop && !spec.ipv4) {
-    throw new Error("extended_next_hop requires IPv4 routes");
+    throw new Error("validation.extended_next_hop.requires_ipv4");
   }
   if (spec.extended_next_hop && transport !== "ipv6") {
-    throw new Error("extended_next_hop requires IPv6 transport");
+    throw new Error("validation.extended_next_hop.requires_ipv6_transport");
   }
   if (spec.ipv4 && spec.mp_bgp && transport === "ipv6" && !peer4 && !spec.extended_next_hop) {
-    throw new Error("ipv4 over IPv6 transport requires peer4 or extended_next_hop");
+    throw new Error("validation.ipv4_over_ipv6_transport.requires_peer4_or_enh");
   }
   if (!isPeeringStrategy(spec.peering_strategy)) {
-    throw new Error(`peering_strategy must be one of ${PEERING_STRATEGIES.join(", ")}`);
+    throw new Error("validation.peering_strategy.invalid");
   }
   if (spec.own6?.trim()) {
     if (!peer6) {
-      throw new Error("own6 requires an IPv6 tunnel address");
+      throw new Error("validation.own6.requires_peer6");
     }
     if (!isValidIpv6Address(spec.own6)) {
-      throw new Error("own6 must be a valid IPv6 address");
+      throw new Error("validation.own6.invalid");
     }
     if (!isLinkLocalIpv6Address(peer6)) {
-      throw new Error("own6 only applies to link-local IPv6 peering");
+      throw new Error("validation.own6.requires_link_local_peer6");
     }
     if (!isLinkLocalIpv6Address(spec.own6)) {
-      throw new Error("own6 must be a link-local IPv6 address");
+      throw new Error("validation.own6.scope");
     }
   }
   if (spec.port !== null && spec.port !== undefined && (spec.port < 1 || spec.port > 65535)) {
-    throw new Error("port must be between 1 and 65535");
+    throw new Error("validation.port.range");
   }
   validateMtu(spec.mtu);
   if (spec.psk !== null && spec.psk !== undefined) {
@@ -806,11 +806,11 @@ export function loadInventoryHosts(
   const inventory = toPlainObject(inventoryText);
   const all = inventory.all;
   if (!isTruthyRecord(all)) {
-    throw new Error("inventory.yaml is missing all");
+    throw new Error("error.data.inventory.missing_all");
   }
   const children = all.children;
   if (!isTruthyRecord(children)) {
-    throw new Error("inventory.yaml is missing all.children");
+    throw new Error("error.data.inventory.missing_children");
   }
   const nodeHosts = isTruthyRecord(children.nodes) && isTruthyRecord(children.nodes.hosts)
     ? (children.nodes.hosts as Record<string, unknown>)
@@ -820,7 +820,7 @@ export function loadInventoryHosts(
     : null;
 
   if (!nodeHosts || !dn42Hosts) {
-    throw new Error("inventory.yaml must define nodes.hosts and dn42.hosts");
+    throw new Error("error.data.inventory.missing_hosts");
   }
 
   let enabledNames: Set<string> | null = null;
@@ -1026,7 +1026,7 @@ export async function mutatePeerFile(
     .filter(({ peer }) => peerAsn(peer) === input.asn);
 
   if (matchIndexes.length > 1) {
-    throw new Error(`duplicate ASN ${input.asn} exists in peer file`);
+    throw new I18nError(uiMessage("error.peer.duplicate", { asn: input.asn }));
   }
 
   const match = matchIndexes[0];
@@ -1037,7 +1037,7 @@ export async function mutatePeerFile(
   if (input.kind === "create") {
     if (existing && !isRemoved) {
       if (!input.session) {
-        throw new Error("create requires a session payload");
+        throw new Error("error.peer.create.session_required");
       }
       if (!isManaged) {
         const next = specToPeerEntry(
@@ -1054,11 +1054,11 @@ export async function mutatePeerFile(
           sessionSnapshot,
         };
       }
-      throw new Error(`managed peer AS${input.asn} already exists on this node`);
+      throw new I18nError(uiMessage("error.peer.managed.already_exists", { asn: input.asn }));
     }
 
     if (!input.session) {
-      throw new Error("create requires a session payload");
+      throw new Error("error.peer.create.session_required");
     }
 
     const next = specToPeerEntry(
@@ -1081,11 +1081,11 @@ export async function mutatePeerFile(
   }
 
   if (!existing) {
-    throw new Error(`peer AS${input.asn} does not exist on this node`);
+    throw new I18nError(uiMessage("error.peer.not_found", { asn: input.asn }));
   }
   if (input.kind === "migrate") {
     if (isManaged) {
-      throw new Error(`peer AS${input.asn} is already managed by autopeer`);
+      throw new I18nError(uiMessage("error.peer.already_managed", { asn: input.asn }));
     }
     const next = specToPeerEntry(
       input.asn,
@@ -1104,7 +1104,7 @@ export async function mutatePeerFile(
 
   if (input.kind === "update") {
     if (!input.session) {
-      throw new Error("update requires a session payload");
+      throw new Error("error.peer.update.session_required");
     }
     const next = specToPeerEntry(
       input.asn,
@@ -1122,7 +1122,7 @@ export async function mutatePeerFile(
   }
 
   if (!isManaged) {
-    throw new Error(`manual peer AS${input.asn} cannot be modified by autopeer`);
+    throw new I18nError(uiMessage("error.peer.manual.cannot_modify", { asn: input.asn }));
   }
 
   const removedEntry = normalizePeerEntry({
