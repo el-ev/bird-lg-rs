@@ -1247,7 +1247,9 @@ pub fn auto_peer_page() -> Html {
             };
 
             let field_is_invalid = |field: SessionDraftField| {
-                field_is_touched(&touched_fields, field) && should_mark_field_invalid(&draft, field)
+                field_is_touched(&touched_fields, field)
+                    && *focused_field != Some(field)
+                    && should_mark_field_invalid(&draft, field)
             };
 
             let input_class = |field: SessionDraftField| {
