@@ -231,6 +231,11 @@ fn humanize_token(i18n: &I18n, token: &str) -> String {
 
 fn humanize_region(i18n: &I18n, region: &Option<String>) -> Option<String> {
     region.as_ref().map(|value| {
+        let key = format!("location.region.{}", value.to_lowercase());
+        let translated = i18n.translate_owned(&key);
+        if translated != key {
+            return translated;
+        }
         value
             .split('_')
             .map(|token| humanize_token(i18n, token))
@@ -1918,19 +1923,17 @@ pub fn auto_peer_page() -> Html {
                                         disabled={loading}
                                     />
                                     {" "}
-                                    if draft.has_psk || !draft.psk.is_empty() {
-                                        <ShellButton
-                                            text={i18n.t("stage2.field.psk.clear")}
-                                            onclick={on_psk_action.clone()}
-                                            disabled={loading}
-                                        />
-                                    } else {
-                                        <ShellButton
-                                            text={if *psk_copied { i18n.t("stage2.field.psk.copied") } else { i18n.t("stage2.field.psk.generate") }}
-                                            onclick={on_psk_action.clone()}
-                                            disabled={loading || *psk_copied}
-                                        />
-                                    }
+                                    <ShellButton
+                                        text={if *psk_copied {
+                                            i18n.t("stage2.field.psk.copied")
+                                        } else if draft.has_psk || !draft.psk.is_empty() {
+                                            i18n.t("stage2.field.psk.clear")
+                                        } else {
+                                            i18n.t("stage2.field.psk.generate")
+                                        }}
+                                        onclick={on_psk_action.clone()}
+                                        disabled={loading || *psk_copied}
+                                    />
                                 </ShellLine>
                                 {field_error_message(SessionDraftField::Psk)}
                             </div>
