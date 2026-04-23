@@ -953,16 +953,45 @@ async function refreshOperation(
               failureDetails = null;
             } catch (error) {
               await releaseNodeOperationLock(env, operation.node, operation.id);
-              nextState = "pending_merge";
-              message = uiMessage("operation.message.merge_failed", {
-                error: error instanceof Error ? error.message : "unknown error",
-              });
-              failureDetails = {
-                stage: "merge",
-                step: "github merge",
-                conclusion: "merge_failed",
-                annotation: error instanceof Error ? error.message : "unknown error",
-              };
+              try {
+                const peerPath = PEER_FILE_PATH(operation.node);
+                const branchFile = await github.getFile(peerPath, operation.branch);
+                if (branchFile.exists && branchFile.text) {
+                  const baseSha = await github.getBranchHead(env.GITHUB_BASE_BRANCH);
+                  await github.forcePushSingleFile({
+                    branch: operation.branch,
+                    baseSha,
+                    path: peerPath,
+                    content: branchFile.text,
+                    message: `feat: autopeer ${operation.kind} AS${operation.asn} on ${operation.node}`,
+                  });
+                  nextState = "pending_checks";
+                  message = buildOperationMessage(nextState);
+                  failureDetails = null;
+                } else {
+                  nextState = "failed";
+                  message = uiMessage("operation.message.merge_failed", {
+                    error: error instanceof Error ? error.message : "unknown error",
+                  });
+                  failureDetails = {
+                    stage: "merge",
+                    step: "github merge",
+                    conclusion: "merge_failed",
+                    annotation: error instanceof Error ? error.message : "unknown error",
+                  };
+                }
+              } catch (rebaseError) {
+                nextState = "failed";
+                message = uiMessage("operation.message.merge_failed", {
+                  error: rebaseError instanceof Error ? rebaseError.message : "unknown error",
+                });
+                failureDetails = {
+                  stage: "merge",
+                  step: "rebase",
+                  conclusion: "merge_failed",
+                  annotation: rebaseError instanceof Error ? rebaseError.message : "unknown error",
+                };
+              }
             }
           }
         }
