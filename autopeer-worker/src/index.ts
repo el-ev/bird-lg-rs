@@ -588,6 +588,43 @@ function pickFailingStepName(job: GitHubWorkflowJob): string | null {
   return failing?.name ?? null;
 }
 
+const GENERIC_EXIT_CODE_RE = /^(Process completed with exit code \d+\.?)$/;
+
+function extractFailingStepLog(rawLog: string, stepName: string, maxLines = 25): string | null {
+  const lines = rawLog.split("\n");
+  const strip = (line: string) => line.replace(/^\d{4}-\d{2}-\d{2}T[\d:.]+Z\s?/, "");
+
+  let inTarget = false;
+  let pastGroup = false;
+  const output: string[] = [];
+
+  for (const line of lines) {
+    const s = strip(line);
+
+    if (s.startsWith("##[group]") && s.includes(stepName)) {
+      inTarget = true;
+      pastGroup = false;
+      output.length = 0;
+      continue;
+    }
+    if (inTarget && !pastGroup && s.startsWith("##[endgroup]")) {
+      pastGroup = true;
+      continue;
+    }
+    if (inTarget && pastGroup) {
+      if (s.startsWith("##[group]")) break;
+      if (s.startsWith("##[error]Process completed with exit code")) continue;
+      output.push(s);
+    }
+  }
+
+  while (output.length > 0 && output[output.length - 1].trim() === "") output.pop();
+  if (output.length === 0) return null;
+  const tail = output.slice(-maxLines);
+  if (tail.length < output.length) tail.unshift(`… (${output.length - tail.length} lines omitted)`);
+  return tail.join("\n");
+}
+
 async function buildWorkflowFailureDetails(
   github: GitHubClient,
   run: Pick<GitHubWorkflowRun, "id" | "html_url" | "conclusion">,
@@ -616,6 +653,18 @@ async function buildWorkflowFailureDetails(
         }
       } catch (error) {
         console.warn("failed to read check-run annotations", error);
+      }
+
+      if (!details.annotation || GENERIC_EXIT_CODE_RE.test(details.annotation)) {
+        try {
+          const rawLog = await github.downloadJobLog(failingJob.id);
+          if (rawLog && details.step) {
+            const extracted = extractFailingStepLog(rawLog, details.step);
+            if (extracted) details.annotation = extracted;
+          }
+        } catch (error) {
+          console.warn("failed to read job log", error);
+        }
       }
     }
   } catch (error) {

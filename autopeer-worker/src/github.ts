@@ -348,6 +348,27 @@ export class GitHubClient {
     );
   }
 
+  async downloadJobLog(jobId: number): Promise<string | null> {
+    try {
+      const response = await fetch(
+        `https://api.github.com/repos/${joinPath(this.env.GITHUB_OWNER, this.env.GITHUB_REPO)}/actions/jobs/${jobId}/logs`,
+        {
+          headers: {
+            accept: "application/vnd.github+json",
+            authorization: `Bearer ${readSecret(this.env, "GITHUB_TOKEN")}`,
+            "user-agent": GITHUB_USER_AGENT,
+            "x-github-api-version": "2022-11-28",
+          },
+          redirect: "follow",
+        },
+      );
+      if (!response.ok) return null;
+      return await response.text();
+    } catch {
+      return null;
+    }
+  }
+
   async dispatchWorkflow(
     workflowId: string,
     input: {
