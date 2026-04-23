@@ -1400,7 +1400,7 @@ async function router(request: Request, env: Env): Promise<Response> {
       challenge,
       requireOptionalRequestString(body.effective_mnt, "effective_mnt"),
     );
-    const locale = requireOptionalRequestString(body.locale, "locale");
+    const locale = requireOptionalRequestString(body.locale, "locale") ?? resolveLocale(request);
     const emailAuthRequest = createRegistryEmailAuthRequest(
       challenge,
       target.maintainer,

@@ -183,7 +183,9 @@ fn detect_initial_locale() -> Option<Locale> {
 
     let navigator = web_sys::window()?.navigator();
     let tag = navigator.language()?;
-    Locale::from_bcp47(&tag)
+    let locale = Locale::from_bcp47(&tag)?;
+    persist_locale(locale);
+    Some(locale)
 }
 
 fn hash_locale() -> Option<Locale> {
