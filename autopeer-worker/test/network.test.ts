@@ -464,6 +464,63 @@ describe("network peer mutations", () => {
     expect(result.content).toBe(file);
   });
 
+  it("preserves existing PSK when psk is undefined in spec", async () => {
+    const file = `peers:
+  - comment: 'autopeer test'
+    wg:
+      port: 21234
+      endpoint: 'peer.example.net:21023'
+      wg_pubkey: 'abcd+efgh/ijkl='
+      psk: !vault |
+        $ANSIBLE_VAULT;1.1;AES256
+        30643465343331666637353763336262626165636233336133363964633239623233366134373331
+        6134633365383639650a313430346331363933326339363930333038616435636532626565343930
+        6530393139353563316530643133663032346162303265386437346232363338640a313131303163
+        3434303162653833663363396439333930636536303838363966
+      peer4: null
+      peer6: 'fe80::1234'
+      own6: null
+      keepalive: null
+      mtu: null
+    bgp:
+      asn: 4242421234
+      ipv4: true
+      ipv6: true
+      extended_next_hop: true
+      mp_bgp: true
+    autopeer:
+      managed: true
+      effective_mnt: 'EXAMPLE-MNT'
+      auth_provider: 'registry_ssh'
+`;
+
+    const result = await mutatePeerFile(file, {
+      asn: "4242421234",
+      effectiveMnt: "EXAMPLE-MNT",
+      authMethod,
+      kind: "update",
+      session: {
+        comment: "autopeer test",
+        endpoint: "peer.example.net:21023",
+        wg_public_key: "abcd+efgh/ijkl=",
+        port: 21234,
+        peer4: null,
+        peer6: "fe80::1234",
+        own6: null,
+        keepalive: null,
+        mtu: null,
+        ipv4: true,
+        ipv6: true,
+        extended_next_hop: true,
+        mp_bgp: true,
+        peering_strategy: "full_table",
+      },
+      vaultPassword: null,
+    });
+
+    expect(result.content).toContain("psk: !vault |");
+  });
+
   it("converts a manual peer into a managed migration entry", async () => {
     const file = `peers:
   - comment: autopeer test

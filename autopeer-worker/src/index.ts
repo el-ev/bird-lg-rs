@@ -268,7 +268,7 @@ function parseRequestSessionSpec(value: unknown): PeerSessionSpec {
     mp_bgp: requireRequestBoolean(record.mp_bgp, "session.mp_bgp"),
     mp_bgp_transport: mpBgpTransport as PeerSessionSpec["mp_bgp_transport"],
     peering_strategy: peeringStrategy as PeerSessionSpec["peering_strategy"],
-    psk: requireOptionalRequestString(record.psk, "session.psk"),
+    psk: record.psk === undefined ? undefined : requireOptionalRequestString(record.psk, "session.psk"),
     encrypt_endpoint: typeof record.encrypt_endpoint === "boolean" ? record.encrypt_endpoint : undefined,
   };
 }
