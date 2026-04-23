@@ -2,7 +2,7 @@ use std::net::{Ipv4Addr, Ipv6Addr};
 
 use serde::{Deserialize, Serialize};
 
-use crate::models::{AuthSessionResponse, MpBgpTransport, PeerSessionSpec, PeeringStrategy};
+use crate::models::{AuthSessionResponse, MpBgpTransport, PeerSessionSpec, PeeringStrategy, PskField};
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum AutoPeerStep {
@@ -55,6 +55,7 @@ pub enum SessionDraftField {
     Own6,
     Keepalive,
     Mtu,
+    Psk,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -76,6 +77,7 @@ pub struct SessionDraft {
     pub peering_strategy: PeeringStrategy,
     pub psk: String,
     pub has_psk: bool,
+    pub clear_psk: bool,
     pub encrypt_endpoint: bool,
 }
 
@@ -99,6 +101,7 @@ impl Default for SessionDraft {
             peering_strategy: PeeringStrategy::FullTable,
             psk: String::new(),
             has_psk: false,
+            clear_psk: false,
             encrypt_endpoint: false,
         }
     }
@@ -127,6 +130,7 @@ impl SessionDraft {
             peering_strategy: spec.peering_strategy,
             psk: String::new(),
             has_psk: false,
+            clear_psk: false,
             encrypt_endpoint: spec.encrypt_endpoint.unwrap_or(false),
         }
     }
@@ -320,6 +324,7 @@ impl SessionDraft {
                 optional_u16(&self.keepalive, "validation.keepalive.invalid").err()
             }
             SessionDraftField::Mtu => validate_optional_mtu(&self.mtu).err(),
+            SessionDraftField::Psk => validate_optional_psk(&self.psk).err(),
         }
     }
 
@@ -378,7 +383,11 @@ impl SessionDraft {
             mp_bgp: self.mp_bgp,
             mp_bgp_transport: self.mp_bgp.then_some(self.mp_bgp_transport).flatten(),
             peering_strategy: self.peering_strategy,
-            psk: optional_string(&self.psk),
+            psk: if self.clear_psk {
+                PskField::Clear
+            } else {
+                validate_optional_psk(&self.psk)?
+            },
             encrypt_endpoint: if self.encrypt_endpoint { Some(true) } else { None },
         })
     }
@@ -488,9 +497,6 @@ fn validate_wireguard_public_key(value: &str) -> Result<String, String> {
     if key.len() != 44 {
         return Err("validation.wg_public_key.length".to_string());
     }
-    if !key.ends_with('=') {
-        return Err("validation.wg_public_key.suffix".to_string());
-    }
     if !key
         .chars()
         .all(|char| char.is_ascii_alphanumeric() || matches!(char, '+' | '/' | '='))
@@ -560,6 +566,23 @@ fn validate_optional_mtu(value: &str) -> Result<Option<u16>, String> {
         return Err("validation.mtu.range".to_string());
     }
     Ok(mtu)
+}
+
+fn validate_optional_psk(value: &str) -> Result<PskField, String> {
+    let trimmed = value.trim();
+    if trimmed.is_empty() {
+        return Ok(PskField::Unchanged);
+    }
+    if trimmed.len() != 44 {
+        return Err("validation.psk.length".to_string());
+    }
+    if !trimmed
+        .chars()
+        .all(|char| char.is_ascii_alphanumeric() || matches!(char, '+' | '/' | '='))
+    {
+        return Err("validation.psk.charset".to_string());
+    }
+    Ok(PskField::Set(trimmed.to_string()))
 }
 
 fn parse_ipv4(value: &str, invalid_key: &str) -> Result<Ipv4Addr, String> {
@@ -657,7 +680,7 @@ mod tests {
     use super::{PersistedSessions, SessionDraft, SessionDraftField};
     use crate::models::{
         AuthMethod, AuthMethodKind, AuthSessionResponse, MpBgpTransport, PeerSessionSpec,
-        PeeringStrategy, UiMessage,
+        PeeringStrategy, PskField, UiMessage,
     };
 
     const VALID_WG_KEY: &str = "sLbzTRr2gfLFb24NPzDOpy8j09Y6zI+a7NkeVMdVSR8=";
@@ -1152,7 +1175,7 @@ mod tests {
             mp_bgp: true,
             mp_bgp_transport: None,
             peering_strategy: PeeringStrategy::Transit,
-            psk: None,
+            psk: PskField::Unchanged,
             encrypt_endpoint: None,
         };
 
@@ -1180,7 +1203,7 @@ mod tests {
             mp_bgp: false,
             mp_bgp_transport: None,
             peering_strategy: PeeringStrategy::Transit,
-            psk: None,
+            psk: PskField::Unchanged,
             encrypt_endpoint: None,
         };
 

@@ -1,6 +1,8 @@
 use std::collections::BTreeMap;
 
 use common::models::PeeringInfo;
+use serde::de::Deserializer;
+use serde::ser::Serializer;
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize, PartialEq, Eq)]
@@ -271,6 +273,39 @@ fn is_default_peering_strategy(strategy: &PeeringStrategy) -> bool {
     matches!(strategy, PeeringStrategy::FullTable)
 }
 
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub enum PskField {
+    #[default]
+    Unchanged,
+    Clear,
+    Set(String),
+}
+
+impl PskField {
+    fn is_unchanged(&self) -> bool {
+        matches!(self, PskField::Unchanged)
+    }
+}
+
+impl Serialize for PskField {
+    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        match self {
+            PskField::Unchanged => serializer.serialize_none(),
+            PskField::Clear => serializer.serialize_none(),
+            PskField::Set(key) => serializer.serialize_str(key),
+        }
+    }
+}
+
+impl<'de> Deserialize<'de> for PskField {
+    fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        match Option::<String>::deserialize(deserializer)? {
+            None => Ok(PskField::Clear),
+            Some(key) => Ok(PskField::Set(key)),
+        }
+    }
+}
+
 #[derive(Clone, Debug, Default, Serialize, Deserialize, PartialEq, Eq)]
 pub struct PeerSessionSpec {
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -301,8 +336,8 @@ pub struct PeerSessionSpec {
     pub mp_bgp_transport: Option<MpBgpTransport>,
     #[serde(default, skip_serializing_if = "is_default_peering_strategy")]
     pub peering_strategy: PeeringStrategy,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub psk: Option<String>,
+    #[serde(default, skip_serializing_if = "PskField::is_unchanged")]
+    pub psk: PskField,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub encrypt_endpoint: Option<bool>,
 }

@@ -378,8 +378,11 @@ pub(super) const TABLE: &[(&str, &str)] = &[
     ("stage2.field.mtu", "接口 MTU"),
     ("stage2.field.mtu.placeholder", "可选 MTU"),
     ("stage2.field.psk", "预共享密钥"),
-    ("stage2.field.psk.placeholder", "可选的 WireGuard PSK（base64）"),
+    ("stage2.field.psk.placeholder", "可选的 WireGuard PSK"),
     ("stage2.field.psk.placeholder.existing", "已配置 PSK — 留空以保留"),
+    ("stage2.field.psk.clear", "清除 PSK"),
+    ("stage2.field.psk.generate", "生成 PSK"),
+    ("stage2.field.psk.copied", "已复制"),
     ("stage2.field.psk.help", "可选的 WireGuard 预共享密钥，用于增强安全性。密钥将在存储前加密。"),
     ("stage2.field.encrypt_endpoint", "加密"),
     ("stage2.field.encrypt_endpoint.help", "在 Git 仓库中加密你的 Endpoint 地址，使其不以明文形式出现。"),
@@ -405,6 +408,7 @@ pub(super) const TABLE: &[(&str, &str)] = &[
     ("stage3.review.psk.set", "已配置（已加密）"),
     ("stage3.review.psk.not_set", "未配置"),
     ("stage3.review.psk.unchanged", "已配置（未更改）"),
+    ("stage3.review.psk.cleared", "将被移除"),
     ("stage3.review.encrypt_endpoint", "Endpoint 加密"),
     ("stage3.review.encrypt_endpoint.enabled", "已启用"),
     ("stage3.review.encrypt_endpoint.disabled", "未启用"),
@@ -535,12 +539,12 @@ pub(super) const TABLE: &[(&str, &str)] = &[
     ("peering_strategy.transit.label", "中转"),
     (
         "peering_strategy.transit.description",
-        "接收所有有效路由并仅导出我们自有的精确前缀。",
+        "接收所有有效路由并仅导出我们自有的前缀。",
     ),
     ("peering_strategy.peer.label", "对等"),
     (
         "peering_strategy.peer.description",
-        "仅接收直连路由并导出我们自有的精确前缀及下游路由。",
+        "仅接收直连路由并导出我们自有的前缀及下游路由。",
     ),
     ("peering_strategy.downstream.label", "下游"),
     (
@@ -961,11 +965,7 @@ pub(super) const TABLE: &[(&str, &str)] = &[
         "validation.wg_public_key.length",
         "对端 WireGuard 密钥必须为 44 字符的 Base64 公钥",
     ),
-    (
-        "validation.wg_public_key.suffix",
-        "对端 WireGuard 密钥必须以 '=' 结尾",
-    ),
-    (
+(
         "validation.wg_public_key.charset",
         "对端 WireGuard 密钥包含无效的 Base64 字符",
     ),
@@ -1004,6 +1004,14 @@ pub(super) const TABLE: &[(&str, &str)] = &[
     (
         "validation.mtu.range",
         "接口 MTU 必须在 1280 到 1500 之间",
+    ),
+    (
+        "validation.psk.length",
+        "预共享密钥必须为 44 字符的 Base64 密钥",
+    ),
+(
+        "validation.psk.charset",
+        "预共享密钥包含无效的 Base64 字符",
     ),
     // Loading messages
     (

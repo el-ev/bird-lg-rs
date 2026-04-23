@@ -1685,7 +1685,7 @@ details[open] .summary-header {
 }
 
 .autopeer-live-validation {
-    margin: 0;
+    margin: -6px 0 4px;
     font-size: 0.88rem;
     color: var(--error);
 }

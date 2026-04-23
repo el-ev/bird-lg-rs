@@ -2,6 +2,7 @@ use common::models::PeeringInfo;
 use ui_components::shell::{
     ShellButton, ShellInput, ShellLine, ShellPrompt, ShellSelect, ShellToggle,
 };
+use wasm_bindgen_futures::spawn_local;
 use web_sys::{HtmlSelectElement, HtmlTextAreaElement};
 use yew::prelude::*;
 
@@ -105,6 +106,16 @@ fn live_validation_block(i18n: &I18n, message: Option<&str>, content: Html) -> H
             {live_validation_message(i18n, message)}
         </div>
     }
+}
+
+fn generate_wg_psk() -> Option<String> {
+    let window = web_sys::window()?;
+    let crypto = window.crypto().ok()?;
+    let buf = js_sys::Uint8Array::new_with_length(32);
+    crypto.get_random_values_with_array_buffer_view(&buf).ok()?;
+    let bytes: Vec<u8> = buf.to_vec();
+    let binary: String = bytes.iter().map(|&b| char::from(b)).collect();
+    window.btoa(&binary).ok()
 }
 
 fn ssh_sign_command(challenge_text: &str) -> String {
@@ -593,6 +604,7 @@ pub fn auto_peer_page() -> Html {
     let focused_field = use_state(|| None::<SessionDraftField>);
     let committed_peer4_visibility = use_state(|| should_display_node_ipv4(&draft));
     let committed_peer6_kind = use_state(|| detect_peer6_address_kind(draft.peer6.as_str()));
+    let psk_copied = use_state(|| false);
     let locale_value = i18n.locale().code();
 
     {
@@ -1243,6 +1255,14 @@ pub fn auto_peer_page() -> Html {
                 }
             };
 
+            let field_error_message = |field: SessionDraftField| {
+                if field_is_invalid(field) {
+                    live_validation_message(&i18n, draft.field_error(field).as_deref())
+                } else {
+                    Html::default()
+                }
+            };
+
             let toggle_item_class =
                 |invalid: bool| classes!("autopeer-toggle-item", invalid.then_some("is-invalid"));
 
@@ -1349,6 +1369,43 @@ pub fn auto_peer_page() -> Html {
                 let draft = draft.clone();
                 Callback::from(move |_| {
                     update_draft_state(&draft, |next| next.encrypt_endpoint = !next.encrypt_endpoint);
+                })
+            };
+
+            let on_psk_action = {
+                let draft = draft.clone();
+                let psk_copied = psk_copied.clone();
+                Callback::from(move |_: MouseEvent| {
+                    if draft.has_psk {
+                        update_draft_state(&draft, |next| {
+                            next.clear_psk = true;
+                            next.has_psk = false;
+                            next.psk.clear();
+                        });
+                    } else if !draft.psk.is_empty() {
+                        update_draft_state(&draft, |next| {
+                            next.psk.clear();
+                        });
+                    } else if let Some(key) = generate_wg_psk() {
+                        let draft = draft.clone();
+                        let psk_copied = psk_copied.clone();
+                        update_draft_state(&draft, |next| {
+                            next.psk = key.clone();
+                        });
+                        if let Some(window) = web_sys::window() {
+                            let clipboard = window.navigator().clipboard();
+                            let psk_copied_inner = psk_copied.clone();
+                            spawn_local(async move {
+                                let _ = wasm_bindgen_futures::JsFuture::from(
+                                    clipboard.write_text(&key),
+                                )
+                                .await;
+                                psk_copied_inner.set(true);
+                                gloo_timers::future::TimeoutFuture::new(2_000).await;
+                                psk_copied_inner.set(false);
+                            });
+                        }
+                    }
                 })
             };
 
@@ -1623,6 +1680,7 @@ pub fn auto_peer_page() -> Html {
                                     disabled={loading}
                                 />
                             </ShellLine>
+                            {field_error_message(SessionDraftField::WgPublicKey)}
                         </div>
 
                         <div class="autopeer-form-section">
@@ -1830,6 +1888,7 @@ pub fn auto_peer_page() -> Html {
                                         disabled={loading}
                                     />
                                 </ShellLine>
+                                {field_error_message(SessionDraftField::Keepalive)}
                                 <ShellLine>
                                     <ShellPrompt>{i18n.t("stage2.field.mtu")}</ShellPrompt>
                                     {" "}
@@ -1844,16 +1903,36 @@ pub fn auto_peer_page() -> Html {
                                         disabled={loading}
                                     />
                                 </ShellLine>
+                                {field_error_message(SessionDraftField::Mtu)}
                                 <ShellLine>
                                     <ShellPrompt>{i18n.t("stage2.field.psk")}</ShellPrompt>
                                     {" "}
                                     <ShellInput
                                         value={draft.psk.clone()}
                                         on_change={update_text_field(|draft| &mut draft.psk)}
+                                        class={input_class(SessionDraftField::Psk)}
+                                        frame_class={input_frame_class(SessionDraftField::Psk)}
+                                        on_focus={on_field_focus(SessionDraftField::Psk)}
+                                        on_blur={on_field_blur(SessionDraftField::Psk)}
                                         placeholder={if draft.has_psk { i18n.t("stage2.field.psk.placeholder.existing") } else { i18n.t("stage2.field.psk.placeholder") }}
                                         disabled={loading}
                                     />
+                                    {" "}
+                                    if draft.has_psk || !draft.psk.is_empty() {
+                                        <ShellButton
+                                            text={i18n.t("stage2.field.psk.clear")}
+                                            onclick={on_psk_action.clone()}
+                                            disabled={loading}
+                                        />
+                                    } else {
+                                        <ShellButton
+                                            text={if *psk_copied { i18n.t("stage2.field.psk.copied") } else { i18n.t("stage2.field.psk.generate") }}
+                                            onclick={on_psk_action.clone()}
+                                            disabled={loading || *psk_copied}
+                                        />
+                                    }
                                 </ShellLine>
+                                {field_error_message(SessionDraftField::Psk)}
                             </div>
                         </details>
 
@@ -1938,6 +2017,8 @@ pub fn auto_peer_page() -> Html {
                                 i18n.t("stage3.review.psk"),
                                 if !draft.psk.trim().is_empty() {
                                     i18n.t("stage3.review.psk.set").to_string()
+                                } else if draft.clear_psk {
+                                    i18n.t("stage3.review.psk.cleared").to_string()
                                 } else if draft.has_psk {
                                     i18n.t("stage3.review.psk.unchanged").to_string()
                                 } else {
@@ -2489,7 +2570,7 @@ mod tests {
     }
 
     #[test]
-    fn invalid_field_boxes_ignore_missing_values() {
+    fn invalid_field_boxes_ignore_missing_optional_values() {
         assert!(!should_mark_field_invalid(
             &SessionDraft::default(),
             SessionDraftField::Peer4,
@@ -2500,7 +2581,27 @@ mod tests {
         ));
         assert!(!should_mark_field_invalid(
             &SessionDraft::default(),
+            SessionDraftField::Keepalive,
+        ));
+        assert!(!should_mark_field_invalid(
+            &SessionDraft::default(),
+            SessionDraftField::Mtu,
+        ));
+        assert!(!should_mark_field_invalid(
+            &SessionDraft::default(),
+            SessionDraftField::Psk,
+        ));
+    }
+
+    #[test]
+    fn invalid_field_boxes_flag_empty_required_fields() {
+        assert!(should_mark_field_invalid(
+            &SessionDraft::default(),
             SessionDraftField::Endpoint,
+        ));
+        assert!(should_mark_field_invalid(
+            &SessionDraft::default(),
+            SessionDraftField::WgPublicKey,
         ));
     }
 

@@ -390,8 +390,11 @@ pub(super) const TABLE: &[(&str, &str)] = &[
     ("stage2.field.mtu", "MTU interface"),
     ("stage2.field.mtu.placeholder", "MTU optionalis"),
     ("stage2.field.psk", "Clavis praedivisa"),
-    ("stage2.field.psk.placeholder", "Clavis WireGuard PSK optionalis (base64)"),
+    ("stage2.field.psk.placeholder", "Clavis WireGuard PSK optionalis"),
     ("stage2.field.psk.placeholder.existing", "PSK configurata — relinque vacuum ad servandum"),
+    ("stage2.field.psk.clear", "Dele PSK"),
+    ("stage2.field.psk.generate", "Genera PSK"),
+    ("stage2.field.psk.copied", "Copiata"),
     ("stage2.field.psk.help", "Clavis praedivisa WireGuard optionalis ad securitatem augendam. Clavis ante repositionem encryptabitur."),
     ("stage2.field.encrypt_endpoint", "Encryptum"),
     ("stage2.field.encrypt_endpoint.help", "Encrypta inscriptionem terminationis in repositorio git ne in textu aperto appareat."),
@@ -417,6 +420,7 @@ pub(super) const TABLE: &[(&str, &str)] = &[
     ("stage3.review.psk.set", "Configurata (encrypta)"),
     ("stage3.review.psk.not_set", "Non posita"),
     ("stage3.review.psk.unchanged", "Configurata (immutata)"),
+    ("stage3.review.psk.cleared", "Removebitur"),
     ("stage3.review.encrypt_endpoint", "Encryptio terminationis"),
     ("stage3.review.encrypt_endpoint.enabled", "Activata"),
     ("stage3.review.encrypt_endpoint.disabled", "Inactivata"),
@@ -973,11 +977,7 @@ pub(super) const TABLE: &[(&str, &str)] = &[
         "validation.wg_public_key.length",
         "Clavis WireGuard paris clavis publica Base64 44 characterum esse debet",
     ),
-    (
-        "validation.wg_public_key.suffix",
-        "Clavis WireGuard paris cum '=' finire debet",
-    ),
-    (
+(
         "validation.wg_public_key.charset",
         "Clavis WireGuard paris characteres Base64 invalidos continet",
     ),
@@ -1016,6 +1016,14 @@ pub(super) const TABLE: &[(&str, &str)] = &[
     (
         "validation.mtu.range",
         "MTU interface inter 1280 et 1500 esse debet",
+    ),
+    (
+        "validation.psk.length",
+        "Clavis praecommunicata clavis Base64 44 characterum esse debet",
+    ),
+(
+        "validation.psk.charset",
+        "Clavis praecommunicata characteres Base64 invalidos continet",
     ),
     // Loading messages
     (

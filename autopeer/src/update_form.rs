@@ -80,7 +80,11 @@ impl SessionDraftLiveValidation {
             SessionDraftField::Peer4 => self.highlight_peer4,
             SessionDraftField::Peer6 => self.highlight_peer6,
             SessionDraftField::Own6 => self.highlight_own6,
-            _ => false,
+            SessionDraftField::Endpoint
+            | SessionDraftField::WgPublicKey
+            | SessionDraftField::Keepalive
+            | SessionDraftField::Mtu
+            | SessionDraftField::Psk => false,
         }
     }
 }
@@ -277,7 +281,12 @@ pub fn should_mark_field_invalid(draft: &SessionDraft, field: SessionDraftField)
         SessionDraftField::Own6 => draft.own6.as_str(),
         SessionDraftField::Keepalive => draft.keepalive.as_str(),
         SessionDraftField::Mtu => draft.mtu.as_str(),
+        SessionDraftField::Psk => draft.psk.as_str(),
     };
 
-    !value.trim().is_empty() && draft.field_error(field).is_some()
+    if value.trim().is_empty() {
+        matches!(field, SessionDraftField::WgPublicKey | SessionDraftField::Endpoint)
+    } else {
+        draft.field_error(field).is_some()
+    }
 }

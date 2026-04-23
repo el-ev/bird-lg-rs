@@ -40,7 +40,7 @@ const tables: Record<WorkerLocale, Record<string, string>> = {
     "email.code_intro": "您的一次性验证码为：",
     "email.expires": "此验证码将于 {expires_at} 过期。",
     "email.ignore": "如果您没有发起此登录请求，请忽略此邮件。",
-    "pr.body": "自动对等互联{kind}请求，AS{asn}。",
+    "pr.body": "来自 AS{asn} 的自动对等互联{kind}请求。",
     "pr.node": "节点",
     "pr.maintainer": "维护者",
     "pr.auth": "认证方式",

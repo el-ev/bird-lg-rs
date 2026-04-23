@@ -393,8 +393,11 @@ pub(super) const TABLE: &[(&str, &str)] = &[
     ("stage2.field.mtu", "Interface MTU"),
     ("stage2.field.mtu.placeholder", "Optional MTU"),
     ("stage2.field.psk", "Pre-shared key"),
-    ("stage2.field.psk.placeholder", "Optional WireGuard PSK (base64)"),
+    ("stage2.field.psk.placeholder", "Optional WireGuard PSK"),
     ("stage2.field.psk.placeholder.existing", "PSK configured — leave empty to keep"),
+    ("stage2.field.psk.clear", "Clear PSK"),
+    ("stage2.field.psk.generate", "Generate PSK"),
+    ("stage2.field.psk.copied", "Copied"),
     ("stage2.field.psk.help", "An optional WireGuard pre-shared key for added security. The key will be encrypted before storage."),
     ("stage2.field.encrypt_endpoint", "Encrypted"),
     ("stage2.field.encrypt_endpoint.help", "Encrypt your endpoint address in the git repository so it is not visible in plaintext."),
@@ -420,6 +423,7 @@ pub(super) const TABLE: &[(&str, &str)] = &[
     ("stage3.review.psk.set", "Configured (encrypted)"),
     ("stage3.review.psk.not_set", "Not set"),
     ("stage3.review.psk.unchanged", "Configured (unchanged)"),
+    ("stage3.review.psk.cleared", "Will be removed"),
     ("stage3.review.encrypt_endpoint", "Endpoint encryption"),
     ("stage3.review.encrypt_endpoint.enabled", "Enabled"),
     ("stage3.review.encrypt_endpoint.disabled", "Disabled"),
@@ -976,11 +980,7 @@ pub(super) const TABLE: &[(&str, &str)] = &[
         "validation.wg_public_key.length",
         "Peer WireGuard key must be a 44-character base64 public key",
     ),
-    (
-        "validation.wg_public_key.suffix",
-        "Peer WireGuard key must end with '='",
-    ),
-    (
+(
         "validation.wg_public_key.charset",
         "Peer WireGuard key contains invalid base64 characters",
     ),
@@ -1019,6 +1019,14 @@ pub(super) const TABLE: &[(&str, &str)] = &[
     (
         "validation.mtu.range",
         "Interface MTU must be between 1280 and 1500",
+    ),
+    (
+        "validation.psk.length",
+        "Pre-shared key must be a 44-character base64 key",
+    ),
+(
+        "validation.psk.charset",
+        "Pre-shared key contains invalid base64 characters",
     ),
     // Loading messages
     (
