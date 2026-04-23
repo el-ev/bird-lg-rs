@@ -11,11 +11,11 @@ export function resolveLocale(request: Request): WorkerLocale {
 
 const tables: Record<WorkerLocale, Record<string, string>> = {
   en: {
-    "email.subject": "DN42 Autopeer login for AS{asn}",
+    "email.subject": "dn42 Autopeer login for AS{asn}",
     "email.intro_html":
-      'Use this sign-in link or one-time code to sign in to DN42 Autopeer for <strong>AS{asn}</strong> as <strong>{mnt}</strong>.',
+      'Use this sign-in link or one-time code to sign in to dn42 Autopeer for <strong>AS{asn}</strong> as <strong>{mnt}</strong>.',
     "email.intro_text":
-      "Use this sign-in link or one-time code to sign in to DN42 Autopeer for AS{asn} as {mnt}.",
+      "Use this sign-in link or one-time code to sign in to dn42 Autopeer for AS{asn} as {mnt}.",
     "email.link_label": "Open Autopeer Sign-In Link",
     "email.code_intro": "Your one-time auth code is:",
     "email.expires": "This code expires at {expires_at}.",
@@ -31,11 +31,11 @@ const tables: Record<WorkerLocale, Record<string, string>> = {
     "kind.migrate": "migrate",
   },
   zh: {
-    "email.subject": "DN42 自动对等互联 AS{asn} 登录验证",
+    "email.subject": "dn42 自动对等互联 AS{asn} 登录验证",
     "email.intro_html":
-      '请使用以下登录链接或一次性验证码，以 <strong>{mnt}</strong> 身份登录 DN42 自动对等互联（<strong>AS{asn}</strong>）。',
+      '请使用以下登录链接或一次性验证码，以 <strong>{mnt}</strong> 身份登录 dn42 自动对等互联（<strong>AS{asn}</strong>）。',
     "email.intro_text":
-      "请使用以下登录链接或一次性验证码，以 {mnt} 身份登录 DN42 自动对等互联（AS{asn}）。",
+      "请使用以下登录链接或一次性验证码，以 {mnt} 身份登录 dn42 自动对等互联（AS{asn}）。",
     "email.link_label": "打开自动对等互联登录链接",
     "email.code_intro": "您的一次性验证码为：",
     "email.expires": "此验证码将于 {expires_at} 过期。",
@@ -51,11 +51,11 @@ const tables: Record<WorkerLocale, Record<string, string>> = {
     "kind.migrate": "迁移",
   },
   la: {
-    "email.subject": "DN42 Autopeer aditus pro AS{asn}",
+    "email.subject": "dn42 Autopeer aditus pro AS{asn}",
     "email.intro_html":
-      'Utere hoc nexu aut codice unico ut DN42 Autopeer pro <strong>AS{asn}</strong> tamquam <strong>{mnt}</strong> intres.',
+      'Utere hoc nexu aut codice unico ut dn42 Autopeer pro <strong>AS{asn}</strong> tamquam <strong>{mnt}</strong> intres.',
     "email.intro_text":
-      "Utere hoc nexu aut codice unico ut DN42 Autopeer pro AS{asn} tamquam {mnt} intres.",
+      "Utere hoc nexu aut codice unico ut dn42 Autopeer pro AS{asn} tamquam {mnt} intres.",
     "email.link_label": "Aperi Nexum Aditus Autopeer",
     "email.code_intro": "Codex unicus tuus est:",
     "email.expires": "Hic codex exspirat ad {expires_at}.",
