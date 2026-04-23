@@ -2,11 +2,9 @@ use chrono::Local;
 use ui_components::shell::ShellLine;
 use wasm_bindgen_futures::spawn_local;
 use yew::prelude::*;
-use yew_router::prelude::*;
 
 use super::data_table::{DataTable, TableRow};
 use crate::{
-    routes::Route,
     services::api::get_protocol_details,
     store::{LgStateHandle, route_info::RouteInfoHandle},
 };
@@ -95,7 +93,6 @@ pub fn protocols() -> Html {
                                                                     "State",
                                                                     "Since",
                                                                     "Info",
-                                                                    "",
                                                                 ]
                                                                 .map(AttrValue::from)
                                                                 .to_vec()
@@ -105,21 +102,6 @@ pub fn protocols() -> Html {
                                                                     let name_for_click = node_name.clone();
                                                                     let proto_name = p.name.clone();
                                                                     let on_row_click = on_protocol_click.clone();
-                                                                    let routes_link = if p.proto == "BGP" {
-                                                                        html! {
-                                                                            <Link<Route>
-                                                                                to={Route::PeerRoutes {
-                                                                                    node: node_name.clone(),
-                                                                                    peer: p.name.clone(),
-                                                                                }}
-                                                                                classes="peer-routes-link"
-                                                                            >
-                                                                                {"routes"}
-                                                                            </Link<Route>>
-                                                                        }
-                                                                    } else {
-                                                                        html! {}
-                                                                    };
                                                                     TableRow {
                                                                         cells: vec![
                                                                             html! { &p.proto },
@@ -128,7 +110,6 @@ pub fn protocols() -> Html {
                                                                             html! { &p.state },
                                                                             html! { &p.since },
                                                                             html! { &p.info },
-                                                                            routes_link,
                                                                         ],
                                                                         on_click: Some(Callback::from(move |_| {
                                                                             on_row_click.emit((
