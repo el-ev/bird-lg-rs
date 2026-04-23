@@ -515,7 +515,14 @@ function specToPeerEntry(
       ipv6: spec.ipv6,
       extended_next_hop: spec.extended_next_hop,
       mp_bgp: spec.mp_bgp,
-      mp_bgp_transport: spec.mp_bgp_transport ?? undefined,
+      mp_bgp_transport:
+        spec.mp_bgp
+          ? (resolveMpBgpTransport(
+              spec.mp_bgp_transport ?? null,
+              spec.peer4 ?? undefined,
+              spec.peer6 ?? undefined,
+            ) ?? undefined)
+          : undefined,
       peering_strategy:
         spec.peering_strategy === DEFAULT_PEERING_STRATEGY ? undefined : spec.peering_strategy,
     },

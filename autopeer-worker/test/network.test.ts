@@ -241,7 +241,7 @@ describe("network peer mutations", () => {
     expect(result.content).toContain("mp_bgp_transport: 'ipv4'");
   });
 
-  it("omits legacy mp_bgp_transport when the session leaves it unset", async () => {
+  it("resolves mp_bgp_transport from tunnel addresses when unset", async () => {
     const result = await mutatePeerFile(baseFile, {
       asn: "4242421234",
       effectiveMnt: "EXAMPLE-MNT",
@@ -267,7 +267,7 @@ describe("network peer mutations", () => {
       vaultPassword: null,
     });
 
-    expect(result.content).not.toContain("mp_bgp_transport");
+    expect(result.content).toContain("mp_bgp_transport: 'ipv4'");
   });
 
   it("silently adopts a manual peer during create", async () => {
@@ -430,6 +430,7 @@ describe("network peer mutations", () => {
       ipv6: true
       extended_next_hop: true
       mp_bgp: true
+      mp_bgp_transport: 'ipv6'
     autopeer:
       managed: true
       effective_mnt: 'EXAMPLE-MNT'
