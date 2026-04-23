@@ -7,6 +7,7 @@ import {
   decideNodeLockGate,
   resolveEffectiveMaintainer,
 } from "../src/index";
+import { NoMaintainerError, RegistryPathNotFoundError } from "../src/registry";
 import { uiMessage } from "../src/utils";
 
 describe("peer-session-check gate", () => {
@@ -155,7 +156,7 @@ describe("ASN lookup error classification", () => {
   it("marks missing aut-num objects as invalid ASNs", () => {
     const error = classifyMaintainerLookupError(
       "4242429999",
-      new Error("Registry path not found: data/aut-num/AS4242429999"),
+      new RegistryPathNotFoundError("data/aut-num/AS4242429999"),
     );
 
     expect(error.status).toBe(400);
@@ -165,7 +166,7 @@ describe("ASN lookup error classification", () => {
   it("keeps non-missing registry issues out of the invalid-ASN bucket", () => {
     const error = classifyMaintainerLookupError(
       "4242421024",
-      new Error("AS4242421024 does not expose any mnt-by records in the registry"),
+      new NoMaintainerError("4242421024"),
     );
 
     expect(error.status).toBe(400);

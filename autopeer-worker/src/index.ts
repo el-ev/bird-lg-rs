@@ -52,7 +52,7 @@ import {
   sessionFromOidcIdentity,
   verifiedOidcClaimSources,
 } from "./oidc";
-import { loadMaintainersForAsn, methodsFromMaintainers } from "./registry";
+import { NoMaintainerError, RegistryPathNotFoundError, loadMaintainersForAsn, methodsFromMaintainers } from "./registry";
 import { MP_BGP_TRANSPORTS } from "./types";
 import type {
   AuthSessionResponse,
@@ -206,20 +206,18 @@ function normalizeRequestAsn(value: string): string {
 }
 
 export function classifyMaintainerLookupError(asn: string, error: unknown): HttpError {
-  const message = errorMessage(
-    error,
-    `DN42 registry lookup failed while loading AS${asn}`,
-  );
-
-  if (message === `Registry path not found: data/aut-num/AS${asn}`) {
+  if (error instanceof RegistryPathNotFoundError) {
     return new HttpError(uiMessage("error.auth.asn.not_found", { asn }), 400);
   }
 
-  if (message === `AS${asn} does not expose any mnt-by records in the registry`) {
+  if (error instanceof NoMaintainerError) {
     return new HttpError(uiMessage("error.auth.asn.no_supported_auth", { asn }), 400);
   }
 
-  return new HttpError(message, 502);
+  return new HttpError(
+    errorMessage(error, `DN42 registry lookup failed while loading AS${asn}`),
+    502,
+  );
 }
 
 async function loadMaintainersForRequestAsn(

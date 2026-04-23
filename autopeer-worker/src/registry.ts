@@ -3,6 +3,18 @@ import { createHash } from "node:crypto";
 import type { AuthMethod, MaintainerRecord, RegistryEmailTarget } from "./types";
 import { fromBase64, joinPath, readSecret, uiMessage } from "./utils";
 
+export class RegistryPathNotFoundError extends Error {
+  constructor(public readonly path: string) {
+    super(`Registry path not found: ${path}`);
+  }
+}
+
+export class NoMaintainerError extends Error {
+  constructor(public readonly asn: string) {
+    super(`AS${asn} does not expose any mnt-by records in the registry`);
+  }
+}
+
 interface GiteaContentResponse {
   content?: string;
   encoding?: string;
@@ -69,7 +81,7 @@ async function fetchRegistryContent(env: Env, path: string): Promise<string> {
   });
 
   if (response.status === 404) {
-    throw new Error(`Registry path not found: ${path}`);
+    throw new RegistryPathNotFoundError(path);
   }
   if (!response.ok) {
     throw new Error(`Registry request failed for ${path}: HTTP ${response.status}`);
@@ -87,7 +99,7 @@ async function fetchOptionalRegistryContent(env: Env, path: string): Promise<str
   try {
     return await fetchRegistryContent(env, path);
   } catch (error) {
-    if (error instanceof Error && error.message === `Registry path not found: ${path}`) {
+    if (error instanceof RegistryPathNotFoundError && error.path === path) {
       return null;
     }
     throw error;
@@ -111,7 +123,7 @@ export async function loadMaintainersForAsn(env: Env, asn: string): Promise<Main
   const maintainerNames = [...new Set(parseFieldValues(autNumText, "mnt-by"))];
 
   if (maintainerNames.length === 0) {
-    throw new Error(`AS${asn} does not expose any mnt-by records in the registry`);
+    throw new NoMaintainerError(asn);
   }
 
   const maintainers = await Promise.all(
