@@ -918,22 +918,34 @@ export async function listSessionsForAsn(
   for (const operation of operations) {
     const current = sessions.get(operation.node);
     const isPending = !["completed", "failed", "conflict"].includes(operation.state);
-    if (!isPending) {
-      continue;
-    }
 
-    sessions.set(operation.node, {
-      node: operation.node,
-      asn,
-      state: "pending_pr",
-      spec: operation.session_snapshot ?? current?.spec,
-      metadata: current?.metadata ?? { managed: true },
-      has_psk: current?.has_psk,
-      has_encrypted_endpoint: current?.has_encrypted_endpoint,
-      pending_operation_id: operation.id,
-      pull_request_url: operation.pull_request_url ?? undefined,
-      message: operation.message ?? undefined,
-    });
+    if (isPending) {
+      sessions.set(operation.node, {
+        node: operation.node,
+        asn,
+        state: "pending_pr",
+        spec: operation.session_snapshot ?? current?.spec,
+        metadata: current?.metadata ?? { managed: true },
+        has_psk: current?.has_psk,
+        has_encrypted_endpoint: current?.has_encrypted_endpoint,
+        pending_operation_id: operation.id,
+        pull_request_url: operation.pull_request_url ?? undefined,
+        message: operation.message ?? undefined,
+      });
+    } else if (operation.state === "failed" && operation.pr_number && operation.pull_request_url) {
+      sessions.set(operation.node, {
+        node: operation.node,
+        asn,
+        state: "stalled_pr",
+        spec: operation.session_snapshot ?? current?.spec,
+        metadata: current?.metadata ?? { managed: true },
+        has_psk: current?.has_psk,
+        has_encrypted_endpoint: current?.has_encrypted_endpoint,
+        pending_operation_id: operation.id,
+        pull_request_url: operation.pull_request_url ?? undefined,
+        message: operation.message ?? undefined,
+      });
+    }
   }
 
   return [...sessions.values()].sort((left, right) => left.node.localeCompare(right.node));

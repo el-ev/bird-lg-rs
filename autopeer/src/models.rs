@@ -183,6 +183,7 @@ pub enum SessionState {
     Managed,
     Manual,
     PendingPr,
+    StalledPr,
     Conflict,
 }
 

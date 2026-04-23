@@ -271,6 +271,7 @@ fn session_state_label(i18n: &I18n, state: &SessionState) -> &'static str {
         SessionState::Managed => i18n.t("session_state.managed"),
         SessionState::Manual => i18n.t("session_state.manual"),
         SessionState::PendingPr => i18n.t("session_state.pending_pr"),
+        SessionState::StalledPr => i18n.t("session_state.stalled_pr"),
         SessionState::Conflict => i18n.t("session_state.conflict"),
     }
 }
@@ -586,6 +587,8 @@ pub fn auto_peer_page() -> Html {
         on_delete_selected_session,
         on_retry_operation,
         on_dismiss_operation,
+        on_redeploy_operation,
+        on_drop_operation,
     } = use_autopeer_controller(default_autopeer_home_href, default_looking_glass_href);
     let loading = !ongoing_tasks.is_empty();
     let focused_field = use_state(|| None::<SessionDraftField>);
@@ -1115,6 +1118,11 @@ pub fn auto_peer_page() -> Html {
             });
             let selected_node = selected_node_name
                 .and_then(|name| nodes.iter().find(|node| node.name == name).cloned());
+            let selected_session = selected_node_name
+                .and_then(|name| sessions.iter().find(|s| s.node == name));
+            let selected_is_stalled = selected_session
+                .map(|s| s.state == SessionState::StalledPr)
+                .unwrap_or(false);
             let retire_confirmation_value = *retire_confirmation;
             let delete_confirmation_value = *delete_confirmation;
             let active_asn = auth_summary
@@ -1419,7 +1427,7 @@ pub fn auto_peer_page() -> Html {
                                     let autopeer_disabled = node.autopeer == Some(false);
                                     let selectable = !autopeer_disabled && matches!(
                                         node_session.as_ref().map(|session| &session.state),
-                                        None | Some(SessionState::Managed) | Some(SessionState::Manual)
+                                        None | Some(SessionState::Managed) | Some(SessionState::Manual) | Some(SessionState::StalledPr)
                                     );
                                     let state_label = if autopeer_disabled {
                                         i18n.t("stage1.state.disabled")
@@ -1437,6 +1445,7 @@ pub fn auto_peer_page() -> Html {
                                             Some(SessionState::Managed) => i18n.t("stage1.state.note.managed"),
                                             Some(SessionState::Manual) => i18n.t("stage1.state.note.manual"),
                                             Some(SessionState::PendingPr) => i18n.t("stage1.state.note.pending"),
+                                            Some(SessionState::StalledPr) => i18n.t("stage1.state.note.stalled"),
                                             Some(SessionState::Conflict) => i18n.t("stage1.state.note.conflict"),
                                         }
                                     };
@@ -1452,7 +1461,7 @@ pub fn auto_peer_page() -> Html {
                                                 touched_fields.set(SessionDraftTouchedControls::new());
                                                 config_stage.set(PeerConfigStage::SessionDetails);
                                             }
-                                            Some(SessionState::Managed) | Some(SessionState::Manual) => {
+                                            Some(SessionState::Managed) | Some(SessionState::Manual) | Some(SessionState::StalledPr) => {
                                                 let Some(session) = node_session_for_click.as_ref() else {
                                                     error.set(Some(UiMessage::key("error.ui.session.missing_config")));
                                                     return;
@@ -1545,6 +1554,40 @@ pub fn auto_peer_page() -> Html {
                                     }
                                 </div>
                                 <ShellButton text={i18n.t("action.choose_another_node")} onclick={if editing_node_value.is_some() { on_cancel_edit.clone() } else { on_change_node.clone() }} disabled={loading} />
+                            </div>
+                        }
+
+                        if let (true, Some(session)) = (selected_is_stalled, selected_session) {
+                            <div class="autopeer-stalled-banner">
+                                <p class="autopeer-stalled-banner-title">{i18n.t("stalled.banner.title")}</p>
+                                <p class="text-secondary">{i18n.t("stalled.banner.body")}</p>
+                                <div class="autopeer-links">
+                                    if let Some(pr_url) = &session.pull_request_url {
+                                        <a href={pr_url.clone()} target="_blank" rel="noreferrer">{i18n.t("action.open_pr")}</a>
+                                    }
+                                    if let Some(op_id) = &session.pending_operation_id {
+                                        <button
+                                            class="autopeer-link-button"
+                                            onclick={on_redeploy_operation.reform({
+                                                let op_id = op_id.clone();
+                                                move |_: MouseEvent| op_id.clone()
+                                            })}
+                                            disabled={loading}
+                                        >
+                                            {i18n.t("action.redeploy")}
+                                        </button>
+                                        <button
+                                            class="autopeer-link-button autopeer-link-button--muted"
+                                            onclick={on_drop_operation.reform({
+                                                let op_id = op_id.clone();
+                                                move |_: MouseEvent| op_id.clone()
+                                            })}
+                                            disabled={loading}
+                                        >
+                                            {i18n.t("action.drop_changes")}
+                                        </button>
+                                    }
+                                </div>
                             </div>
                         }
 

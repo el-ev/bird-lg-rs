@@ -30,6 +30,8 @@ pub(super) const TABLE: &[(&str, &str)] = &[
     ("action.open_pr", "查看拉取请求"),
     ("action.workflow_run", "查看工作流"),
     ("action.retry", "重试"),
+    ("action.redeploy", "重新部署"),
+    ("action.drop_changes", "放弃更改"),
     ("action.dismiss_operation", "关闭"),
     // Step: LoadingConfig / EnterAsn
     ("step.loading_config.prompt", "加载运行时配置"),
@@ -270,12 +272,22 @@ pub(super) const TABLE: &[(&str, &str)] = &[
         "此处你的会话变更已在进行中。",
     ),
     (
+        "stage1.state.note.stalled",
+        "上次部署失败——点击修改、重新部署或放弃更改。",
+    ),
+    (
         "stage1.state.note.conflict",
         "我们的仓库在此节点上存在冲突。",
     ),
     (
         "stage1.state.note.disabled",
         "此节点当前不接受自助对等会话。",
+    ),
+    // Stalled PR banner
+    ("stalled.banner.title", "部署失败"),
+    (
+        "stalled.banner.body",
+        "此前的更改有一个未合并的拉取请求部署失败。你可以修改配置后重新提交、重新部署当前 PR，或直接放弃更改。",
     ),
     // Stage 2: Session details
     ("stage2.kicker", "阶段 2"),
@@ -424,6 +436,7 @@ pub(super) const TABLE: &[(&str, &str)] = &[
     ("session_state.managed", "托管"),
     ("session_state.manual", "手动"),
     ("session_state.pending_pr", "拉取请求待处理"),
+    ("session_state.stalled_pr", "部署失败"),
     ("session_state.conflict", "冲突"),
     ("session.badge.psk", "PSK"),
     ("session.badge.encrypted_endpoint", "Endpoint 已加密"),
@@ -504,6 +517,10 @@ pub(super) const TABLE: &[(&str, &str)] = &[
     (
         "operation.message.merge_failed",
         "正在等待合并。合并尝试失败：{error}",
+    ),
+    (
+        "operation.message.dropped",
+        "更改已放弃——拉取请求已关闭。",
     ),
     ("operation.failure_stage.checks", "CI 检查"),
     ("operation.failure_stage.preflight", "节点预检"),
@@ -830,6 +847,7 @@ pub(super) const TABLE: &[(&str, &str)] = &[
     ),
     ("error.request.operation.not_found", "操作未找到。"),
     ("error.request.operation.not_retryable", "此操作无法重试。"),
+    ("error.request.operation.not_droppable", "此操作无法放弃。"),
     ("error.request.operation.pr_closed", "拉取请求已关闭，无法重试。"),
     ("error.request.operation.branch_missing", "操作分支在仓库中缺失。"),
     ("error.request.route.not_found", "未找到。"),
@@ -1063,6 +1081,10 @@ pub(super) const TABLE: &[(&str, &str)] = &[
     (
         "loading.retry_operation",
         "正在重试失败的操作……",
+    ),
+    (
+        "loading.drop_operation",
+        "正在放弃更改并关闭拉取请求……",
     ),
 ];
 

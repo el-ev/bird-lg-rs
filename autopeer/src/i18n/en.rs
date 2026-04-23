@@ -30,6 +30,8 @@ pub(super) const TABLE: &[(&str, &str)] = &[
     ("action.open_pr", "Open PR"),
     ("action.workflow_run", "Workflow Run"),
     ("action.retry", "Retry"),
+    ("action.redeploy", "Re-deploy"),
+    ("action.drop_changes", "Drop Changes"),
     ("action.dismiss_operation", "Dismiss"),
     // Step: LoadingConfig / EnterAsn
     (
@@ -282,12 +284,25 @@ pub(super) const TABLE: &[(&str, &str)] = &[
         "A change for your session is already in progress here.",
     ),
     (
+        "stage1.state.note.stalled",
+        "A previous deployment failed — open to modify, re-deploy, or drop.",
+    ),
+    (
         "stage1.state.note.conflict",
         "Our repo is in conflict for this node.",
     ),
     (
         "stage1.state.note.disabled",
         "This node is not accepting autopeer sessions right now.",
+    ),
+    // Stalled PR banner
+    (
+        "stalled.banner.title",
+        "Deployment Failed",
+    ),
+    (
+        "stalled.banner.body",
+        "A previous change has an open PR that failed to deploy. You can modify the config and submit again, re-deploy the existing PR, or drop the changes entirely.",
     ),
     // Stage 2: Session details
     ("stage2.kicker", "Stage 2"),
@@ -436,6 +451,7 @@ pub(super) const TABLE: &[(&str, &str)] = &[
     ("session_state.managed", "Managed"),
     ("session_state.manual", "Manual"),
     ("session_state.pending_pr", "Pending PR"),
+    ("session_state.stalled_pr", "Stalled PR"),
     ("session_state.conflict", "Conflict"),
     ("session.badge.psk", "PSK"),
     ("session.badge.encrypted_endpoint", "Encrypted endpoint"),
@@ -516,6 +532,10 @@ pub(super) const TABLE: &[(&str, &str)] = &[
     (
         "operation.message.merge_failed",
         "Waiting for merge. Merge attempt failed: {error}",
+    ),
+    (
+        "operation.message.dropped",
+        "Changes dropped — the pull request has been closed.",
     ),
     ("operation.failure_stage.checks", "CI checks"),
     ("operation.failure_stage.preflight", "Node preflight"),
@@ -842,6 +862,7 @@ pub(super) const TABLE: &[(&str, &str)] = &[
     ),
     ("error.request.operation.not_found", "Operation not found."),
     ("error.request.operation.not_retryable", "This operation cannot be retried."),
+    ("error.request.operation.not_droppable", "This operation cannot be dropped."),
     ("error.request.operation.pr_closed", "The pull request has been closed and cannot be retried."),
     ("error.request.operation.branch_missing", "The operation branch is missing from the repository."),
     ("error.request.route.not_found", "Not found."),
@@ -1075,6 +1096,10 @@ pub(super) const TABLE: &[(&str, &str)] = &[
     (
         "loading.retry_operation",
         "Retrying your failed operation...",
+    ),
+    (
+        "loading.drop_operation",
+        "Dropping changes and closing the pull request...",
     ),
 ];
 

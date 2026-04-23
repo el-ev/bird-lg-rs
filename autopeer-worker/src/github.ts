@@ -308,6 +308,23 @@ export class GitHubClient {
     );
   }
 
+  async closePullRequest(number: number): Promise<GitHubPrResponse> {
+    return this.request<GitHubPrResponse>(
+      `/repos/${joinPath(this.env.GITHUB_OWNER, this.env.GITHUB_REPO)}/pulls/${number}`,
+      {
+        method: "PATCH",
+        body: JSON.stringify({ state: "closed" }),
+      },
+    );
+  }
+
+  async deleteBranch(branch: string): Promise<void> {
+    await this.request<void>(
+      `/repos/${joinPath(this.env.GITHUB_OWNER, this.env.GITHUB_REPO)}/git/refs/heads/${encodeURIComponent(branch)}`,
+      { method: "DELETE" },
+    );
+  }
+
   async listCheckRuns(ref: string): Promise<GitHubCheckRunsResponse> {
     return this.request<GitHubCheckRunsResponse>(
       `/repos/${joinPath(this.env.GITHUB_OWNER, this.env.GITHUB_REPO)}/commits/${encodeURIComponent(ref)}/check-runs`,

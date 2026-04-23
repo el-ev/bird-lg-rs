@@ -30,6 +30,8 @@ pub(super) const TABLE: &[(&str, &str)] = &[
     ("action.open_pr", "PR Aperire"),
     ("action.workflow_run", "Workflow Currere"),
     ("action.retry", "Iterare"),
+    ("action.redeploy", "Recollocare"),
+    ("action.drop_changes", "Mutationes Abicere"),
     ("action.dismiss_operation", "Dimittere"),
     // Step: LoadingConfig / EnterAsn
     (
@@ -282,12 +284,22 @@ pub(super) const TABLE: &[(&str, &str)] = &[
         "Mutatio pro sessione tua iam hic in progressu est.",
     ),
     (
+        "stage1.state.note.stalled",
+        "Collocatio prior defecit — aperi ut mutes, recolloces, vel mutationes abicias.",
+    ),
+    (
         "stage1.state.note.conflict",
         "Repositorium nostrum in conflictu pro hoc nodo est.",
     ),
     (
         "stage1.state.note.disabled",
         "Hic nodus sessiones autopeer nunc non accipit.",
+    ),
+    // Stalled PR banner
+    ("stalled.banner.title", "Collocatio Defecit"),
+    (
+        "stalled.banner.body",
+        "Mutatio prior PR apertam habet quae collocari non potuit. Configurationem mutare et iterum submittere potes, PR existentem recollocare, vel mutationes omnino abicere.",
     ),
     // Stage 2: Session details
     ("stage2.kicker", "Gradus II"),
@@ -436,6 +448,7 @@ pub(super) const TABLE: &[(&str, &str)] = &[
     ("session_state.managed", "Administratus"),
     ("session_state.manual", "Manualis"),
     ("session_state.pending_pr", "PR Expectans"),
+    ("session_state.stalled_pr", "PR Impedita"),
     ("session_state.conflict", "Conflictus"),
     ("session.badge.psk", "PSK"),
     ("session.badge.encrypted_endpoint", "Terminatio encrypta"),
@@ -516,6 +529,10 @@ pub(super) const TABLE: &[(&str, &str)] = &[
     (
         "operation.message.merge_failed",
         "Fusionem expectans. Conatus fusionis defecit: {error}",
+    ),
+    (
+        "operation.message.dropped",
+        "Mutationes abiectae — rogatio tractionis clausa est.",
     ),
     ("operation.failure_stage.checks", "Probationes CI"),
     ("operation.failure_stage.preflight", "Praevectio nodi"),
@@ -842,6 +859,7 @@ pub(super) const TABLE: &[(&str, &str)] = &[
     ),
     ("error.request.operation.not_found", "Operatio non inventa."),
     ("error.request.operation.not_retryable", "Haec operatio iterari non potest."),
+    ("error.request.operation.not_droppable", "Haec operatio abici non potest."),
     ("error.request.operation.pr_closed", "Rogatio tractus clausa est et iterari non potest."),
     ("error.request.operation.branch_missing", "Ramus operationis in repositorio deest."),
     ("error.request.route.not_found", "Non inventum."),
@@ -1075,6 +1093,10 @@ pub(super) const TABLE: &[(&str, &str)] = &[
     (
         "loading.retry_operation",
         "Operationem defectam iteramus...",
+    ),
+    (
+        "loading.drop_operation",
+        "Mutationes abicimus et rogationem tractionis claudimus...",
     ),
 ];
 
