@@ -944,14 +944,15 @@ export async function listSessionsForAsn(
     }
 
     if (overrideState) {
+      const snapshot = operation.session_snapshot;
       sessions.set(operation.node, {
         node: operation.node,
         asn,
         state: overrideState,
-        spec: operation.session_snapshot ?? current?.spec,
+        spec: snapshot ?? current?.spec,
         metadata: current?.metadata ?? { managed: true },
-        has_psk: current?.has_psk,
-        has_encrypted_endpoint: current?.has_encrypted_endpoint,
+        has_psk: snapshot?.has_psk ?? current?.has_psk,
+        has_encrypted_endpoint: snapshot?.encrypt_endpoint ?? current?.has_encrypted_endpoint,
         pending_operation_id: operation.id,
         pull_request_url: operation.pull_request_url ?? undefined,
         message: operation.message ?? undefined,
@@ -990,10 +991,25 @@ async function vaultProtectEntry(
   }
 }
 
-function sanitizeSnapshot(spec: PeerSessionSpec | null): PeerSessionSpec | null {
+function sanitizeSnapshot(
+  spec: PeerSessionSpec | null,
+  originalSpec: PeerSessionSpec | undefined,
+  peer: PeerEntry,
+): PeerSessionSpec | null {
   if (!spec) return null;
   const { psk: _, ...rest } = spec;
-  return rest;
+  return {
+    ...rest,
+    has_psk: peerHasPsk(peer),
+    encrypt_endpoint: originalSpec?.encrypt_endpoint ?? peerHasEncryptedEndpoint(peer),
+  };
+}
+
+async function buildSnapshot(
+  next: PeerEntry,
+  spec: PeerSessionSpec | undefined,
+): Promise<PeerSessionSpec | null> {
+  return sanitizeSnapshot(await toSpec(next), spec, next);
 }
 
 async function finalizeEntry(
@@ -1002,7 +1018,7 @@ async function finalizeEntry(
   existing: PeerEntry | undefined,
   vaultPassword: string | null,
 ): Promise<PeerSessionSpec | null> {
-  const snapshot = sanitizeSnapshot(await toSpec(next));
+  const snapshot = await buildSnapshot(next, spec);
   await vaultProtectEntry(next, spec, existing, vaultPassword);
   return snapshot;
 }
@@ -1132,6 +1148,6 @@ export async function mutatePeerFile(
   peers[match.index] = removedEntry;
   return {
     content: dumpPeerYaml(normalizePeerFileData({ peers })),
-    sessionSnapshot: sanitizeSnapshot(existing ? await toSpec(existing, input.vaultPassword) : null),
+    sessionSnapshot: existing ? await buildSnapshot(existing, undefined) : null,
   };
 }

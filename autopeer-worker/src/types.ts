@@ -151,6 +151,7 @@ export interface PeerSessionSpec {
   mp_bgp_transport?: MpBgpTransport | null;
   peering_strategy: PeeringStrategy;
   psk?: string | null;
+  has_psk?: boolean;
   encrypt_endpoint?: boolean;
 }
 

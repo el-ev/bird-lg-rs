@@ -521,6 +521,69 @@ describe("network peer mutations", () => {
     expect(result.content).toContain("psk: !vault |");
   });
 
+  it("snapshot includes has_psk and encrypt_endpoint indicators", async () => {
+    const result = await mutatePeerFile(baseFile, {
+      asn: "4242421234",
+      effectiveMnt: "EXAMPLE-MNT",
+      authMethod,
+      kind: "create",
+      session: {
+        comment: "snapshot test",
+        endpoint: "peer.example.net:21023",
+        wg_public_key: "abcd+efgh/ijkl=",
+        port: 21234,
+        peer4: null,
+        peer6: "fe80::1234",
+        own6: null,
+        keepalive: null,
+        mtu: null,
+        ipv4: true,
+        ipv6: true,
+        extended_next_hop: true,
+        mp_bgp: true,
+        peering_strategy: "full_table",
+        psk: "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
+        encrypt_endpoint: true,
+      },
+      vaultPassword: null,
+    });
+
+    expect(result.sessionSnapshot).toBeDefined();
+    expect(result.sessionSnapshot!.has_psk).toBe(true);
+    expect(result.sessionSnapshot!.encrypt_endpoint).toBe(true);
+    expect(result.sessionSnapshot!.psk).toBeUndefined();
+  });
+
+  it("snapshot reflects has_psk=false when no PSK is set", async () => {
+    const result = await mutatePeerFile(baseFile, {
+      asn: "4242421234",
+      effectiveMnt: "EXAMPLE-MNT",
+      authMethod,
+      kind: "create",
+      session: {
+        comment: "no psk test",
+        endpoint: "peer.example.net:21023",
+        wg_public_key: "abcd+efgh/ijkl=",
+        port: 21234,
+        peer4: null,
+        peer6: "fe80::1234",
+        own6: null,
+        keepalive: null,
+        mtu: null,
+        ipv4: true,
+        ipv6: true,
+        extended_next_hop: true,
+        mp_bgp: true,
+        peering_strategy: "full_table",
+      },
+      vaultPassword: null,
+    });
+
+    expect(result.sessionSnapshot).toBeDefined();
+    expect(result.sessionSnapshot!.has_psk).toBe(false);
+    expect(result.sessionSnapshot!.encrypt_endpoint).toBe(false);
+  });
+
   it("converts a manual peer into a managed migration entry", async () => {
     const file = `peers:
   - comment: autopeer test
@@ -730,6 +793,87 @@ describe("session listing", () => {
     expect(sessions).toHaveLength(1);
     expect(sessions[0].state).toBe("pending_pr");
     expect(sessions[0].pending_operation_id).toBe("op-1");
+  });
+
+  it("uses snapshot has_psk and encrypt_endpoint for pending operations", async () => {
+    const peerFiles = new Map<string, string>([
+      [
+        "lax-01",
+        `peers:
+  - comment: autopeer test
+    wg:
+      port: 21234
+      endpoint: peer.example.net:21023
+      wg_pubkey: "abcd+efgh/ijkl="
+      psk: !vault |
+        $ANSIBLE_VAULT;1.1;AES256
+        30303030
+      peer4: null
+      peer6: fe80::1234
+      own6: null
+      keepalive: null
+      mtu: null
+    bgp:
+      asn: 4242421234
+      ipv4: true
+      ipv6: true
+      extended_next_hop: true
+      mp_bgp: true
+    autopeer:
+      managed: true
+      effective_mnt: EXAMPLE-MNT
+      auth_provider: registry_ssh
+`,
+      ],
+    ]);
+
+    const operations: OperationRecord[] = [
+      {
+        id: "op-2",
+        asn: "4242421234",
+        node: "lax-01",
+        kind: "update",
+        state: "pending_checks",
+        branch: "autopeer/4242421234/lax-01/update/op-2",
+        pr_number: 2,
+        pr_node_id: "node",
+        pull_request_url: "https://example.invalid/pr/2",
+        workflow_run_url: null,
+        message: uiMessage("Waiting for checks"),
+        created_at: "2026-04-18T00:00:00Z",
+        updated_at: "2026-04-18T00:00:00Z",
+        session_snapshot: {
+          comment: "autopeer test",
+          endpoint: "peer.example.net:21023",
+          wg_public_key: "abcd+efgh/ijkl=",
+          port: 21234,
+          peer4: null,
+          peer6: "fe80::1234",
+          own6: null,
+          keepalive: null,
+          mtu: null,
+          ipv4: true,
+          ipv6: true,
+          extended_next_hop: true,
+          mp_bgp: true,
+          peering_strategy: "full_table",
+          has_psk: false,
+          encrypt_endpoint: true,
+        },
+      },
+    ];
+
+    const sessions = await listSessionsForAsn(
+      "4242421234",
+      peerFiles,
+      [{ name: "lax-01", ip_support: "dual", region: undefined, country: undefined, comment: undefined }],
+      operations,
+      null,
+    );
+
+    expect(sessions).toHaveLength(1);
+    expect(sessions[0].has_psk).toBe(false);
+    expect(sessions[0].has_encrypted_endpoint).toBe(true);
   });
 });
 
