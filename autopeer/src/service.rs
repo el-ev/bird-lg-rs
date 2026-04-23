@@ -241,6 +241,7 @@ pub async fn send_registry_email(
         &RegistryEmailSendRequest {
             challenge_id: challenge_id.to_string(),
             effective_mnt: optional_effective_mnt(effective_mnt),
+            locale: current_locale_code(),
         },
     )
     .await

@@ -169,6 +169,11 @@ fn local_storage() -> Option<web_sys::Storage> {
 }
 
 fn detect_initial_locale() -> Option<Locale> {
+    if let Some(locale) = hash_locale() {
+        persist_locale(locale);
+        return Some(locale);
+    }
+
     if let Some(stored) = local_storage()
         .and_then(|storage| storage.get_item(LOCALE_STORAGE_KEY).ok().flatten())
         .and_then(|code| Locale::from_code(&code))
@@ -179,6 +184,14 @@ fn detect_initial_locale() -> Option<Locale> {
     let navigator = web_sys::window()?.navigator();
     let tag = navigator.language()?;
     Locale::from_bcp47(&tag)
+}
+
+fn hash_locale() -> Option<Locale> {
+    let window = web_sys::window()?;
+    let hash = window.location().hash().ok()?;
+    let query = hash.strip_prefix('#').unwrap_or(&hash);
+    let params = web_sys::UrlSearchParams::new_with_str(query).ok()?;
+    Locale::from_code(&params.get("lang")?)
 }
 
 fn persist_locale(locale: Locale) {

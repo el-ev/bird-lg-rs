@@ -144,6 +144,10 @@ function fragmentMessage(name: string, message: string | UiMessage): string {
   return `${name}=${encodeURIComponent(JSON.stringify(toUiMessage(message)))}`;
 }
 
+function withLangFragment(fragment: string, locale?: string | null): string {
+  return locale ? `${fragment}&lang=${encodeURIComponent(locale)}` : fragment;
+}
+
 function requireRequestString(value: unknown, field: string): string {
   try {
     return requireNonEmptyString(value, field);
@@ -1396,10 +1400,12 @@ async function router(request: Request, env: Env): Promise<Response> {
       challenge,
       requireOptionalRequestString(body.effective_mnt, "effective_mnt"),
     );
+    const locale = requireOptionalRequestString(body.locale, "locale");
     const emailAuthRequest = createRegistryEmailAuthRequest(
       challenge,
       target.maintainer,
       target.emails,
+      locale,
     );
     await sendRegistryEmailAuthMessage(
       env,
@@ -1716,7 +1722,7 @@ async function router(request: Request, env: Env): Promise<Response> {
       return siteRedirectResponse(
         env,
         request,
-        `email_token=${encodeURIComponent(emailAuthRequest.token)}`,
+        withLangFragment(`email_token=${encodeURIComponent(emailAuthRequest.token)}`, emailAuthRequest.locale),
       );
     }
 
@@ -1742,7 +1748,7 @@ async function router(request: Request, env: Env): Promise<Response> {
       return siteRedirectResponse(
         env,
         request,
-        `email_token=${encodeURIComponent(emailAuthRequest.token)}`,
+        withLangFragment(`email_token=${encodeURIComponent(emailAuthRequest.token)}`, emailAuthRequest.locale),
       );
     } catch (callbackError) {
       await deleteRegistryEmailAuthRequest(env, emailAuthRequest.challenge_id);

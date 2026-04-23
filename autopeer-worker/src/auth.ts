@@ -212,6 +212,7 @@ export function createRegistryEmailAuthRequest(
   challenge: ChallengeRecord,
   effectiveMnt: string,
   emails: string[],
+  locale?: string | null,
 ): RegistryEmailAuthRequestRecord {
   const createdAt = nowIso();
   return {
@@ -221,6 +222,7 @@ export function createRegistryEmailAuthRequest(
     code: randomDigits(8),
     token: randomBase64Url(32),
     session_token: null,
+    locale: locale ?? null,
     created_at: createdAt,
     expires_at: addSeconds(createdAt, EMAIL_AUTH_TTL_SECONDS),
   };

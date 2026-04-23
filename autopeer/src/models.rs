@@ -104,6 +104,8 @@ pub struct RegistryEmailSendRequest {
     pub challenge_id: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub effective_mnt: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub locale: Option<String>,
 }
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize, PartialEq, Eq)]

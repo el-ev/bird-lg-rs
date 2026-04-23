@@ -51,6 +51,7 @@ export interface RegistryPgpVerifyRequest {
 export interface RegistryEmailSendRequest {
   challenge_id: string;
   effective_mnt?: string | null;
+  locale?: string | null;
 }
 
 export interface RegistryEmailSendResponse {
@@ -315,6 +316,7 @@ export interface RegistryEmailAuthRequestRecord {
   code: string;
   token: string;
   session_token?: string | null;
+  locale?: string | null;
   created_at: string;
   expires_at: string;
 }
