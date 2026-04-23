@@ -1769,6 +1769,43 @@ details[open] .summary-header {
     color: var(--text-secondary);
 }
 
+/* Help hint tooltip */
+.shell-help-hint {
+    position: relative;
+    color: var(--text-placeholder);
+    cursor: help;
+    font-size: 0.7em;
+    vertical-align: super;
+    line-height: 0;
+}
+
+.shell-help-hint::after {
+    content: attr(data-hint);
+    display: none;
+    position: absolute;
+    left: 0;
+    top: calc(100% + 2px);
+    z-index: 30;
+    padding: 5px 8px;
+    border-radius: var(--radius-md);
+    background: var(--text);
+    color: var(--text-white);
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    font-weight: normal;
+    line-height: 1.45;
+    white-space: normal;
+    word-break: normal;
+    overflow-wrap: break-word;
+    max-width: 320px;
+    width: max-content;
+    pointer-events: none;
+}
+
+.shell-help-hint:hover::after {
+    display: block;
+}
+
 /* dn42 Page */
 .dn42-page {
     max-width: 600px;

@@ -82,6 +82,12 @@ fn live_validation_message(i18n: &I18n, message: Option<&str>) -> Html {
     }
 }
 
+fn help_hint(i18n: &I18n, key: &'static str) -> Html {
+    html! {
+        <span class="shell-help-hint" data-hint={i18n.t(key)}>{"[?]"}</span>
+    }
+}
+
 fn live_validation_messages(i18n: &I18n, messages: &[String]) -> Html {
     if messages.is_empty() {
         return Html::default();
@@ -1679,6 +1685,7 @@ pub fn auto_peer_page() -> Html {
                                     label={i18n.t("stage2.field.encrypt_endpoint")}
                                     disabled={draft.endpoint.trim().is_empty()}
                                 />
+                                {" "}{help_hint(&i18n, "stage2.field.encrypt_endpoint.help")}
                             </ShellLine>
                             <ShellLine>
                                 <ShellPrompt>{i18n.t("stage2.field.wg_key")}</ShellPrompt>
@@ -1943,6 +1950,7 @@ pub fn auto_peer_page() -> Html {
                                         onclick={on_psk_action.clone()}
                                         disabled={loading || *psk_copied}
                                     />
+                                    {" "}{help_hint(&i18n, "stage2.field.psk.help")}
                                 </ShellLine>
                                 {field_error_message(SessionDraftField::Psk)}
                             </div>
