@@ -524,15 +524,16 @@ async function loadRepoState(env: Env, github: GitHubClient) {
 
   const policyFile = await github.getFile(AUTOPEER_POLICY_PATH, env.GITHUB_BASE_BRANCH);
   const hosts = loadInventoryHosts(inventoryFile.text, policyFile.text ?? null);
-  const peerFiles = new Map<string, string>();
-
-  for (const host of hosts) {
-    const file = await github.getFile(PEER_FILE_PATH(host.name), env.GITHUB_BASE_BRANCH);
-    if (!file.exists || !file.text) {
-      throw new HttpError(`network repo is missing ${PEER_FILE_PATH(host.name)}`, 502);
-    }
-    peerFiles.set(host.name, file.text);
-  }
+  const peerFileEntries = await Promise.all(
+    hosts.map(async (host) => {
+      const file = await github.getFile(PEER_FILE_PATH(host.name), env.GITHUB_BASE_BRANCH);
+      if (!file.exists || !file.text) {
+        throw new HttpError(`network repo is missing ${PEER_FILE_PATH(host.name)}`, 502);
+      }
+      return [host.name, file.text] as const;
+    }),
+  );
+  const peerFiles = new Map(peerFileEntries);
 
   return {
     hosts,
@@ -988,11 +989,9 @@ async function listSessionsResponse(
   const github = new GitHubClient(env);
   const { hosts, peerFiles } = await loadRepoState(env, github);
   const existingOperations = await listOperationsForAsn(env, session.asn);
-  const operations: OperationRecord[] = [];
-
-  for (const operation of existingOperations) {
-    operations.push(await refreshOperation(env, github, operation));
-  }
+  const operations = await Promise.all(
+    existingOperations.map((operation) => refreshOperation(env, github, operation)),
+  );
 
   const vaultPassword = readOptionalSecret(env, "ANSIBLE_VAULT_PASSWORD");
   const sessions = await listSessionsForAsn(session.asn, peerFiles, hosts, operations, vaultPassword);

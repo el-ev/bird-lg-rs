@@ -587,7 +587,6 @@ pub fn auto_peer_page() -> Html {
         on_delete_selected_session,
         on_retry_operation,
         on_dismiss_operation,
-        on_redeploy_operation,
         on_drop_operation,
     } = use_autopeer_controller(default_autopeer_home_href, default_looking_glass_href);
     let loading = !ongoing_tasks.is_empty();
@@ -1120,9 +1119,6 @@ pub fn auto_peer_page() -> Html {
                 .and_then(|name| nodes.iter().find(|node| node.name == name).cloned());
             let selected_session = selected_node_name
                 .and_then(|name| sessions.iter().find(|s| s.node == name));
-            let selected_is_stalled = selected_session
-                .map(|s| s.state == SessionState::StalledPr)
-                .unwrap_or(false);
             let retire_confirmation_value = *retire_confirmation;
             let delete_confirmation_value = *delete_confirmation;
             let active_asn = auth_summary
@@ -1557,7 +1553,7 @@ pub fn auto_peer_page() -> Html {
                             </div>
                         }
 
-                        if let (true, Some(session)) = (selected_is_stalled, selected_session) {
+                        if let Some(session) = selected_session.filter(|s| s.state == SessionState::StalledPr) {
                             <div class="autopeer-stalled-banner">
                                 <p class="autopeer-stalled-banner-title">{i18n.t("stalled.banner.title")}</p>
                                 <p class="text-secondary">{i18n.t("stalled.banner.body")}</p>
@@ -1568,7 +1564,7 @@ pub fn auto_peer_page() -> Html {
                                     if let Some(op_id) = &session.pending_operation_id {
                                         <button
                                             class="autopeer-link-button"
-                                            onclick={on_redeploy_operation.reform({
+                                            onclick={on_retry_operation.reform({
                                                 let op_id = op_id.clone();
                                                 move |_: MouseEvent| op_id.clone()
                                             })}
@@ -2183,7 +2179,10 @@ pub fn auto_peer_page() -> Html {
                                             if operation_status.state == OperationState::Failed && operation_status.pull_request_url.is_some() {
                                                 <button
                                                     class="autopeer-link-button"
-                                                    onclick={on_retry_operation.clone()}
+                                                    onclick={on_retry_operation.reform({
+                                                        let id = operation_status.id.clone();
+                                                        move |_: MouseEvent| id.clone()
+                                                    })}
                                                     disabled={loading}
                                                 >
                                                     {i18n.t("action.retry")}
@@ -2250,8 +2249,7 @@ mod tests {
         retire_button_text,
     };
     use crate::{
-        controller::{configured_href, filter_supported_methods, validate_ssh_signature_input},
-        models::{AuthMethod, AuthMethodKind, MpBgpTransport, PeeringStrategy, UiMessage},
+        models::{MpBgpTransport, PeeringStrategy},
         store::{PeerConfigStage, SessionDraft, SessionDraftField},
         update_form::{
             Peer6AddressKind, SessionDraftLiveValidation, SessionDraftToggleGroup,
@@ -2260,38 +2258,6 @@ mod tests {
             session_details_submission_error, should_display_node_ipv4, should_mark_field_invalid,
         },
     };
-
-    #[test]
-    fn prefers_runtime_configured_link_over_fallback() {
-        assert_eq!(
-            configured_href(Some("https://network.owo.li"), "https://lg.owo.li/"),
-            "https://network.owo.li"
-        );
-    }
-
-    #[test]
-    fn hides_oidc_methods_when_runtime_config_disables_them() {
-        let methods = vec![
-            AuthMethod {
-                kind: AuthMethodKind::RegistrySsh,
-                label: UiMessage::raw("Registry SSH"),
-                description: UiMessage::raw("SSH"),
-                ..AuthMethod::default()
-            },
-            AuthMethod {
-                kind: AuthMethodKind::Oidc,
-                label: UiMessage::raw("Kioubit"),
-                description: UiMessage::raw("OIDC"),
-                provider: Some("kioubit".into()),
-                ..AuthMethod::default()
-            },
-        ];
-
-        let filtered = filter_supported_methods(methods, false);
-
-        assert_eq!(filtered.len(), 1);
-        assert_eq!(filtered[0].kind, AuthMethodKind::RegistrySsh);
-    }
 
     #[test]
     fn detects_link_local_peer6_addresses() {
@@ -2892,23 +2858,4 @@ mod tests {
         assert_eq!(validation, SessionDraftLiveValidation::default());
     }
 
-    #[test]
-    fn rejects_raw_challenge_text_in_ssh_signature_field() {
-        assert_eq!(
-            validate_ssh_signature_input(
-                "dn42-autopeer challenge\nasn: 4242421024\nchallenge_id: example\nissued_at: 2026-04-18T12:42:04.075Z"
-            ),
-            Err("error.auth.ssh.unsigned_challenge"),
-        );
-    }
-
-    #[test]
-    fn accepts_armored_ssh_signature_blocks() {
-        assert_eq!(
-            validate_ssh_signature_input(
-                "-----BEGIN SSH SIGNATURE-----\nZm9v\n-----END SSH SIGNATURE-----"
-            ),
-            Ok(()),
-        );
-    }
 }

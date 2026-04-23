@@ -615,9 +615,8 @@ pub struct AutoPeerController {
     pub on_submit_session: Callback<MouseEvent>,
     pub on_retire_selected_session: Callback<MouseEvent>,
     pub on_delete_selected_session: Callback<MouseEvent>,
-    pub on_retry_operation: Callback<MouseEvent>,
+    pub on_retry_operation: Callback<String>,
     pub on_dismiss_operation: Callback<MouseEvent>,
-    pub on_redeploy_operation: Callback<String>,
     pub on_drop_operation: Callback<String>,
 }
 
@@ -1778,62 +1777,6 @@ pub fn use_autopeer_controller(
         let ongoing_tasks = ongoing_tasks.clone();
         let poll_operation = poll_operation.clone();
 
-        Callback::from(move |_| {
-            let Some(api_base) = require_api_base(&api_base, &error) else {
-                return;
-            };
-            let Some(auth_session) = (*auth_session).clone() else {
-                return;
-            };
-            let Some(current) = (*operation).clone() else {
-                return;
-            };
-
-            let task_id =
-                start_loading(&ongoing_tasks, UiMessage::key("loading.retry_operation"));
-            error.set(None);
-
-            let operation = operation.clone();
-            let error = error.clone();
-            let ongoing_tasks = ongoing_tasks.clone();
-            let poll_operation = poll_operation.clone();
-
-            spawn_local(async move {
-                match service::retry_operation(
-                    &api_base,
-                    &auth_session.session_token,
-                    &current.id,
-                )
-                .await
-                {
-                    Ok(status) => {
-                        operation.set(Some(status.clone()));
-                        poll_operation.emit(status);
-                    }
-                    Err(message) => error.set(Some(message)),
-                }
-                clear_loading(&ongoing_tasks, task_id);
-            });
-        })
-    };
-
-    let on_dismiss_operation = {
-        let operation = operation.clone();
-
-        Callback::from(move |_| {
-            operation.set(None);
-            save_pending_operation_id(None);
-        })
-    };
-
-    let on_redeploy_operation = {
-        let api_base = api_base.clone();
-        let auth_session = auth_session.clone();
-        let operation = operation.clone();
-        let error = error.clone();
-        let ongoing_tasks = ongoing_tasks.clone();
-        let poll_operation = poll_operation.clone();
-
         Callback::from(move |operation_id: String| {
             let Some(api_base) = require_api_base(&api_base, &error) else {
                 return;
@@ -1867,6 +1810,15 @@ pub fn use_autopeer_controller(
                 }
                 clear_loading(&ongoing_tasks, task_id);
             });
+        })
+    };
+
+    let on_dismiss_operation = {
+        let operation = operation.clone();
+
+        Callback::from(move |_| {
+            operation.set(None);
+            save_pending_operation_id(None);
         })
     };
 
@@ -1961,7 +1913,6 @@ pub fn use_autopeer_controller(
         on_delete_selected_session,
         on_retry_operation,
         on_dismiss_operation,
-        on_redeploy_operation,
         on_drop_operation,
     }
 }

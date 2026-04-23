@@ -11,9 +11,10 @@ import {
   type OperationRecord,
   type PeeringStrategy,
   type PeerSessionSpec,
+  type SessionState,
   type SessionView,
 } from "./types";
-import { defaultPeerPort, isTruthyRecord, normalizeAsn } from "./utils";
+import { defaultPeerPort, isTerminalOperationState, isTruthyRecord, normalizeAsn } from "./utils";
 import { isVaultEncrypted, vaultDecrypt, vaultEncrypt } from "./vault";
 
 const PEER_KEY_ORDER = ["comment", "wg", "bgp", "removed"] as const;
@@ -917,26 +918,20 @@ export async function listSessionsForAsn(
 
   for (const operation of operations) {
     const current = sessions.get(operation.node);
-    const isPending = !["completed", "failed", "conflict"].includes(operation.state);
+    const isPending = !isTerminalOperationState(operation.state);
 
+    let overrideState: SessionState | null = null;
     if (isPending) {
-      sessions.set(operation.node, {
-        node: operation.node,
-        asn,
-        state: "pending_pr",
-        spec: operation.session_snapshot ?? current?.spec,
-        metadata: current?.metadata ?? { managed: true },
-        has_psk: current?.has_psk,
-        has_encrypted_endpoint: current?.has_encrypted_endpoint,
-        pending_operation_id: operation.id,
-        pull_request_url: operation.pull_request_url ?? undefined,
-        message: operation.message ?? undefined,
-      });
+      overrideState = "pending_pr";
     } else if (operation.state === "failed" && operation.pr_number && operation.pull_request_url) {
+      overrideState = "stalled_pr";
+    }
+
+    if (overrideState) {
       sessions.set(operation.node, {
         node: operation.node,
         asn,
-        state: "stalled_pr",
+        state: overrideState,
         spec: operation.session_snapshot ?? current?.spec,
         metadata: current?.metadata ?? { managed: true },
         has_psk: current?.has_psk,
