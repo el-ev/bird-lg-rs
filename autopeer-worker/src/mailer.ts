@@ -1,3 +1,4 @@
+import { type WorkerLocale, t } from "./i18n";
 import type { RegistryEmailAuthRequestRecord } from "./types";
 import { readSecret } from "./utils";
 
@@ -14,49 +15,55 @@ function escapeHtml(value: string): string {
 }
 
 function emailHtml(
+  locale: WorkerLocale,
   asn: string,
   effectiveMnt: string,
   request: RegistryEmailAuthRequestRecord,
   magicLinkUrl: string,
 ): string {
   const escapedLink = escapeHtml(magicLinkUrl);
-  const escapedMaintainer = escapeHtml(effectiveMnt);
   const escapedCode = escapeHtml(request.code);
-  const escapedAsn = escapeHtml(asn);
-  const escapedExpiry = escapeHtml(request.expires_at);
+  const params = {
+    asn: escapeHtml(asn),
+    mnt: escapeHtml(effectiveMnt),
+    expires_at: escapeHtml(request.expires_at),
+  };
 
   return [
     "<div style=\"font-family:system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;line-height:1.5;color:#111827\">",
-    `<p>Use this sign-in link or one-time code to sign in to DN42 Autopeer for <strong>AS${escapedAsn}</strong> as <strong>${escapedMaintainer}</strong>.</p>`,
-    `<p><a href="${escapedLink}">Open Autopeer Sign-In Link</a></p>`,
-    `<p>Your one-time auth code is:</p>`,
+    `<p>${t(locale, "email.intro_html", params)}</p>`,
+    `<p><a href="${escapedLink}">${escapeHtml(t(locale, "email.link_label"))}</a></p>`,
+    `<p>${escapeHtml(t(locale, "email.code_intro"))}</p>`,
     `<p style="font-size:1.5rem;font-weight:700;letter-spacing:0.18em">${escapedCode}</p>`,
-    `<p>This code expires at ${escapedExpiry}.</p>`,
-    "<p>If you did not start this login, you can ignore this email.</p>",
+    `<p>${t(locale, "email.expires", { expires_at: escapeHtml(request.expires_at) })}</p>`,
+    `<p>${escapeHtml(t(locale, "email.ignore"))}</p>`,
     "</div>",
   ].join("");
 }
 
 function emailText(
+  locale: WorkerLocale,
   asn: string,
   effectiveMnt: string,
   request: RegistryEmailAuthRequestRecord,
   magicLinkUrl: string,
 ): string {
+  const params = { asn, mnt: effectiveMnt };
   return [
-    `Use this sign-in link or one-time code to sign in to DN42 Autopeer for AS${asn} as ${effectiveMnt}.`,
+    t(locale, "email.intro_text", params),
     "",
-    `Sign-in link: ${magicLinkUrl}`,
+    `${t(locale, "email.link_label")}: ${magicLinkUrl}`,
     "",
-    `One-time auth code: ${request.code}`,
-    `Expires at: ${request.expires_at}`,
+    `${t(locale, "email.code_intro")} ${request.code}`,
+    t(locale, "email.expires", { expires_at: request.expires_at }),
     "",
-    "If you did not start this login, you can ignore this email.",
+    t(locale, "email.ignore"),
   ].join("\n");
 }
 
 export async function sendRegistryEmailAuthMessage(
   env: Env,
+  locale: WorkerLocale,
   asn: string,
   effectiveMnt: string,
   request: RegistryEmailAuthRequestRecord,
@@ -72,9 +79,9 @@ export async function sendRegistryEmailAuthMessage(
     body: JSON.stringify({
       from: AUTOPEER_FROM,
       to: request.email_snapshot,
-      subject: `DN42 Autopeer login for AS${asn}`,
-      html: emailHtml(asn, effectiveMnt, request, magicLinkUrl),
-      text: emailText(asn, effectiveMnt, request, magicLinkUrl),
+      subject: t(locale, "email.subject", { asn }),
+      html: emailHtml(locale, asn, effectiveMnt, request, magicLinkUrl),
+      text: emailText(locale, asn, effectiveMnt, request, magicLinkUrl),
     }),
   });
 

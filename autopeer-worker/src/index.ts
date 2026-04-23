@@ -29,6 +29,7 @@ import {
 } from "./db";
 import { branchName, GitHubClient } from "./github";
 import type { GitHubWorkflowJob, GitHubWorkflowRun } from "./github";
+import { type WorkerLocale, resolveLocale, t } from "./i18n";
 import { sendRegistryEmailAuthMessage } from "./mailer";
 import {
   buildNodeViews,
@@ -1171,15 +1172,32 @@ async function handleMutation(
     message: `feat: autopeer ${kind} AS${authSession.asn} on ${nodeName}`,
   });
 
+  const locale = resolveLocale(request);
+  const authLabel = mutationAuthMethod.provider ?? mutationAuthMethod.kind;
+  const prBodyEn = [
+    t("en", "pr.body", { kind, asn: authSession.asn }),
+    "",
+    `- ${t("en", "pr.node")}: \`${nodeName}\``,
+    `- ${t("en", "pr.maintainer")}: \`${authSession.effective_mnt}\``,
+    `- ${t("en", "pr.auth")}: \`${authLabel}\``,
+  ].join("\n");
+
+  let prBody = prBodyEn;
+  if (locale !== "en") {
+    const localKind = t(locale, `kind.${kind}`);
+    const prBodyLocal = [
+      t(locale, "pr.body", { kind: localKind, asn: authSession.asn }),
+      "",
+      `- ${t(locale, "pr.node")}: \`${nodeName}\``,
+      `- ${t(locale, "pr.maintainer")}: \`${authSession.effective_mnt}\``,
+      `- ${t(locale, "pr.auth")}: \`${authLabel}\``,
+    ].join("\n");
+    prBody = `${prBodyLocal}\n\n---\n\n${prBodyEn}`;
+  }
+
   const pr = await github.createPullRequest({
     title: `autopeer: ${kind} AS${authSession.asn} on ${nodeName}`,
-    body: [
-      `Autopeer ${kind} request for AS${authSession.asn}.`,
-      "",
-      `- Node: \`${nodeName}\``,
-      `- Maintainer: \`${authSession.effective_mnt}\``,
-      `- Auth: \`${mutationAuthMethod.provider ?? mutationAuthMethod.kind}\``,
-    ].join("\n"),
+    body: prBody,
     head: operation.branch,
     base: env.GITHUB_BASE_BRANCH,
   });
@@ -1385,6 +1403,7 @@ async function router(request: Request, env: Env): Promise<Response> {
     );
     await sendRegistryEmailAuthMessage(
       env,
+      resolveLocale(request),
       challenge.asn,
       target.maintainer,
       emailAuthRequest,
@@ -1856,6 +1875,41 @@ async function router(request: Request, env: Env): Promise<Response> {
     };
     await putOperation(env, updated);
     return jsonWithCors(request, updated, 202);
+  }
+
+  const operationDropMatch = url.pathname.match(/^\/v1\/operations\/([^/]+)\/drop$/);
+  if (request.method === "POST" && operationDropMatch) {
+    const authSession = await requireSession(env, request);
+    const operation = await getOperation(env, operationDropMatch[1]);
+    if (!operation || operation.asn !== authSession.asn) {
+      throw new HttpError("error.request.operation.not_found", 404);
+    }
+    if (operation.state !== "failed" || !operation.pr_number) {
+      throw new HttpError("error.request.operation.not_droppable", 409);
+    }
+
+    const github = new GitHubClient(env);
+    const pr = await github.getPullRequest(operation.pr_number);
+    if (pr.state === "open") {
+      await github.closePullRequest(operation.pr_number);
+    }
+    if (operation.branch) {
+      try {
+        await github.deleteBranch(operation.branch);
+      } catch {
+        // branch may already be deleted
+      }
+    }
+
+    const updated: OperationRecord = {
+      ...operation,
+      state: "completed",
+      message: uiMessage("operation.message.dropped"),
+      failure_details: null,
+      updated_at: nowIso(),
+    };
+    await putOperation(env, updated);
+    return jsonWithCors(request, updated, 200);
   }
 
   throw new HttpError("error.request.route.not_found", 404);

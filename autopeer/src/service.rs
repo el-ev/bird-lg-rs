@@ -10,6 +10,17 @@ use crate::models::{
 };
 
 const CONFIG_PATH: &str = "/config.json";
+const LOCALE_STORAGE_KEY: &str = "bird-lg-rs.autopeer.locale";
+
+fn current_locale_code() -> Option<String> {
+    web_sys::window()?
+        .local_storage()
+        .ok()
+        .flatten()?
+        .get_item(LOCALE_STORAGE_KEY)
+        .ok()
+        .flatten()
+}
 
 #[derive(Clone, Debug, Default, Deserialize, PartialEq, Eq)]
 pub struct RuntimeConfig {
@@ -65,6 +76,11 @@ async fn send_json<B: Serialize, T: DeserializeOwned>(
     } else {
         request
     };
+    let request = if let Some(locale) = current_locale_code() {
+        request.header("Accept-Language", &locale)
+    } else {
+        request
+    };
 
     let response = request
         .header("Content-Type", "application/json")
@@ -77,8 +93,14 @@ async fn send_json<B: Serialize, T: DeserializeOwned>(
 }
 
 async fn send_delete<T: DeserializeOwned>(url: &str, token: &str) -> Result<T, UiMessage> {
-    let response = Request::delete(url)
-        .header("Authorization", &format!("Bearer {token}"))
+    let request = Request::delete(url)
+        .header("Authorization", &format!("Bearer {token}"));
+    let request = if let Some(locale) = current_locale_code() {
+        request.header("Accept-Language", &locale)
+    } else {
+        request
+    };
+    let response = request
         .send()
         .await
         .map_err(|error| UiMessage::raw(format!("Request failed: {error}")))?;
@@ -91,6 +113,11 @@ async fn send_get<T: DeserializeOwned>(url: &str, token: Option<&str>) -> Result
         Request::get(url).header("Authorization", &format!("Bearer {token}"))
     } else {
         Request::get(url)
+    };
+    let request = if let Some(locale) = current_locale_code() {
+        request.header("Accept-Language", &locale)
+    } else {
+        request
     };
 
     let response = request
@@ -365,5 +392,14 @@ pub async fn retry_operation(
     operation_id: &str,
 ) -> Result<OperationStatus, UiMessage> {
     let url = api_url(api_base, &format!("/v1/operations/{operation_id}/retry"));
+    send_json("POST", &url, Some(session_token), &()).await
+}
+
+pub async fn drop_operation(
+    api_base: &str,
+    session_token: &str,
+    operation_id: &str,
+) -> Result<OperationStatus, UiMessage> {
+    let url = api_url(api_base, &format!("/v1/operations/{operation_id}/drop"));
     send_json("POST", &url, Some(session_token), &()).await
 }
