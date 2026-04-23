@@ -8,6 +8,9 @@ workers_dev = false
 pattern = "autopeer.owo.li"
 custom_domain = true
 
+[triggers]
+crons = ["*/2 * * * *"]
+
 [observability]
 enabled = true
 head_sampling_rate = 1

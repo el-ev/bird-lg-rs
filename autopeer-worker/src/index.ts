@@ -18,6 +18,7 @@ import {
   getRegistryEmailAuthRequest,
   getRegistryEmailAuthRequestByToken,
   getOperation,
+  listActiveOperations,
   listOperationsForAsn,
   deleteOidcAuthRequest,
   putAuthSession,
@@ -1914,6 +1915,20 @@ async function router(request: Request, env: Env): Promise<Response> {
   throw new HttpError("error.request.route.not_found", 404);
 }
 
+async function refreshActiveOperations(env: Env): Promise<void> {
+  const operations = await listActiveOperations(env);
+  if (operations.length === 0) return;
+
+  const github = new GitHubClient(env);
+  for (const operation of operations) {
+    try {
+      await refreshOperation(env, github, operation);
+    } catch (error) {
+      console.error(`cron: failed to refresh operation ${operation.id}`, error);
+    }
+  }
+}
+
 export default {
   async fetch(request, env): Promise<Response> {
     try {
@@ -1931,5 +1946,9 @@ export default {
 
       return errorWithCors(request, uiMessage(stripOperatorHints(rawMessage)), 500);
     }
+  },
+
+  async scheduled(_event, env, _ctx): Promise<void> {
+    await refreshActiveOperations(env);
   },
 } satisfies ExportedHandler<Env>;

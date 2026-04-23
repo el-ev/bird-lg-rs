@@ -374,6 +374,16 @@ export async function listOperationsForAsn(env: Env, asn: string): Promise<Opera
   return result.results.map(mapOperationRow);
 }
 
+export async function listActiveOperations(env: Env): Promise<OperationRecord[]> {
+  const result = await env.DB.prepare(
+    `SELECT id, asn, node, kind, state, branch, session_snapshot, pr_number, pr_node_id, pull_request_url, workflow_run_url, message, failure_details, created_at, updated_at
+      FROM operations WHERE state NOT IN ('completed', 'failed', 'conflict') AND pr_number IS NOT NULL ORDER BY created_at ASC`,
+  )
+    .all<Record<string, unknown>>();
+
+  return result.results.map(mapOperationRow);
+}
+
 export async function claimNodeOperationLock(
   env: Env,
   node: string,
