@@ -72,7 +72,7 @@ async fn main() -> anyhow::Result<()> {
         .route("/api/peering/{node_name}", get(info::get_node_peering))
         .route("/api/wireguard", get(wireguard::get_wireguard_snapshot))
         .route("/api/ws", get(ws::ws_handler))
-        .merge(SwaggerUi::new("/swagger-ui").url("/api-docs/openapi.json", ApiDoc::openapi()))
+        .merge(SwaggerUi::new("/swagger-ui/{_:.*}").url("/api-docs/openapi.json", ApiDoc::openapi()))
         .layer(CorsLayer::permissive())
         .layer(middleware::from_fn(track_request))
         .layer(Extension(state))
