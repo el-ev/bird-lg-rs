@@ -34,6 +34,15 @@ fn json_response<T: Serialize>(body: &T, status: u16) -> Result<Response> {
 async fn main(req: Request, env: Env, _ctx: Context) -> Result<Response> {
     let url = req.url()?;
 
+    if url.path() == "/autopeer" || url.path() == "/autopeer/" {
+        if let Ok(site_url) = env.var("AUTOPEER_SITE_URL") {
+            let target = site_url.to_string();
+            if !target.is_empty() {
+                return Response::redirect_with_status(Url::parse(&target)?, 302);
+            }
+        }
+    }
+
     if url.path() == CONFIG_PATH {
         let backend_url = env.var("BACKEND_URL");
         let autopeer_site_url = env.var("AUTOPEER_SITE_URL").ok().map(|v| v.to_string());
