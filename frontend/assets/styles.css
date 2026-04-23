@@ -862,17 +862,6 @@ details[open] .summary-header {
     color: inherit;
 }
 
-.shell-toggle__state {
-    display: inline-flex;
-    flex: 0 0 2.4em;
-    justify-content: center;
-    width: 2.4em;
-    font-size: 0.72em;
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
-    color: var(--muted);
-    transition: color 0.18s;
-}
 
 .shell-toggle.active .shell-toggle__switch {
     background: color-mix(in srgb, var(--shell-prompt) 72%, var(--bg-shell));
@@ -883,10 +872,6 @@ details[open] .summary-header {
     left: calc(100% - 0.84rem);
     background: var(--text-white);
     box-shadow: 0 0 0 1px color-mix(in srgb, var(--shell-prompt) 18%, transparent);
-}
-
-.shell-toggle.active .shell-toggle__state {
-    color: color-mix(in srgb, var(--shell-prompt) 70%, var(--text));
 }
 
 .shell-toggle:focus-visible .shell-toggle__switch {

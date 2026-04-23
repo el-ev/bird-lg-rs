@@ -32,9 +32,6 @@ pub fn shell_toggle(props: &ShellToggleProps) -> Html {
                         }
                     }
                 </span>
-                <span class="shell-toggle__state">
-                    {if props.active { "on" } else { "off" }}
-                </span>
             </span>
             <span class="shell-toggle__switch" aria-hidden="true">
                 <span class="shell-toggle__thumb" />
