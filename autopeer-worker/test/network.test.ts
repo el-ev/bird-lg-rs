@@ -403,7 +403,7 @@ describe("network peer mutations", () => {
       asn: "4242421234",
       effectiveMnt: "EXAMPLE-MNT",
       authMethod,
-      kind: "delete",
+      kind: "retire",
       vaultPassword: null,
     });
 

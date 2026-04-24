@@ -26,8 +26,8 @@ const tables: Record<WorkerLocale, Record<string, string>> = {
     "pr.auth": "Auth",
     "kind.create": "create",
     "kind.update": "update",
-    "kind.delete": "retire",
-    "kind.purge": "delete",
+    "kind.retire": "retire",
+    "kind.delete": "delete",
     "kind.migrate": "migrate",
   },
   zh: {
@@ -46,8 +46,8 @@ const tables: Record<WorkerLocale, Record<string, string>> = {
     "pr.auth": "认证方式",
     "kind.create": "创建",
     "kind.update": "更新",
-    "kind.delete": "停用",
-    "kind.purge": "删除",
+    "kind.retire": "停用",
+    "kind.delete": "删除",
     "kind.migrate": "迁移",
   },
   la: {
@@ -66,8 +66,8 @@ const tables: Record<WorkerLocale, Record<string, string>> = {
     "pr.auth": "Auctoritas",
     "kind.create": "creandi",
     "kind.update": "renovandi",
-    "kind.delete": "retrahendi",
-    "kind.purge": "delendi",
+    "kind.retire": "retrahendi",
+    "kind.delete": "delendi",
     "kind.migrate": "migrandi",
   },
 };

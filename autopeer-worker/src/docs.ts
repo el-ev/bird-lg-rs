@@ -444,7 +444,7 @@ const components = {
         node: { type: "string" },
         kind: {
           type: "string",
-          enum: ["create", "update", "delete", "migrate"],
+          enum: ["create", "update", "retire", "delete", "migrate"],
         },
         state: {
           type: "string",
@@ -685,7 +685,7 @@ const paths = {
     },
     delete: {
       tags: ["sessions"],
-      summary: "Delete or retire a peering session",
+      summary: "Permanently delete a peering session",
       security: bearerSecurity(),
       parameters: [
         pathParam("node", "Node name"),
@@ -697,6 +697,25 @@ const paths = {
         "401": errorResponse("Session token missing or expired"),
         "403": errorResponse("Path ASN does not match the current session"),
         "409": errorResponse("Session delete conflicts with current state"),
+        "502": errorResponse("Network repository state is unavailable"),
+      },
+    },
+  },
+  "/v1/sessions/{node}/{asn}/retire": {
+    post: {
+      tags: ["sessions"],
+      summary: "Retire (disable) a peering session",
+      security: bearerSecurity(),
+      parameters: [
+        pathParam("node", "Node name"),
+        pathParam("asn", "Authenticated ASN"),
+      ],
+      responses: {
+        "200": jsonResponse("No change was necessary", ref("OperationStatus")),
+        "202": jsonResponse("Operation created", ref("OperationStatus")),
+        "401": errorResponse("Session token missing or expired"),
+        "403": errorResponse("Path ASN does not match the current session"),
+        "409": errorResponse("Session retire conflicts with current state"),
         "502": errorResponse("Network repository state is unavailable"),
       },
     },

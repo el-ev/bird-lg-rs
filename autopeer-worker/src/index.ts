@@ -1853,14 +1853,14 @@ async function router(request: Request, env: Env): Promise<Response> {
     return handleMutation(env, request, "create");
   }
 
-  const sessionMigrationMatch = url.pathname.match(/^\/v1\/sessions\/([^/]+)\/([^/]+)\/migrate$/);
-  if (request.method === "POST" && sessionMigrationMatch) {
-    const [, nodeName, asnPath] = sessionMigrationMatch;
+  const sessionActionMatch = url.pathname.match(/^\/v1\/sessions\/([^/]+)\/([^/]+)\/(migrate|retire)$/);
+  if (request.method === "POST" && sessionActionMatch) {
+    const [, nodeName, asnPath, action] = sessionActionMatch;
     const session = await requireSession(env, request);
     if (normalizeRequestAsn(asnPath) !== session.asn) {
       throw new HttpError("error.auth.session.path_asn_mismatch", 403);
     }
-    return handleMutation(env, request, "migrate", nodeName);
+    return handleMutation(env, request, action as OperationKind, nodeName);
   }
 
   const sessionPathMatch = url.pathname.match(/^\/v1\/sessions\/([^/]+)\/([^/]+)$/);

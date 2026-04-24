@@ -183,7 +183,7 @@ export interface UpdateSessionRequest {
   session: PeerSessionSpec;
 }
 
-export type OperationKind = "create" | "update" | "delete" | "migrate";
+export type OperationKind = "create" | "update" | "retire" | "delete" | "migrate";
 export type OperationState =
   | "pending_pull_request"
   | "pending_checks"

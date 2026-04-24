@@ -106,6 +106,22 @@ async fn send_delete<T: DeserializeOwned>(url: &str, token: &str) -> Result<T, U
     decode_json(response).await
 }
 
+async fn send_post_empty<T: DeserializeOwned>(url: &str, token: &str) -> Result<T, UiMessage> {
+    let request = Request::post(url)
+        .header("Authorization", &format!("Bearer {token}"));
+    let request = if let Some(locale) = current_locale_code() {
+        request.header("Accept-Language", &locale)
+    } else {
+        request
+    };
+    let response = request
+        .send()
+        .await
+        .map_err(|error| UiMessage::key("error.runtime.request_failed").with_param("detail", error.to_string()))?;
+
+    decode_json(response).await
+}
+
 async fn send_get<T: DeserializeOwned>(url: &str, token: Option<&str>) -> Result<T, UiMessage> {
     let request = if let Some(token) = token {
         Request::get(url).header("Authorization", &format!("Bearer {token}"))
@@ -359,8 +375,8 @@ pub async fn retire_session(
     node: &str,
     asn: &str,
 ) -> Result<OperationStatus, UiMessage> {
-    let url = api_url(api_base, &format!("/v1/sessions/{node}/{asn}"));
-    send_delete(&url, session_token).await
+    let url = api_url(api_base, &format!("/v1/sessions/{node}/{asn}/retire"));
+    send_post_empty(&url, session_token).await
 }
 
 pub async fn delete_session(
@@ -369,7 +385,7 @@ pub async fn delete_session(
     node: &str,
     asn: &str,
 ) -> Result<OperationStatus, UiMessage> {
-    let url = api_url(api_base, &format!("/v1/sessions/{node}/{asn}?purge=true"));
+    let url = api_url(api_base, &format!("/v1/sessions/{node}/{asn}"));
     send_delete(&url, session_token).await
 }
 
