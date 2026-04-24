@@ -11,6 +11,7 @@ import {
   consumeFreshChallenge,
   consumeCompletedRegistryEmailAuthRequestByToken,
   deleteChallenge,
+  deleteOperation,
   deleteRegistryEmailAuthRequest,
   getAuthSession,
   getChallenge,
@@ -18,6 +19,7 @@ import {
   getRegistryEmailAuthRequest,
   getRegistryEmailAuthRequestByToken,
   getOperation,
+  insertOperation,
   listActiveOperations,
   listOperationsForAsn,
   deleteOidcAuthRequest,
@@ -969,51 +971,72 @@ async function refreshOperation(
           message = nodeLockGate.message;
 
           if (nodeLockGate.shouldAttemptMerge) {
-            try {
-              await github.mergePullRequest(operation.pr_number, pr.head.sha);
+            const peerPath = PEER_FILE_PATH(operation.node);
+            const [branchFile, baseFile] = await Promise.all([
+              github.getFile(peerPath, operation.branch),
+              github.getFile(peerPath, env.GITHUB_BASE_BRANCH),
+            ]);
+
+            if (branchFile.exists && baseFile.exists && branchFile.text === baseFile.text) {
+              await github.closePullRequest(operation.pr_number);
+              await github.deleteBranch(operation.branch).catch(() => {});
               nextState = "completed";
               message = buildOperationMessage(nextState);
               failureDetails = null;
-            } catch (error) {
-              await releaseNodeOperationLock(env, operation.node, operation.id);
+            } else {
               try {
-                const peerPath = PEER_FILE_PATH(operation.node);
-                const branchFile = await github.getFile(peerPath, operation.branch);
-                if (branchFile.exists && branchFile.text) {
-                  const baseSha = await github.getBranchHead(env.GITHUB_BASE_BRANCH);
-                  await github.forcePushSingleFile({
-                    branch: operation.branch,
-                    baseSha,
-                    path: peerPath,
-                    content: branchFile.text,
-                    message: commitMessage(operation.kind, operation.asn, operation.node),
-                  });
-                  nextState = "pending_checks";
-                  message = buildOperationMessage(nextState);
-                  failureDetails = null;
-                } else {
+                await github.mergePullRequest(operation.pr_number, pr.head.sha);
+                nextState = "completed";
+                message = buildOperationMessage(nextState);
+                failureDetails = null;
+              } catch (error) {
+                await releaseNodeOperationLock(env, operation.node, operation.id);
+                try {
+                  if (branchFile.exists && branchFile.text) {
+                    const currentBaseFile = await github.getFile(peerPath, env.GITHUB_BASE_BRANCH);
+                    if (currentBaseFile.exists && currentBaseFile.text === branchFile.text) {
+                      await github.closePullRequest(operation.pr_number);
+                      await github.deleteBranch(operation.branch).catch(() => {});
+                      nextState = "completed";
+                      message = buildOperationMessage(nextState);
+                      failureDetails = null;
+                    } else {
+                      const baseSha = await github.getBranchHead(env.GITHUB_BASE_BRANCH);
+                      await github.forcePushSingleFile({
+                        branch: operation.branch,
+                        baseSha,
+                        path: peerPath,
+                        content: branchFile.text,
+                        message: commitMessage(operation.kind, operation.asn, operation.node),
+                      });
+                      nextState = "pending_checks";
+                      message = buildOperationMessage(nextState);
+                      failureDetails = null;
+                    }
+                  } else {
+                    nextState = "failed";
+                    message = uiMessage("operation.message.merge_failed", {
+                      error: error instanceof Error ? error.message : "unknown error",
+                    });
+                    failureDetails = {
+                      stage: "merge",
+                      step: "github merge",
+                      conclusion: "merge_failed",
+                      annotation: error instanceof Error ? error.message : "unknown error",
+                    };
+                  }
+                } catch (rebaseError) {
                   nextState = "failed";
                   message = uiMessage("operation.message.merge_failed", {
-                    error: error instanceof Error ? error.message : "unknown error",
+                    error: rebaseError instanceof Error ? rebaseError.message : "unknown error",
                   });
                   failureDetails = {
                     stage: "merge",
-                    step: "github merge",
+                    step: "rebase",
                     conclusion: "merge_failed",
-                    annotation: error instanceof Error ? error.message : "unknown error",
+                    annotation: rebaseError instanceof Error ? rebaseError.message : "unknown error",
                   };
                 }
-              } catch (rebaseError) {
-                nextState = "failed";
-                message = uiMessage("operation.message.merge_failed", {
-                  error: rebaseError instanceof Error ? rebaseError.message : "unknown error",
-                });
-                failureDetails = {
-                  stage: "merge",
-                  step: "rebase",
-                  conclusion: "merge_failed",
-                  annotation: rebaseError instanceof Error ? rebaseError.message : "unknown error",
-                };
               }
             }
           }
@@ -1224,55 +1247,68 @@ async function handleMutation(
   };
   operation.branch = branchName(operation);
 
-  const baseSha = await github.getBranchHead(env.GITHUB_BASE_BRANCH);
-  await github.createBranch(operation.branch, baseSha);
-  await github.upsertFile({
-    path: peerPath,
-    branch: operation.branch,
-    sha: currentFile.sha,
-    content: mutation.content,
-    message: commitMessage(kind, authSession.asn, nodeName),
-  });
-
-  const locale = resolveLocale(request);
-  const authLabel = mutationAuthMethod.provider ?? mutationAuthMethod.kind;
-  const prBodyEn = [
-    t("en", "pr.body", { kind, asn: authSession.asn }),
-    "",
-    `- ${t("en", "pr.node")}: \`${nodeName}\``,
-    `- ${t("en", "pr.maintainer")}: \`${authSession.effective_mnt}\``,
-    `- ${t("en", "pr.auth")}: \`${authLabel}\``,
-  ].join("\n");
-
-  let prBody = prBodyEn;
-  if (locale !== "en") {
-    const localKind = t(locale, `kind.${kind}`);
-    const prBodyLocal = [
-      t(locale, "pr.body", { kind: localKind, asn: authSession.asn }),
-      "",
-      `- ${t(locale, "pr.node")}: \`${nodeName}\``,
-      `- ${t(locale, "pr.maintainer")}: \`${authSession.effective_mnt}\``,
-      `- ${t(locale, "pr.auth")}: \`${authLabel}\``,
-    ].join("\n");
-    prBody = `${prBodyLocal}\n\n---\n\n${prBodyEn}`;
+  const inserted = await insertOperation(env, operation);
+  if (!inserted) {
+    throw new HttpError(
+      uiMessage("error.session.duplicate_on_node", { asn: authSession.asn, node: nodeName }),
+      409,
+    );
   }
 
-  const pr = await github.createPullRequest({
-    title: `autopeer: ${kind} AS${authSession.asn} on ${nodeName}`,
-    body: prBody,
-    head: operation.branch,
-    base: env.GITHUB_BASE_BRANCH,
-  });
+  try {
+    const baseSha = await github.getBranchHead(env.GITHUB_BASE_BRANCH);
+    await github.createBranch(operation.branch, baseSha);
+    await github.upsertFile({
+      path: peerPath,
+      branch: operation.branch,
+      sha: currentFile.sha,
+      content: mutation.content,
+      message: commitMessage(kind, authSession.asn, nodeName),
+    });
 
-  operation.pr_number = pr.number;
-  operation.pr_node_id = pr.node_id;
-  operation.pull_request_url = pr.html_url;
-  operation.state = "pending_checks";
-  operation.message = buildOperationMessage(operation.state);
-  operation.updated_at = nowIso();
+    const locale = resolveLocale(request);
+    const authLabel = mutationAuthMethod.provider ?? mutationAuthMethod.kind;
+    const prBodyEn = [
+      t("en", "pr.body", { kind, asn: authSession.asn }),
+      "",
+      `- ${t("en", "pr.node")}: \`${nodeName}\``,
+      `- ${t("en", "pr.maintainer")}: \`${authSession.effective_mnt}\``,
+      `- ${t("en", "pr.auth")}: \`${authLabel}\``,
+    ].join("\n");
 
-  await putOperation(env, operation);
-  return jsonWithCors(request, operation, 202);
+    let prBody = prBodyEn;
+    if (locale !== "en") {
+      const localKind = t(locale, `kind.${kind}`);
+      const prBodyLocal = [
+        t(locale, "pr.body", { kind: localKind, asn: authSession.asn }),
+        "",
+        `- ${t(locale, "pr.node")}: \`${nodeName}\``,
+        `- ${t(locale, "pr.maintainer")}: \`${authSession.effective_mnt}\``,
+        `- ${t(locale, "pr.auth")}: \`${authLabel}\``,
+      ].join("\n");
+      prBody = `${prBodyLocal}\n\n---\n\n${prBodyEn}`;
+    }
+
+    const pr = await github.createPullRequest({
+      title: `autopeer: ${kind} AS${authSession.asn} on ${nodeName}`,
+      body: prBody,
+      head: operation.branch,
+      base: env.GITHUB_BASE_BRANCH,
+    });
+
+    operation.pr_number = pr.number;
+    operation.pr_node_id = pr.node_id;
+    operation.pull_request_url = pr.html_url;
+    operation.state = "pending_checks";
+    operation.message = buildOperationMessage(operation.state);
+    operation.updated_at = nowIso();
+
+    await putOperation(env, operation);
+    return jsonWithCors(request, operation, 202);
+  } catch (error) {
+    await deleteOperation(env, operation.id);
+    throw error;
+  }
 }
 
 async function findReusableFailedOperation(

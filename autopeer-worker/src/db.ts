@@ -354,6 +354,41 @@ export async function putOperation(env: Env, record: OperationRecord): Promise<v
     .run();
 }
 
+export async function insertOperation(env: Env, record: OperationRecord): Promise<boolean> {
+  try {
+    await env.DB.prepare(
+      `INSERT INTO operations
+        (id, asn, node, kind, state, branch, session_snapshot, pr_number, pr_node_id, pull_request_url, workflow_run_url, message, failure_details, created_at, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    )
+      .bind(
+        record.id,
+        record.asn,
+        record.node,
+        record.kind,
+        record.state,
+        record.branch,
+        record.session_snapshot ? JSON.stringify(record.session_snapshot) : null,
+        record.pr_number ?? null,
+        record.pr_node_id ?? null,
+        record.pull_request_url ?? null,
+        record.workflow_run_url ?? null,
+        record.message ? JSON.stringify(record.message) : null,
+        record.failure_details ? JSON.stringify(record.failure_details) : null,
+        record.created_at,
+        record.updated_at,
+      )
+      .run();
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+export async function deleteOperation(env: Env, id: string): Promise<void> {
+  await env.DB.prepare(`DELETE FROM operations WHERE id = ?`).bind(id).run();
+}
+
 export async function getOperation(env: Env, id: string): Promise<OperationRecord | null> {
   const row = await env.DB.prepare(
     `SELECT id, asn, node, kind, state, branch, session_snapshot, pr_number, pr_node_id, pull_request_url, workflow_run_url, message, failure_details, created_at, updated_at
