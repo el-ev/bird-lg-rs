@@ -983,17 +983,19 @@ async function vaultProtectEntry(
       peerHasEncryptedEndpoint(existing));
 
   if (shouldEncryptEndpoint && typeof wg.endpoint === "string") {
+    const plainEndpoint = wg.endpoint;
     const existingWg = existing?.wg as YamlObject | undefined;
-    if (existingWg && isVaultEncrypted(existingWg.endpoint)) {
+    const existingEndpoint = existingWg?.endpoint;
+    if (existingEndpoint && isVaultEncrypted(existingEndpoint)) {
       try {
-        const old = await vaultDecrypt(existingWg.endpoint, vaultPassword);
-        if (old === wg.endpoint) {
-          wg.endpoint = existingWg.endpoint;
+        const old = await vaultDecrypt(existingEndpoint, vaultPassword);
+        if (old === plainEndpoint) {
+          wg.endpoint = existingEndpoint;
           return;
         }
       } catch { /* decrypt failed — re-encrypt */ }
     }
-    wg.endpoint = await vaultEncrypt(wg.endpoint, vaultPassword);
+    wg.endpoint = await vaultEncrypt(plainEndpoint, vaultPassword);
   }
 }
 
