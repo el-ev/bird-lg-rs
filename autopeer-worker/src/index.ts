@@ -910,6 +910,7 @@ async function refreshOperation(
   let failureDetails: OperationFailureDetails | null = operation.failure_details ?? null;
 
   if (pr.merged) {
+    await github.deleteBranch(operation.branch).catch(() => {});
     nextState = "completed";
     message = buildOperationMessage(nextState);
     failureDetails = null;
@@ -986,6 +987,7 @@ async function refreshOperation(
             } else {
               try {
                 await github.mergePullRequest(operation.pr_number, pr.head.sha);
+                await github.deleteBranch(operation.branch).catch(() => {});
                 nextState = "completed";
                 message = buildOperationMessage(nextState);
                 failureDetails = null;
