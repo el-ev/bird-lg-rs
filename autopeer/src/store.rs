@@ -500,18 +500,72 @@ fn validate_endpoint(value: &str) -> Result<Option<String>, String> {
     Ok(Some(endpoint))
 }
 
+fn decode_base64_len(value: &str) -> Option<usize> {
+    const TABLE: [u8; 256] = {
+        let mut t = [0xFFu8; 256];
+        let mut i = 0u8;
+        while i < 26 {
+            t[(b'A' + i) as usize] = i;
+            t[(b'a' + i) as usize] = i + 26;
+            i += 1;
+        }
+        let mut d = 0u8;
+        while d < 10 {
+            t[(b'0' + d) as usize] = d + 52;
+            d += 1;
+        }
+        t[b'+' as usize] = 62;
+        t[b'/' as usize] = 63;
+        t
+    };
+
+    let bytes = value.as_bytes();
+    let len = bytes.len();
+    if !len.is_multiple_of(4) {
+        return None;
+    }
+
+    let mut i = 0;
+    let mut out_len = 0usize;
+    while i < len {
+        let is_last = i + 4 == len;
+        let pad = (bytes[i + 2] == b'=') as usize + (bytes[i + 3] == b'=') as usize;
+
+        if pad > 0 && !is_last {
+            return None;
+        }
+        if pad == 1 && bytes[i + 3] != b'=' {
+            return None;
+        }
+
+        let mut j = 0;
+        while j < 4 - pad {
+            if TABLE[bytes[i + j] as usize] == 0xFF {
+                return None;
+            }
+            j += 1;
+        }
+        out_len += 3 - pad;
+        i += 4;
+    }
+    Some(out_len)
+}
+
+fn validate_base64_32_bytes(value: &str, error_key: &str) -> Result<(), String> {
+    match decode_base64_len(value) {
+        Some(32) => Ok(()),
+        _ => Err(error_key.to_string()),
+    }
+}
+
 fn validate_wireguard_public_key(value: &str) -> Result<String, String> {
     let key = required(value, "validation.wg_public_key.required")?;
 
     if key.len() != 44 {
         return Err("validation.wg_public_key.length".to_string());
     }
-    if !key
-        .chars()
-        .all(|char| char.is_ascii_alphanumeric() || matches!(char, '+' | '/' | '='))
-    {
-        return Err("validation.wg_public_key.charset".to_string());
-    }
+
+    validate_base64_32_bytes(&key, "validation.wg_public_key.charset")?;
 
     Ok(key)
 }
@@ -585,12 +639,9 @@ fn validate_optional_psk(value: &str) -> Result<PskField, String> {
     if trimmed.len() != 44 {
         return Err("validation.psk.length".to_string());
     }
-    if !trimmed
-        .chars()
-        .all(|char| char.is_ascii_alphanumeric() || matches!(char, '+' | '/' | '='))
-    {
-        return Err("validation.psk.charset".to_string());
-    }
+
+    validate_base64_32_bytes(trimmed, "validation.psk.charset")?;
+
     Ok(PskField::Set(trimmed.to_string()))
 }
 
@@ -1248,5 +1299,64 @@ mod tests {
         let encoded = serde_json::to_string(&sessions).unwrap();
         let decoded: PersistedSessions = serde_json::from_str(&encoded).unwrap();
         assert_eq!(decoded, sessions);
+    }
+
+    mod base64_validation {
+        use super::super::decode_base64_len;
+
+        #[test]
+        fn valid_32_byte_key() {
+            assert_eq!(decode_base64_len("sLbzTRr2gfLFb24NPzDOpy8j09Y6zI+a7NkeVMdVSR8="), Some(32));
+        }
+
+        #[test]
+        fn valid_no_padding() {
+            assert_eq!(decode_base64_len("AAAA"), Some(3));
+        }
+
+        #[test]
+        fn valid_one_pad() {
+            assert_eq!(decode_base64_len("AAA="), Some(2));
+        }
+
+        #[test]
+        fn valid_two_pad() {
+            assert_eq!(decode_base64_len("AA=="), Some(1));
+        }
+
+        #[test]
+        fn empty_string() {
+            assert_eq!(decode_base64_len(""), Some(0));
+        }
+
+        #[test]
+        fn wrong_length_not_multiple_of_4() {
+            assert_eq!(decode_base64_len("ABC"), None);
+            assert_eq!(decode_base64_len("ABCDE"), None);
+        }
+
+        #[test]
+        fn invalid_charset() {
+            assert_eq!(decode_base64_len("!@#$"), None);
+            assert_eq!(decode_base64_len("AAA!"), None);
+        }
+
+        #[test]
+        fn padding_in_non_final_block() {
+            assert_eq!(decode_base64_len("AA==AAAA"), None);
+            assert_eq!(decode_base64_len("AAA=AAAA"), None);
+        }
+
+        #[test]
+        fn malformed_padding_order() {
+            assert_eq!(decode_base64_len("A=A="), None);
+            assert_eq!(decode_base64_len("A==="), None);
+        }
+
+        #[test]
+        fn wrong_decoded_length() {
+            assert_eq!(decode_base64_len("AAAA"), Some(3));
+            assert_ne!(decode_base64_len("AAAA"), Some(32));
+        }
     }
 }

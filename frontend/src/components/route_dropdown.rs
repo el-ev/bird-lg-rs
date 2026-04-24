@@ -6,8 +6,6 @@ use yew_router::prelude::*;
 
 use crate::{routes::Route, store::LgStateHandle, utils::is_dn42_domain};
 
-const ROUTE_DROPDOWN_MENU_ID: &str = "lg-route-path-menu";
-
 struct RouteMenuItem {
     label: String,
     path: String,
@@ -198,12 +196,12 @@ pub fn route_dropdown(props: &RouteDropdownProps) -> Html {
                 class="route-dropdown__toggle"
                 aria-haspopup="menu"
                 aria-expanded={aria_expanded}
-                aria-controls={ROUTE_DROPDOWN_MENU_ID}
+                aria-controls="lg-route-path-menu"
                 onclick={open_menu_click}
             >
                 <span>{ props.current_path.clone() }</span>
             </button>
-            <div class="route-dropdown__menu" id={ROUTE_DROPDOWN_MENU_ID} role="menu">
+            <div class="route-dropdown__menu" id="lg-route-path-menu" role="menu">
                 <ul class="route-dropdown__list">
                     {
                         for items.into_iter().map(|item| {

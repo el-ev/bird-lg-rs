@@ -179,7 +179,7 @@ pub struct NodeView {
     pub autopeer: Option<bool>,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 #[derive(Default)]
 pub enum SessionState {
@@ -189,6 +189,18 @@ pub enum SessionState {
     PendingPr,
     StalledPr,
     Conflict,
+}
+
+impl SessionState {
+    pub const fn i18n_key(self) -> &'static str {
+        match self {
+            Self::Managed => "session_state.managed",
+            Self::Manual => "session_state.manual",
+            Self::PendingPr => "session_state.pending_pr",
+            Self::StalledPr => "session_state.stalled_pr",
+            Self::Conflict => "session_state.conflict",
+        }
+    }
 }
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize, PartialEq, Eq)]
@@ -242,6 +254,24 @@ pub enum PeeringStrategy {
 }
 
 impl PeeringStrategy {
+    pub const fn i18n_label_key(self) -> &'static str {
+        match self {
+            Self::FullTable => "peering_strategy.full_table.label",
+            Self::Transit => "peering_strategy.transit.label",
+            Self::Peer => "peering_strategy.peer.label",
+            Self::Downstream => "peering_strategy.downstream.label",
+        }
+    }
+
+    pub const fn i18n_description_key(self) -> &'static str {
+        match self {
+            Self::FullTable => "peering_strategy.full_table.description",
+            Self::Transit => "peering_strategy.transit.description",
+            Self::Peer => "peering_strategy.peer.description",
+            Self::Downstream => "peering_strategy.downstream.description",
+        }
+    }
+
     pub const fn as_str(self) -> &'static str {
         match self {
             Self::FullTable => "full_table",
@@ -386,7 +416,7 @@ pub struct UpdateSessionRequest {
     pub session: PeerSessionSpec,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 #[derive(Default)]
 pub enum OperationKind {
@@ -400,7 +430,19 @@ pub enum OperationKind {
     Migrate,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+impl OperationKind {
+    pub const fn i18n_key(self) -> &'static str {
+        match self {
+            Self::Create => "operation.kind.create",
+            Self::Update => "operation.kind.update",
+            Self::Retire => "operation.kind.retire",
+            Self::Delete => "operation.kind.delete",
+            Self::Migrate => "operation.kind.migrate",
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 #[derive(Default)]
 pub enum OperationState {
@@ -415,18 +457,41 @@ pub enum OperationState {
 }
 
 impl OperationState {
+    pub const fn i18n_key(self) -> &'static str {
+        match self {
+            Self::PendingPullRequest => "operation.state.pending_pull_request",
+            Self::PendingChecks => "operation.state.pending_checks",
+            Self::Applying => "operation.state.applying",
+            Self::PendingMerge => "operation.state.pending_merge",
+            Self::Completed => "operation.state.completed",
+            Self::Failed => "operation.state.failed",
+            Self::Conflict => "operation.state.conflict",
+        }
+    }
+
     pub fn is_terminal(&self) -> bool {
         matches!(self, Self::Completed | Self::Failed | Self::Conflict)
     }
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 pub enum OperationFailureStage {
     Checks,
     Preflight,
     Apply,
     Merge,
+}
+
+impl OperationFailureStage {
+    pub const fn i18n_key(self) -> &'static str {
+        match self {
+            Self::Checks => "operation.failure_stage.checks",
+            Self::Preflight => "operation.failure_stage.preflight",
+            Self::Apply => "operation.failure_stage.apply",
+            Self::Merge => "operation.failure_stage.merge",
+        }
+    }
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]

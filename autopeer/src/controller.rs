@@ -70,8 +70,6 @@ use crate::{
     update_form::SessionDraftTouchedControls,
 };
 
-const MISSING_AUTOPEER_API_URL_ERROR: &str = "error.runtime.config.autopeer_api_url.missing";
-
 #[derive(Clone)]
 struct SessionHandles {
     asn: UseStateHandle<String>,
@@ -318,7 +316,7 @@ fn require_api_base(
         .map(str::to_string);
 
     if value.is_none() {
-        error.set(Some(UiMessage::key(MISSING_AUTOPEER_API_URL_ERROR)));
+        error.set(Some(UiMessage::key("error.runtime.config.autopeer_api_url.missing")));
     }
 
     value
