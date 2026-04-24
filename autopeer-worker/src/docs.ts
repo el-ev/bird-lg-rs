@@ -205,7 +205,7 @@ const components = {
       properties: {
         challenge_id: { type: "string" },
         effective_mnt: { type: "string" },
-        locale: { type: "string", description: "Preferred locale for the verification email (e.g. \"zh\")" },
+        locale: { type: "string", description: "Preferred locale for the verification email (e.g. \"de\" or \"zh\")" },
       },
     },
     RegistryEmailSendResponse: {

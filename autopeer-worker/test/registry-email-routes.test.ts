@@ -194,6 +194,7 @@ describe("registry email worker routes", () => {
       jsonRequest("/v1/auth/verify/registry-email/send", {
         challenge_id: "challenge-1",
         effective_mnt: "SECOND-MNT",
+        locale: "de-DE",
       }),
     );
 
@@ -203,13 +204,21 @@ describe("registry email worker routes", () => {
       emails: ["ops@example.net"],
       expires_at: expect.any(String),
     });
-    expect(mailerMocks.sendRegistryEmailAuthMessage).toHaveBeenCalled();
+    expect(mailerMocks.sendRegistryEmailAuthMessage).toHaveBeenCalledWith(
+      expect.anything(),
+      "de",
+      "4242421024",
+      "SECOND-MNT",
+      expect.objectContaining({ locale: "de" }),
+      expect.any(String),
+    );
     expect(dbMocks.putRegistryEmailAuthRequest).toHaveBeenCalledWith(
       expect.anything(),
       expect.objectContaining({
         challenge_id: "challenge-1",
         effective_mnt: "SECOND-MNT",
         email_snapshot: ["ops@example.net"],
+        locale: "de",
       }),
     );
   });

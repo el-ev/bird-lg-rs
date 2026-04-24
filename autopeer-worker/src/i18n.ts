@@ -1,12 +1,17 @@
-export type WorkerLocale = "en" | "zh" | "la";
+export type WorkerLocale = "en" | "de" | "zh" | "la";
 
-export function resolveLocale(request: Request): WorkerLocale {
-  const header = request.headers.get("Accept-Language");
-  if (!header) return "en";
-  const primary = header.split(/[-_,;]/)[0].trim().toLowerCase();
+export function resolveLocaleCode(code: string | null | undefined): WorkerLocale | undefined {
+  if (!code) return undefined;
+  const primary = code.split(/[-_,;]/)[0].trim().toLowerCase();
+  if (primary === "de") return "de";
   if (primary === "zh") return "zh";
   if (primary === "la") return "la";
-  return "en";
+  if (primary === "en") return "en";
+  return undefined;
+}
+
+export function resolveLocale(request: Request): WorkerLocale {
+  return resolveLocaleCode(request.headers.get("Accept-Language")) ?? "en";
 }
 
 const tables: Record<WorkerLocale, Record<string, string>> = {
@@ -29,6 +34,26 @@ const tables: Record<WorkerLocale, Record<string, string>> = {
     "kind.retire": "retire",
     "kind.delete": "delete",
     "kind.migrate": "migrate",
+  },
+  de: {
+    "email.subject": "dn42 Autopeer-Login für AS{asn}",
+    "email.intro_html":
+      'Verwenden Sie diesen Anmeldelink oder Einmalcode, um sich bei dn42 Autopeer für <strong>AS{asn}</strong> als <strong>{mnt}</strong> anzumelden.',
+    "email.intro_text":
+      "Verwenden Sie diesen Anmeldelink oder Einmalcode, um sich bei dn42 Autopeer für AS{asn} als {mnt} anzumelden.",
+    "email.link_label": "Autopeer-Anmeldelink öffnen",
+    "email.code_intro": "Ihr Einmal-Auth-Code lautet:",
+    "email.expires": "Dieser Code läuft um {expires_at} ab.",
+    "email.ignore": "Wenn Sie diesen Login nicht gestartet haben, können Sie diese E-Mail ignorieren.",
+    "pr.body": "Autopeer-{kind}-Anfrage für AS{asn}.",
+    "pr.node": "Node",
+    "pr.maintainer": "Maintainer",
+    "pr.auth": "Auth",
+    "kind.create": "Create",
+    "kind.update": "Update",
+    "kind.retire": "Retire",
+    "kind.delete": "Delete",
+    "kind.migrate": "Migrate",
   },
   zh: {
     "email.subject": "dn42 自动对等互联 AS{asn} 登录验证",

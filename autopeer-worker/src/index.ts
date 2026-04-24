@@ -30,7 +30,7 @@ import {
 } from "./db";
 import { branchName, GitHubClient } from "./github";
 import type { GitHubWorkflowJob, GitHubWorkflowRun } from "./github";
-import { resolveLocale, t } from "./i18n";
+import { resolveLocale, resolveLocaleCode, t } from "./i18n";
 import { sendRegistryEmailAuthMessage } from "./mailer";
 import {
   buildNodeViews,
@@ -71,6 +71,7 @@ import type {
   OidcProviderConfig,
   OidcStartRequest,
   OidcStartResponse,
+  OperationKind,
   OperationRecord,
   OperationState,
   OperationStatus,
@@ -1457,7 +1458,8 @@ async function router(request: Request, env: Env): Promise<Response> {
       challenge,
       requireOptionalRequestString(body.effective_mnt, "effective_mnt"),
     );
-    const locale = requireOptionalRequestString(body.locale, "locale") ?? resolveLocale(request);
+    const requestedLocale = requireOptionalRequestString(body.locale, "locale");
+    const locale = resolveLocaleCode(requestedLocale) ?? resolveLocale(request);
     const emailAuthRequest = createRegistryEmailAuthRequest(
       challenge,
       target.maintainer,
@@ -1466,7 +1468,7 @@ async function router(request: Request, env: Env): Promise<Response> {
     );
     await sendRegistryEmailAuthMessage(
       env,
-      resolveLocale(request),
+      locale,
       challenge.asn,
       target.maintainer,
       emailAuthRequest,
