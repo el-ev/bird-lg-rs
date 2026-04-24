@@ -205,6 +205,7 @@ const components = {
       properties: {
         challenge_id: { type: "string" },
         effective_mnt: { type: "string" },
+        locale: { type: "string", description: "Preferred locale for the verification email (e.g. \"zh\")" },
       },
     },
     RegistryEmailSendResponse: {
@@ -318,7 +319,6 @@ const components = {
     PeerSessionSpec: {
       type: "object",
       required: [
-        "endpoint",
         "wg_public_key",
         "ipv4",
         "ipv6",
@@ -352,6 +352,11 @@ const components = {
           type: "string",
           description: "WireGuard pre-shared key (write-only, 44-char base64)",
         },
+        has_psk: {
+          type: "boolean",
+          readOnly: true,
+          description: "Whether a WireGuard PSK is configured (read-only)",
+        },
         encrypt_endpoint: {
           type: "boolean",
           description: "Encrypt the endpoint field with Ansible Vault in the git repo",
@@ -366,7 +371,7 @@ const components = {
         asn: { type: "string" },
         state: {
           type: "string",
-          enum: ["managed", "manual", "pending_pr", "conflict"],
+          enum: ["managed", "manual", "pending_pr", "stalled_pr", "conflict"],
         },
         spec: ref("PeerSessionSpec"),
         metadata: ref("SessionMetadata"),
@@ -727,6 +732,39 @@ const paths = {
         "200": jsonResponse("Operation status", ref("OperationStatus")),
         "401": errorResponse("Session token missing or expired"),
         "404": errorResponse("Operation was not found for this ASN"),
+      },
+    },
+  },
+  "/v1/operations/{id}/retry": {
+    post: {
+      tags: ["operations"],
+      summary: "Retry a failed operation by rebasing and force-pushing its branch",
+      security: bearerSecurity(),
+      parameters: [
+        pathParam("id", "Operation identifier"),
+      ],
+      responses: {
+        "202": jsonResponse("Operation retried", ref("OperationStatus")),
+        "401": errorResponse("Session token missing or expired"),
+        "404": errorResponse("Operation was not found for this ASN"),
+        "409": errorResponse("Operation is not in a retryable state"),
+        "502": errorResponse("Branch content is unavailable"),
+      },
+    },
+  },
+  "/v1/operations/{id}/drop": {
+    post: {
+      tags: ["operations"],
+      summary: "Drop a failed operation, closing its PR and deleting the branch",
+      security: bearerSecurity(),
+      parameters: [
+        pathParam("id", "Operation identifier"),
+      ],
+      responses: {
+        "200": jsonResponse("Operation dropped", ref("OperationStatus")),
+        "401": errorResponse("Session token missing or expired"),
+        "404": errorResponse("Operation was not found for this ASN"),
+        "409": errorResponse("Operation is not in a droppable state"),
       },
     },
   },
