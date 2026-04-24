@@ -176,6 +176,22 @@ impl SessionDraft {
         self.effective_mp_bgp_transport().unwrap_or_default()
     }
 
+    pub fn peer4_is_active(&self) -> bool {
+        let transport = self.effective_mp_bgp_transport();
+        (self.ipv4 && !self.mp_bgp)
+            || (self.mp_bgp && transport == Some(MpBgpTransport::Ipv4))
+            || (self.mp_bgp
+                && transport == Some(MpBgpTransport::Ipv6)
+                && self.ipv4
+                && !self.extended_next_hop)
+    }
+
+    pub fn peer6_is_active(&self) -> bool {
+        let transport = self.effective_mp_bgp_transport();
+        (self.ipv6 && !self.mp_bgp)
+            || (self.mp_bgp && transport == Some(MpBgpTransport::Ipv6))
+    }
+
     fn tunnel_fields(&self) -> (Option<String>, Option<String>, Option<String>) {
         (
             optional_string(&self.peer4),

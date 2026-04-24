@@ -1,12 +1,11 @@
+use ui_components::shell::{ShellButton, ShellInput, ShellLine, ShellPrompt};
 use yew::prelude::*;
 
+use super::{render_error, render_operation_progress};
 use crate::{
     i18n::I18n,
     models::{AuthSessionResponse, OperationState, OperationStatus, UiMessage},
 };
-use ui_components::shell::{ShellButton, ShellInput, ShellLine, ShellPrompt};
-
-use super::{render_error, render_operation_progress};
 
 #[derive(Properties, PartialEq)]
 pub struct DashboardSidebarProps {

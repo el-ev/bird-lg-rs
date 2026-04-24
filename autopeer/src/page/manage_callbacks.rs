@@ -2,17 +2,15 @@ use wasm_bindgen_futures::spawn_local;
 use web_sys::HtmlSelectElement;
 use yew::prelude::*;
 
+use super::{generate_wg_psk, update_draft_state, update_touched_controls};
 use crate::{
     models::{MpBgpTransport, PeeringStrategy, UiMessage},
     store::{PeerConfigStage, SessionDraft, SessionDraftField},
     update_form::{
         Peer6AddressKind, SessionDraftToggleGroup, SessionDraftTouchedControls,
-        detect_peer6_address_kind, session_details_submission_error, touch_field,
-        touch_toggle_group,
+        detect_peer6_address_kind, session_details_submission_error,
     },
 };
-
-use super::{generate_wg_psk, update_draft_state, update_touched_controls};
 
 pub struct ManageCallbacks {
     pub on_cancel_edit: Callback<MouseEvent>,
@@ -99,7 +97,9 @@ pub fn build_manage_callbacks(
             if *focused_field == Some(field) {
                 focused_field.set(None);
             }
-            update_touched_controls(&touched_fields, |next| touch_field(next, field));
+            update_touched_controls(&touched_fields, |next| {
+                next.insert(field.into());
+            });
         })
     };
 
@@ -118,7 +118,7 @@ pub fn build_manage_callbacks(
                 focused_field.set(None);
             }
             update_touched_controls(&touched_fields, |next| {
-                touch_field(next, SessionDraftField::Peer6);
+                next.insert(SessionDraftField::Peer6.into());
             });
             let next_kind = detect_peer6_address_kind(&draft.peer6);
             committed_peer6_kind.set(next_kind);
@@ -130,13 +130,7 @@ pub fn build_manage_callbacks(
 
     let on_peer6_change = {
         let draft = draft.clone();
-        let touched_fields = touched_fields.clone();
         Callback::from(move |value: String| {
-            if value.trim().is_empty() {
-                update_touched_controls(&touched_fields, |next| {
-                    touch_field(next, SessionDraftField::Peer6);
-                });
-            }
             update_draft_state(&draft, |next| next.peer6 = value);
         })
     };
@@ -146,7 +140,8 @@ pub fn build_manage_callbacks(
         let touched_fields = touched_fields.clone();
         Callback::from(move |_| {
             update_touched_controls(&touched_fields, |next| {
-                touch_toggle_group(next, SessionDraftToggleGroup::Families);
+                next.insert(SessionDraftToggleGroup::Families.into());
+                next.insert(SessionDraftToggleGroup::Bgp.into());
             });
             update_draft_state(&draft, |next| next.ipv4 = !next.ipv4);
         })
@@ -157,7 +152,7 @@ pub fn build_manage_callbacks(
         let touched_fields = touched_fields.clone();
         Callback::from(move |_| {
             update_touched_controls(&touched_fields, |next| {
-                touch_toggle_group(next, SessionDraftToggleGroup::Families);
+                next.insert(SessionDraftToggleGroup::Families.into());
             });
             update_draft_state(&draft, |next| next.ipv6 = !next.ipv6);
         })
@@ -168,7 +163,7 @@ pub fn build_manage_callbacks(
         let touched_fields = touched_fields.clone();
         Callback::from(move |_: ()| {
             update_touched_controls(&touched_fields, |next| {
-                touch_toggle_group(next, SessionDraftToggleGroup::Bgp);
+                next.insert(SessionDraftToggleGroup::Bgp.into());
             });
             update_draft_state(&draft, |next| {
                 next.mp_bgp = !next.mp_bgp;
@@ -184,7 +179,7 @@ pub fn build_manage_callbacks(
         let touched_fields = touched_fields.clone();
         Callback::from(move |_| {
             update_touched_controls(&touched_fields, |next| {
-                touch_toggle_group(next, SessionDraftToggleGroup::Bgp);
+                next.insert(SessionDraftToggleGroup::Bgp.into());
             });
             update_draft_state(&draft, |next| {
                 next.extended_next_hop = !next.extended_next_hop;
@@ -204,7 +199,7 @@ pub fn build_manage_callbacks(
             let select: HtmlSelectElement = event.target_unchecked_into();
             let value = select.value();
             update_touched_controls(&touched_fields, |next| {
-                touch_toggle_group(next, SessionDraftToggleGroup::Bgp);
+                next.insert(SessionDraftToggleGroup::Bgp.into());
             });
             update_draft_state(&draft, |next| {
                 next.mp_bgp_transport = MpBgpTransport::from_value(&value);
@@ -221,8 +216,8 @@ pub fn build_manage_callbacks(
             let select: HtmlSelectElement = event.target_unchecked_into();
             let value = select.value();
             update_draft_state(&draft, |next| {
-                next.peering_strategy = PeeringStrategy::from_value(&value)
-                    .unwrap_or(PeeringStrategy::FullTable);
+                next.peering_strategy =
+                    PeeringStrategy::from_value(&value).unwrap_or(PeeringStrategy::FullTable);
             });
         })
     };
@@ -230,7 +225,9 @@ pub fn build_manage_callbacks(
     let on_toggle_encrypt_endpoint = {
         let draft = draft.clone();
         Callback::from(move |_| {
-            update_draft_state(&draft, |next| next.encrypt_endpoint = !next.encrypt_endpoint);
+            update_draft_state(&draft, |next| {
+                next.encrypt_endpoint = !next.encrypt_endpoint
+            });
         })
     };
 
@@ -258,10 +255,8 @@ pub fn build_manage_callbacks(
                     let clipboard = window.navigator().clipboard();
                     let psk_copied_inner = psk_copied.clone();
                     spawn_local(async move {
-                        let _ = wasm_bindgen_futures::JsFuture::from(
-                            clipboard.write_text(&key),
-                        )
-                        .await;
+                        let _ =
+                            wasm_bindgen_futures::JsFuture::from(clipboard.write_text(&key)).await;
                         psk_copied_inner.set(true);
                         gloo_timers::future::TimeoutFuture::new(2_000).await;
                         psk_copied_inner.set(false);

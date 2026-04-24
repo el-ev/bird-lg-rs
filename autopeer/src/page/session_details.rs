@@ -1,5 +1,12 @@
+use ui_components::shell::{
+    ShellButton, ShellInput, ShellLine, ShellPrompt, ShellSelect, ShellToggle,
+};
 use yew::prelude::*;
 
+use super::{
+    help_hint, humanize_ip_support, live_validation_block, live_validation_block_multi,
+    node_context_line, render_error, render_ongoing_tasks,
+};
 use crate::{
     controller::OngoingTask,
     i18n::I18n,
@@ -8,19 +15,11 @@ use crate::{
         UiMessage,
     },
     store::{SessionDraft, SessionDraftField},
-    update_form::{Peer6AddressKind, SessionDraftLiveValidation, SessionDraftTouchedControls},
+    update_form::{
+        Peer6AddressKind, SessionDraftLiveValidation, SessionDraftTouchedControls,
+        should_mark_field_invalid,
+    },
 };
-use ui_components::shell::{
-    ShellButton, ShellInput, ShellLine, ShellPrompt, ShellSelect, ShellToggle,
-};
-
-use super::{
-    delete_button_text, help_hint, live_validation_block, live_validation_message,
-    live_validation_messages, mp_bgp_transport_label, node_context_line, render_error,
-    render_ongoing_tasks, retire_button_text,
-};
-
-use crate::update_form::{field_is_touched, should_mark_field_invalid};
 
 fn toggle_item_class(invalid: bool) -> Classes {
     classes!("autopeer-toggle-item", invalid.then_some("is-invalid"))
@@ -73,7 +72,7 @@ pub struct SessionDetailsProps {
 
 impl SessionDetailsProps {
     fn field_is_invalid(&self, field: SessionDraftField) -> bool {
-        field_is_touched(&self.touched_fields, field)
+        self.touched_fields.contains(&field.into())
             && self.focused_field != Some(field)
             && should_mark_field_invalid(&self.draft, field)
     }
@@ -94,15 +93,14 @@ impl SessionDetailsProps {
         }
     }
 
-    fn field_error_message(&self, field: SessionDraftField) -> Html {
-        if self.field_is_invalid(field) {
-            live_validation_message(
-                &self.i18n,
-                self.draft.field_error(field).as_deref(),
-            )
+    fn field_validation_block(&self, field: SessionDraftField, content: Html) -> Html {
+        let has_error = self.field_is_invalid(field);
+        let message = if has_error {
+            self.draft.field_error(field)
         } else {
-            Html::default()
-        }
+            None
+        };
+        live_validation_block(&self.i18n, message.as_deref(), content)
     }
 
     fn update_field_cb(&self, field: SessionDraftField) -> Callback<String> {
@@ -225,21 +223,22 @@ pub fn session_details_panel(props: &SessionDetailsProps) -> Html {
                     />
                     {" "}{help_hint(i18n, "stage2.field.encrypt_endpoint.help")}
                 </ShellLine>
-                <ShellLine>
-                    <ShellPrompt>{i18n.t("stage2.field.wg_key")}</ShellPrompt>
-                    {" "}
-                    <ShellInput
-                        value={draft.wg_public_key.clone()}
-                        on_change={props.update_field_cb(SessionDraftField::WgPublicKey)}
-                        class={props.input_class(SessionDraftField::WgPublicKey)}
-                        frame_class={props.input_frame_class(SessionDraftField::WgPublicKey)}
-                        on_focus={props.on_focus_cb(SessionDraftField::WgPublicKey)}
-                        on_blur={props.on_blur_cb(SessionDraftField::WgPublicKey)}
-                        placeholder={i18n.t("stage2.field.wg_key.placeholder")}
-                        disabled={props.loading}
-                    />
-                </ShellLine>
-                {props.field_error_message(SessionDraftField::WgPublicKey)}
+                {props.field_validation_block(SessionDraftField::WgPublicKey, html! {
+                    <ShellLine>
+                        <ShellPrompt>{i18n.t("stage2.field.wg_key")}</ShellPrompt>
+                        {" "}
+                        <ShellInput
+                            value={draft.wg_public_key.clone()}
+                            on_change={props.update_field_cb(SessionDraftField::WgPublicKey)}
+                            class={props.input_class(SessionDraftField::WgPublicKey)}
+                            frame_class={props.input_frame_class(SessionDraftField::WgPublicKey)}
+                            on_focus={props.on_focus_cb(SessionDraftField::WgPublicKey)}
+                            on_blur={props.on_blur_cb(SessionDraftField::WgPublicKey)}
+                            placeholder={i18n.t("stage2.field.wg_key.placeholder")}
+                            disabled={props.loading}
+                        />
+                    </ShellLine>
+                })}
             </div>
 
             <div class="autopeer-form-section">
@@ -249,7 +248,7 @@ pub fn session_details_panel(props: &SessionDetailsProps) -> Html {
                         <p class="text-secondary">
                             {i18n.t("stage2.section.tunnel.help")}
                         </p>
-                        <>
+                        {live_validation_block(i18n, lv.peer4_message.as_deref(), html! {
                             <ShellLine>
                                 <ShellPrompt>{i18n.t("stage2.field.peer4")}</ShellPrompt>
                                 {" "}
@@ -264,8 +263,7 @@ pub fn session_details_panel(props: &SessionDetailsProps) -> Html {
                                     disabled={props.loading}
                                 />
                             </ShellLine>
-                            {live_validation_message(i18n, lv.peer4_message.as_deref())}
-                        </>
+                        })}
                         if props.show_node_ipv4 {
                             <ShellLine>
                                 <ShellPrompt>{i18n.t("stage2.field.own4_node")}</ShellPrompt>
@@ -275,7 +273,7 @@ pub fn session_details_panel(props: &SessionDetailsProps) -> Html {
                                 </span>
                             </ShellLine>
                         }
-                        <>
+                        {live_validation_block_multi(i18n, &lv.peer6_messages, html! {
                             <ShellLine>
                                 <ShellPrompt>{i18n.t("stage2.field.peer6")}</ShellPrompt>
                                 {" "}
@@ -290,10 +288,9 @@ pub fn session_details_panel(props: &SessionDetailsProps) -> Html {
                                     disabled={props.loading}
                                 />
                             </ShellLine>
-                            {live_validation_messages(i18n, &lv.peer6_messages)}
-                        </>
+                        })}
                         if props.peer6_kind == Some(Peer6AddressKind::LinkLocal) {
-                            <>
+                            {live_validation_block(i18n, lv.own6_message.as_deref(), html! {
                                 <ShellLine>
                                     <ShellPrompt>{i18n.t("stage2.field.own6_link_local")}</ShellPrompt>
                                     {" "}
@@ -308,8 +305,7 @@ pub fn session_details_panel(props: &SessionDetailsProps) -> Html {
                                         disabled={props.loading}
                                     />
                                 </ShellLine>
-                                {live_validation_message(i18n, lv.own6_message.as_deref())}
-                            </>
+                            })}
                         } else if props.peer6_kind == Some(Peer6AddressKind::Ula) {
                             <ShellLine>
                                 <ShellPrompt>{i18n.t("stage2.field.own6_node")}</ShellPrompt>
@@ -417,7 +413,7 @@ pub fn session_details_panel(props: &SessionDetailsProps) -> Html {
                             >
                                 {
                                     for ALL_MP_BGP_TRANSPORTS.iter().map(|transport| html! {
-                                        <option value={transport.as_str()}>{mp_bgp_transport_label(i18n, *transport)}</option>
+                                        <option value={transport.as_str()}>{humanize_ip_support(i18n, transport.as_str())}</option>
                                     })
                                 }
                             </ShellSelect>
@@ -433,64 +429,67 @@ pub fn session_details_panel(props: &SessionDetailsProps) -> Html {
                             disabled={props.loading}
                         />
                     </ShellLine>
-                    <ShellLine>
-                        <ShellPrompt>{i18n.t("stage2.field.keepalive")}</ShellPrompt>
-                        {" "}
-                        <ShellInput
-                            value={draft.keepalive.clone()}
-                            on_change={props.update_field_cb(SessionDraftField::Keepalive)}
-                            class={props.input_class(SessionDraftField::Keepalive)}
-                            frame_class={props.input_frame_class(SessionDraftField::Keepalive)}
-                            on_focus={props.on_focus_cb(SessionDraftField::Keepalive)}
-                            on_blur={props.on_blur_cb(SessionDraftField::Keepalive)}
-                            placeholder={i18n.t("stage2.field.keepalive.placeholder")}
-                            disabled={props.loading}
-                        />
-                    </ShellLine>
-                    {props.field_error_message(SessionDraftField::Keepalive)}
-                    <ShellLine>
-                        <ShellPrompt>{i18n.t("stage2.field.mtu")}</ShellPrompt>
-                        {" "}
-                        <ShellInput
-                            value={draft.mtu.clone()}
-                            on_change={props.update_field_cb(SessionDraftField::Mtu)}
-                            class={props.input_class(SessionDraftField::Mtu)}
-                            frame_class={props.input_frame_class(SessionDraftField::Mtu)}
-                            on_focus={props.on_focus_cb(SessionDraftField::Mtu)}
-                            on_blur={props.on_blur_cb(SessionDraftField::Mtu)}
-                            placeholder={i18n.t("stage2.field.mtu.placeholder")}
-                            disabled={props.loading}
-                        />
-                    </ShellLine>
-                    {props.field_error_message(SessionDraftField::Mtu)}
-                    <ShellLine>
-                        <ShellPrompt>{i18n.t("stage2.field.psk")}</ShellPrompt>
-                        {" "}
-                        <ShellInput
-                            value={draft.psk.clone()}
-                            on_change={props.update_field_cb(SessionDraftField::Psk)}
-                            class={props.input_class(SessionDraftField::Psk)}
-                            frame_class={props.input_frame_class(SessionDraftField::Psk)}
-                            on_focus={props.on_focus_cb(SessionDraftField::Psk)}
-                            on_blur={props.on_blur_cb(SessionDraftField::Psk)}
-                            placeholder={if draft.has_psk { i18n.t("stage2.field.psk.placeholder.existing") } else { i18n.t("stage2.field.psk.placeholder") }}
-                            disabled={props.loading}
-                        />
-                        {" "}
-                        <ShellButton
-                            text={if props.psk_copied {
-                                i18n.t("stage2.field.psk.copied")
-                            } else if draft.has_psk || !draft.psk.is_empty() {
-                                i18n.t("stage2.field.psk.clear")
-                            } else {
-                                i18n.t("stage2.field.psk.generate")
-                            }}
-                            onclick={props.on_psk_action.clone()}
-                            disabled={props.loading || props.psk_copied}
-                        />
-                        {" "}{help_hint(i18n, "stage2.field.psk.help")}
-                    </ShellLine>
-                    {props.field_error_message(SessionDraftField::Psk)}
+                    {props.field_validation_block(SessionDraftField::Keepalive, html! {
+                        <ShellLine>
+                            <ShellPrompt>{i18n.t("stage2.field.keepalive")}</ShellPrompt>
+                            {" "}
+                            <ShellInput
+                                value={draft.keepalive.clone()}
+                                on_change={props.update_field_cb(SessionDraftField::Keepalive)}
+                                class={props.input_class(SessionDraftField::Keepalive)}
+                                frame_class={props.input_frame_class(SessionDraftField::Keepalive)}
+                                on_focus={props.on_focus_cb(SessionDraftField::Keepalive)}
+                                on_blur={props.on_blur_cb(SessionDraftField::Keepalive)}
+                                placeholder={i18n.t("stage2.field.keepalive.placeholder")}
+                                disabled={props.loading}
+                            />
+                        </ShellLine>
+                    })}
+                    {props.field_validation_block(SessionDraftField::Mtu, html! {
+                        <ShellLine>
+                            <ShellPrompt>{i18n.t("stage2.field.mtu")}</ShellPrompt>
+                            {" "}
+                            <ShellInput
+                                value={draft.mtu.clone()}
+                                on_change={props.update_field_cb(SessionDraftField::Mtu)}
+                                class={props.input_class(SessionDraftField::Mtu)}
+                                frame_class={props.input_frame_class(SessionDraftField::Mtu)}
+                                on_focus={props.on_focus_cb(SessionDraftField::Mtu)}
+                                on_blur={props.on_blur_cb(SessionDraftField::Mtu)}
+                                placeholder={i18n.t("stage2.field.mtu.placeholder")}
+                                disabled={props.loading}
+                            />
+                        </ShellLine>
+                    })}
+                    {props.field_validation_block(SessionDraftField::Psk, html! {
+                        <ShellLine>
+                            <ShellPrompt>{i18n.t("stage2.field.psk")}</ShellPrompt>
+                            {" "}
+                            <ShellInput
+                                value={draft.psk.clone()}
+                                on_change={props.update_field_cb(SessionDraftField::Psk)}
+                                class={props.input_class(SessionDraftField::Psk)}
+                                frame_class={props.input_frame_class(SessionDraftField::Psk)}
+                                on_focus={props.on_focus_cb(SessionDraftField::Psk)}
+                                on_blur={props.on_blur_cb(SessionDraftField::Psk)}
+                                placeholder={if draft.has_psk { i18n.t("stage2.field.psk.placeholder.existing") } else { i18n.t("stage2.field.psk.placeholder") }}
+                                disabled={props.loading}
+                            />
+                            {" "}
+                            <ShellButton
+                                text={if props.psk_copied {
+                                    i18n.t("stage2.field.psk.copied")
+                                } else if draft.has_psk || !draft.psk.is_empty() {
+                                    i18n.t("stage2.field.psk.clear")
+                                } else {
+                                    i18n.t("stage2.field.psk.generate")
+                                }}
+                                onclick={props.on_psk_action.clone()}
+                                disabled={props.loading || props.psk_copied}
+                            />
+                            {" "}{help_hint(i18n, "stage2.field.psk.help")}
+                        </ShellLine>
+                    })}
                 </div>
             </details>
 
@@ -501,12 +500,12 @@ pub fn session_details_panel(props: &SessionDetailsProps) -> Html {
                 if props.editing_node.is_some() {
                     <ShellButton text={i18n.t("action.cancel_edit")} onclick={props.on_cancel_edit.clone()} disabled={props.loading} />
                     <ShellButton
-                        text={retire_button_text(i18n, props.retire_confirmation)}
+                        text={if props.retire_confirmation { i18n.t("action.confirm_retirement") } else { i18n.t("action.retire_session") }}
                         onclick={props.on_retire_selected_session.clone()}
                         disabled={props.loading}
                     />
                     <ShellButton
-                        text={delete_button_text(i18n, props.delete_confirmation)}
+                        text={if props.delete_confirmation { i18n.t("action.confirm_deletion") } else { i18n.t("action.delete_session") }}
                         onclick={props.on_delete_selected_session.clone()}
                         disabled={props.loading}
                     />

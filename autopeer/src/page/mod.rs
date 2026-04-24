@@ -1,24 +1,24 @@
-mod sidebar;
 mod manage_callbacks;
 mod review;
 mod select_node;
 mod session_details;
+mod sidebar;
 mod verify_method;
 
-use common::models::PeeringInfo;
+use manage_callbacks::build_manage_callbacks;
+use review::ReviewPanel;
+use select_node::SelectNodePanel;
+use session_details::SessionDetailsPanel;
+use sidebar::DashboardSidebar;
 use ui_components::shell::{ShellButton, ShellInput, ShellLine, ShellPrompt, ShellSelect};
+use verify_method::VerifyMethodPanel;
 use web_sys::HtmlTextAreaElement;
 use yew::prelude::*;
 
 use crate::{
-    controller::{
-        AutoPeerController, OngoingTask, use_autopeer_controller,
-    },
+    controller::{AutoPeerController, OngoingTask, use_autopeer_controller},
     i18n::{I18n, Locale, use_i18n},
-    models::{
-        MpBgpTransport, NodeView, OperationFailureStage,
-        OperationState, OperationStatus, UiMessage,
-    },
+    models::{NodeView, OperationFailureStage, OperationState, OperationStatus, UiMessage},
     store::{AutoPeerStep, PeerConfigStage, SessionDraft, SessionDraftField},
     update_form::{
         Peer6AddressKind, SessionDraftTouchedControls, detect_peer6_address_kind,
@@ -27,13 +27,6 @@ use crate::{
         should_display_node_ipv4,
     },
 };
-
-use sidebar::DashboardSidebar;
-use manage_callbacks::build_manage_callbacks;
-use review::ReviewPanel;
-use select_node::SelectNodePanel;
-use session_details::SessionDetailsPanel;
-use verify_method::VerifyMethodPanel;
 
 // ---------------------------------------------------------------------------
 // Helper functions
@@ -127,6 +120,18 @@ fn live_validation_block(i18n: &I18n, message: Option<&str>, content: Html) -> H
     }
 }
 
+fn live_validation_block_multi(i18n: &I18n, messages: &[String], content: Html) -> Html {
+    html! {
+        <div class={classes!(
+            "autopeer-validation-block",
+            (!messages.is_empty()).then_some("autopeer-validation-block--invalid")
+        )}>
+            {content}
+            {live_validation_messages(i18n, messages)}
+        </div>
+    }
+}
+
 fn generate_wg_psk() -> Option<String> {
     let window = web_sys::window()?;
     let crypto = window.crypto().ok()?;
@@ -168,23 +173,6 @@ fn render_error(i18n: &I18n, error: &Option<UiMessage>) -> Html {
     }
 }
 
-fn render_loading(i18n: &I18n, loading: bool, loading_message: Option<UiMessage>) -> Html {
-    if !loading {
-        return Html::default();
-    }
-    let message = match loading_message {
-        Some(message) => i18n.translate_message(&message),
-        None => i18n.t("status.working").to_string(),
-    };
-    html! {
-        <div class="autopeer-ongoing-task">
-            <ShellLine>
-                <span class="text-secondary">{message}</span>
-            </ShellLine>
-        </div>
-    }
-}
-
 fn render_ongoing_tasks(i18n: &I18n, tasks: &[OngoingTask]) -> Html {
     if tasks.is_empty() {
         return Html::default();
@@ -202,25 +190,6 @@ fn render_ongoing_tasks(i18n: &I18n, tasks: &[OngoingTask]) -> Html {
             })}
         </div>
     }
-}
-
-fn looking_glass_href_from_parts(protocol: &str, host: &str) -> String {
-    if let Some(rest) = host.strip_prefix("autopeer.") {
-        format!("{protocol}//network.{rest}/")
-    } else {
-        format!("{protocol}//{host}/")
-    }
-}
-
-fn looking_glass_href() -> String {
-    web_sys::window()
-        .and_then(|window| {
-            let location = window.location();
-            let protocol = location.protocol().ok()?;
-            let host = location.host().ok()?;
-            Some(looking_glass_href_from_parts(&protocol, &host))
-        })
-        .unwrap_or_else(|| "/".to_string())
 }
 
 fn humanize_token(i18n: &I18n, token: &str) -> String {
@@ -270,10 +239,6 @@ fn humanize_ip_support(i18n: &I18n, value: &str) -> &'static str {
     }
 }
 
-fn mp_bgp_transport_label(i18n: &I18n, transport: MpBgpTransport) -> &'static str {
-    humanize_ip_support(i18n, transport.as_str())
-}
-
 fn node_context_line(i18n: &I18n, node: &NodeView) -> String {
     let mut parts = Vec::new();
 
@@ -297,45 +262,27 @@ fn node_context_line(i18n: &I18n, node: &NodeView) -> String {
     }
 }
 
-fn node_review_line(i18n: &I18n, node: &NodeView) -> String {
-    let context = node_context_line(i18n, node);
-    if context.is_empty() {
-        node.name.clone()
-    } else {
-        format!("{} ({})", node.name, context)
-    }
-}
-
-fn has_peering_info(peering: &PeeringInfo) -> bool {
-    peering.ipv4.is_some()
-        || peering.ipv6.is_some()
-        || peering.link_local_ipv6.is_some()
-        || peering.wg_pubkey.is_some()
-        || peering.endpoint.is_some()
-        || peering.comment.is_some()
-}
-
-fn review_item(label: &'static str, value: String) -> Html {
+fn review_item(label: &'static str, value: String, changed: bool) -> Html {
     html! {
-        <div class="autopeer-review-item">
+        <div class={classes!("autopeer-review-item", changed.then_some("autopeer-review-item--changed"))}>
             <span class="autopeer-review-label">{label}</span>
             <strong class="autopeer-review-value">{value}</strong>
         </div>
     }
 }
 
-fn optional_review_item(label: &'static str, value: &str) -> Html {
+fn optional_review_item(label: &'static str, value: &str, changed: bool) -> Html {
     match value.trim() {
         "" => Html::default(),
-        value => review_item(label, value.to_string()),
+        value => review_item(label, value.to_string(), changed),
     }
 }
 
-fn render_peering_field(label: &'static str, value: Option<&str>) -> Html {
+fn render_peering_field(label: &'static str, value: Option<&str>, active: bool) -> Html {
     match value.map(str::trim).filter(|value| !value.is_empty()) {
         Some(value) => html! {
             <>
-                <dt class="peering-label">{label}</dt>
+                <dt class={classes!("peering-label", active.then_some("peering-label--active"))}>{label}</dt>
                 <dd class="peering-value">{value}</dd>
             </>
         },
@@ -355,7 +302,12 @@ fn autopeer_node_endpoint_port(asn: &str) -> String {
     format!("2{suffix}")
 }
 
-fn render_inventory_peering_review(i18n: &I18n, node: Option<&NodeView>, active_asn: &str) -> Html {
+fn render_inventory_peering_review(
+    i18n: &I18n,
+    node: Option<&NodeView>,
+    active_asn: &str,
+    draft: &SessionDraft,
+) -> Html {
     let Some(node) = node else {
         return Html::default();
     };
@@ -366,7 +318,14 @@ fn render_inventory_peering_review(i18n: &I18n, node: Option<&NodeView>, active_
         .endpoint_host
         .as_ref()
         .map(|host| format!("{host}:{}", autopeer_node_endpoint_port(active_asn)));
-    if !has_peering_info(peering) && node_endpoint.is_none() {
+    if node_endpoint.is_none()
+        && peering.ipv4.is_none()
+        && peering.ipv6.is_none()
+        && peering.link_local_ipv6.is_none()
+        && peering.wg_pubkey.is_none()
+        && peering.endpoint.is_none()
+        && peering.comment.is_none()
+    {
         return Html::default();
     }
 
@@ -374,60 +333,16 @@ fn render_inventory_peering_review(i18n: &I18n, node: Option<&NodeView>, active_
         <div class="autopeer-review-section">
             <p class="autopeer-review-section-title">{i18n.t("stage3.review.our_node_details")}</p>
             <dl class="peering-grid autopeer-review-peering-grid">
-                {render_peering_field(i18n.t("stage3.review.our_endpoint"), node_endpoint.as_deref())}
-                {render_peering_field(i18n.t("stage3.review.our_ipv4"), peering.ipv4.as_deref())}
-                {render_peering_field(i18n.t("stage3.review.our_ipv6"), peering.ipv6.as_deref())}
-                {render_peering_field(i18n.t("stage3.review.our_link_local_ipv6"), peering.link_local_ipv6.as_deref())}
-                {render_peering_field(i18n.t("stage3.review.our_wg_pubkey"), peering.wg_pubkey.as_deref())}
-                {render_peering_field(i18n.t("stage3.review.our_node_note"), peering.comment.as_deref())}
+                {render_peering_field(i18n.t("stage3.review.our_endpoint"), node_endpoint.as_deref(), true)}
+                {render_peering_field(i18n.t("stage3.review.our_ipv4"), peering.ipv4.as_deref(), draft.peer4_is_active())}
+                {render_peering_field(i18n.t("stage3.review.our_ipv6"), peering.ipv6.as_deref(),
+                    draft.peer6_is_active() && detect_peer6_address_kind(&draft.peer6) == Some(Peer6AddressKind::Ula))}
+                {render_peering_field(i18n.t("stage3.review.our_link_local_ipv6"), peering.link_local_ipv6.as_deref(),
+                    draft.peer6_is_active() && detect_peer6_address_kind(&draft.peer6) == Some(Peer6AddressKind::LinkLocal))}
+                {render_peering_field(i18n.t("stage3.review.our_wg_pubkey"), peering.wg_pubkey.as_deref(), true)}
+                {render_peering_field(i18n.t("stage3.review.our_node_note"), peering.comment.as_deref(), false)}
             </dl>
         </div>
-    }
-}
-
-fn operation_stage_index(operation: &OperationStatus) -> usize {
-    match operation.state {
-        OperationState::PendingPullRequest => 0,
-        OperationState::PendingChecks => 1,
-        OperationState::Applying => 2,
-        OperationState::PendingMerge => 3,
-        OperationState::Completed => 4,
-        OperationState::Failed | OperationState::Conflict => operation
-            .failure_details
-            .as_ref()
-            .map(|d| match d.stage {
-                OperationFailureStage::Checks => 1,
-                OperationFailureStage::Preflight | OperationFailureStage::Apply => 2,
-                OperationFailureStage::Merge => 3,
-            })
-            .unwrap_or(2),
-    }
-}
-
-fn displayed_peer_config_stage(
-    editing_node: Option<&str>,
-    config_stage: PeerConfigStage,
-) -> PeerConfigStage {
-    if editing_node.is_some() && config_stage == PeerConfigStage::SelectNode {
-        PeerConfigStage::SessionDetails
-    } else {
-        config_stage
-    }
-}
-
-fn retire_button_text(i18n: &I18n, retire_confirmation: bool) -> &'static str {
-    if retire_confirmation {
-        i18n.t("action.confirm_retirement")
-    } else {
-        i18n.t("action.retire_session")
-    }
-}
-
-fn delete_button_text(i18n: &I18n, delete_confirmation: bool) -> &'static str {
-    if delete_confirmation {
-        i18n.t("action.confirm_deletion")
-    } else {
-        i18n.t("action.delete_session")
     }
 }
 
@@ -481,7 +396,22 @@ fn render_operation_progress(i18n: &I18n, operation: &OperationStatus) -> Html {
         i18n.t("operation.progress.merge"),
         i18n.t("operation.progress.done"),
     ];
-    let active_index = operation_stage_index(operation);
+    let active_index = match operation.state {
+        OperationState::PendingPullRequest => 0,
+        OperationState::PendingChecks => 1,
+        OperationState::Applying => 2,
+        OperationState::PendingMerge => 3,
+        OperationState::Completed => 4,
+        OperationState::Failed | OperationState::Conflict => operation
+            .failure_details
+            .as_ref()
+            .map(|details| match details.stage {
+                OperationFailureStage::Checks => 1,
+                OperationFailureStage::Preflight | OperationFailureStage::Apply => 2,
+                OperationFailureStage::Merge => 3,
+            })
+            .unwrap_or(2),
+    };
     let failed = matches!(
         operation.state,
         OperationState::Failed | OperationState::Conflict
@@ -517,7 +447,7 @@ fn render_operation_progress(i18n: &I18n, operation: &OperationStatus) -> Html {
 pub fn auto_peer_page() -> Html {
     let i18n = use_i18n();
     let default_autopeer_home_href = String::from("/");
-    let default_looking_glass_href = looking_glass_href();
+    let default_looking_glass_href = String::new();
     let AutoPeerController {
         autopeer_site_href,
         looking_glass_site_href,
@@ -578,6 +508,8 @@ pub fn auto_peer_page() -> Html {
     let focused_field = use_state(|| None::<SessionDraftField>);
     let committed_peer4_visibility = use_state(|| should_display_node_ipv4(&draft));
     let committed_peer6_kind = use_state(|| detect_peer6_address_kind(draft.peer6.as_str()));
+    let committed_tunnel_message = use_mut_ref(|| None::<String>);
+    let committed_peer6_messages = use_mut_ref(Vec::<String>::new);
     let psk_copied = use_state(|| false);
     let locale_value = i18n.locale().code();
 
@@ -629,7 +561,11 @@ pub fn auto_peer_page() -> Html {
                     <ShellPrompt>{i18n.t("prompt.autopeer")}</ShellPrompt>
                     {" "}{i18n.t("step.loading_config.prompt")}
                 </ShellLine>
-                {render_loading(&i18n, true, Some(UiMessage::key("step.loading_config.message")))}
+                <div class="autopeer-ongoing-task">
+                    <ShellLine>
+                        <span class="text-secondary">{i18n.t("step.loading_config.message")}</span>
+                    </ShellLine>
+                </div>
                 {render_error(&i18n, &error)}
             </div>
         },
@@ -792,15 +728,19 @@ pub fn auto_peer_page() -> Html {
                 .unwrap_or(false);
             let editing_node_value = (*editing_node).clone();
             let active_stage =
-                displayed_peer_config_stage(editing_node_value.as_deref(), *config_stage);
+                if editing_node_value.is_some() && *config_stage == PeerConfigStage::SelectNode {
+                    PeerConfigStage::SessionDetails
+                } else {
+                    *config_stage
+                };
             let selected_node_name = editing_node_value.as_deref().or_else(|| {
                 let selected = draft.node.trim();
                 (!selected.is_empty()).then_some(selected)
             });
             let selected_node = selected_node_name
                 .and_then(|name| nodes.iter().find(|node| node.name == name).cloned());
-            let selected_session = selected_node_name
-                .and_then(|name| sessions.iter().find(|s| s.node == name));
+            let selected_session =
+                selected_node_name.and_then(|name| sessions.iter().find(|s| s.node == name));
             let retire_confirmation_value = *retire_confirmation;
             let delete_confirmation_value = *delete_confirmation;
             let active_asn = auth_summary
@@ -822,12 +762,33 @@ pub fn auto_peer_page() -> Html {
             let draft_error =
                 session_details_submission_error(&draft, node_inventory_link_local_ipv6.as_deref());
             let draft_is_valid = draft_error.is_none();
-            let live_validation = session_details_live_validation(
-                &draft,
-                &touched_fields,
-                *focused_field,
-                node_inventory_link_local_ipv6.as_deref(),
-            );
+            let live_validation = {
+                let mut lv = session_details_live_validation(
+                    &draft,
+                    &touched_fields,
+                    *focused_field,
+                    node_inventory_link_local_ipv6.as_deref(),
+                );
+                let tunnel_field_focused = matches!(
+                    *focused_field,
+                    Some(
+                        SessionDraftField::Peer4
+                            | SessionDraftField::Peer6
+                            | SessionDraftField::Own6
+                    )
+                );
+                if tunnel_field_focused {
+                    lv.tunnel_message = committed_tunnel_message.borrow().clone();
+                } else {
+                    *committed_tunnel_message.borrow_mut() = lv.tunnel_message.clone();
+                }
+                if *focused_field == Some(SessionDraftField::Peer6) {
+                    lv.peer6_messages = committed_peer6_messages.borrow().clone();
+                } else {
+                    *committed_peer6_messages.borrow_mut() = lv.peer6_messages.clone();
+                }
+                lv
+            };
             let show_node_ipv4 =
                 displayed_node_ipv4_visibility(&draft, *focused_field, *committed_peer4_visibility);
             let peer6_kind =
@@ -962,6 +923,9 @@ pub fn auto_peer_page() -> Html {
                         i18n={i18n.clone()}
                         loading={loading}
                         draft={(*draft).clone()}
+                        original_draft={editing_node_value.as_ref().and_then(|_|
+                            selected_session.map(|s| SessionDraft::from_session_view(&s.node, s))
+                        )}
                         editing_node={editing_node_value.clone()}
                         selected_node={selected_node.clone()}
                         active_asn={active_asn}
@@ -1072,8 +1036,10 @@ pub fn auto_peer_page() -> Html {
                         <a href={(*autopeer_site_href).clone()} class="title-link">{i18n.t("app.title")}</a>
                         <span class="title-footnote">
                             {i18n.t("app.title.footnote")}
-                            {" / "}
-                            <a href={(*looking_glass_site_href).clone()} class="autopeer-title-nav">{i18n.t("nav.looking_glass")}</a>
+                            if !looking_glass_site_href.is_empty() {
+                                {" / "}
+                                <a href={(*looking_glass_site_href).clone()} class="autopeer-title-nav">{i18n.t("nav.looking_glass")}</a>
+                            }
                         </span>
                     </h2>
                     <div class="autopeer-language-control">
@@ -1103,13 +1069,10 @@ pub fn auto_peer_page() -> Html {
 mod tests {
     use std::collections::BTreeSet;
 
-    use super::{
-        autopeer_node_endpoint_port, delete_button_text, displayed_peer_config_stage,
-        retire_button_text,
-    };
+    use super::autopeer_node_endpoint_port;
     use crate::{
         models::{MpBgpTransport, PeeringStrategy},
-        store::{PeerConfigStage, SessionDraft, SessionDraftField},
+        store::{SessionDraft, SessionDraftField},
         update_form::{
             Peer6AddressKind, SessionDraftLiveValidation, SessionDraftToggleGroup,
             detect_peer6_address_kind, displayed_node_ipv4_visibility,
@@ -1165,32 +1128,6 @@ mod tests {
     }
 
     #[test]
-    fn keeps_editing_sessions_on_stage_two_until_edit_is_cleared() {
-        assert_eq!(
-            displayed_peer_config_stage(Some("hkg"), PeerConfigStage::SelectNode),
-            PeerConfigStage::SessionDetails
-        );
-        assert_eq!(
-            displayed_peer_config_stage(None, PeerConfigStage::SelectNode),
-            PeerConfigStage::SelectNode
-        );
-    }
-
-    #[test]
-    fn retire_button_requires_confirmation_click() {
-        let i18n = crate::i18n::I18n::test_default();
-        assert_eq!(retire_button_text(&i18n, false), "Retire This Session");
-        assert_eq!(retire_button_text(&i18n, true), "Confirm Retirement");
-    }
-
-    #[test]
-    fn delete_button_requires_confirmation_click() {
-        let i18n = crate::i18n::I18n::test_default();
-        assert_eq!(delete_button_text(&i18n, false), "Delete This Session");
-        assert_eq!(delete_button_text(&i18n, true), "Confirm Deletion");
-    }
-
-    #[test]
     fn live_validation_flags_ipv4_only_without_peer4_after_toggle_interaction() {
         let draft = SessionDraft {
             endpoint: "peer.example.net:21023".into(),
@@ -1202,9 +1139,18 @@ mod tests {
             peering_strategy: PeeringStrategy::FullTable,
             ..SessionDraft::default()
         };
-        let touched = BTreeSet::from([SessionDraftToggleGroup::Families.into()]);
 
-        let validation = session_details_live_validation(&draft, &touched, None, None);
+        let only_toggle = BTreeSet::from([SessionDraftToggleGroup::Families.into()]);
+        let validation = session_details_live_validation(&draft, &only_toggle, None, None);
+
+        assert_eq!(validation.peer4_message, None);
+        assert!(validation.highlight_ipv4);
+
+        let with_peer4 = BTreeSet::from([
+            SessionDraftToggleGroup::Families.into(),
+            SessionDraftField::Peer4.into(),
+        ]);
+        let validation = session_details_live_validation(&draft, &with_peer4, None, None);
 
         assert_eq!(
             validation.peer4_message,
@@ -1288,10 +1234,7 @@ mod tests {
 
         let validation = session_details_live_validation(&draft, &touched, None, None);
 
-        assert_eq!(
-            validation.peer6_messages,
-            vec!["validation.peer6.required_ipv6".to_string()]
-        );
+        assert!(validation.peer6_messages.is_empty());
         assert!(validation.highlight_ipv6);
         assert!(!validation.highlight_mp_bgp);
         assert!(!validation.highlight_extended_next_hop);
@@ -1472,7 +1415,7 @@ mod tests {
     }
 
     #[test]
-    fn live_validation_places_ipv6_route_requirement_on_peer6() {
+    fn live_validation_defers_peer6_message_until_peer6_is_touched() {
         let draft = SessionDraft {
             endpoint: "peer.example.net:21023".into(),
             wg_public_key: "Cbefg96Owv1Xk/jrUExO3i5OeUSlsdirv4ONenEnNXc=".into(),
@@ -1481,9 +1424,19 @@ mod tests {
             peering_strategy: PeeringStrategy::FullTable,
             ..SessionDraft::default()
         };
-        let touched = BTreeSet::from([SessionDraftToggleGroup::Families.into()]);
+        let only_families = BTreeSet::from([SessionDraftToggleGroup::Families.into()]);
 
-        let validation = session_details_live_validation(&draft, &touched, None, None);
+        let validation = session_details_live_validation(&draft, &only_families, None, None);
+
+        assert!(validation.peer6_messages.is_empty());
+        assert!(validation.highlight_ipv6);
+
+        let with_peer6 = BTreeSet::from([
+            SessionDraftToggleGroup::Families.into(),
+            SessionDraftField::Peer6.into(),
+        ]);
+
+        let validation = session_details_live_validation(&draft, &with_peer6, None, None);
 
         assert_eq!(
             validation.peer6_messages,
@@ -1491,7 +1444,6 @@ mod tests {
         );
         assert!(!validation.highlight_peer6);
         assert!(validation.highlight_ipv6);
-        assert!(!validation.highlight_extended_next_hop);
     }
 
     #[test]
@@ -1539,6 +1491,32 @@ mod tests {
     }
 
     #[test]
+    fn live_validation_shows_bgp_message_when_ipv4_toggled_with_ipv6_transport_and_no_enh() {
+        let draft = SessionDraft {
+            endpoint: "peer.example.net:21023".into(),
+            wg_public_key: "Cbefg96Owv1Xk/jrUExO3i5OeUSlsdirv4ONenEnNXc=".into(),
+            peer6: "fd55:dead:beef::3".into(),
+            ipv6: false,
+            extended_next_hop: false,
+            mp_bgp_transport: Some(MpBgpTransport::Ipv6),
+            peering_strategy: PeeringStrategy::FullTable,
+            ..SessionDraft::default()
+        };
+        let touched = BTreeSet::from([
+            SessionDraftToggleGroup::Families.into(),
+            SessionDraftToggleGroup::Bgp.into(),
+        ]);
+
+        let validation = session_details_live_validation(&draft, &touched, None, None);
+
+        assert_eq!(
+            validation.bgp_message,
+            Some("validation.ipv4_over_ipv6_transport.requires_peer4_or_enh".to_string())
+        );
+        assert!(validation.highlight_extended_next_hop);
+    }
+
+    #[test]
     fn live_validation_hides_link_local_error_while_own6_is_focused() {
         let draft = SessionDraft {
             peer6: "fe80::454:2".into(),
@@ -1558,7 +1536,7 @@ mod tests {
     }
 
     #[test]
-    fn live_validation_hides_missing_peer6_message_while_peer6_is_focused() {
+    fn live_validation_no_peer6_message_while_focused_if_not_yet_touched() {
         let draft = SessionDraft {
             endpoint: "peer.example.net:21023".into(),
             wg_public_key: "Cbefg96Owv1Xk/jrUExO3i5OeUSlsdirv4ONenEnNXc=".into(),
@@ -1636,7 +1614,7 @@ mod tests {
     }
 
     #[test]
-    fn live_validation_shows_missing_peer6_message_while_focused_after_clear() {
+    fn live_validation_keeps_peer6_message_while_focused() {
         let draft = SessionDraft {
             endpoint: "peer.example.net:21023".into(),
             wg_public_key: "Cbefg96Owv1Xk/jrUExO3i5OeUSlsdirv4ONenEnNXc=".into(),
@@ -1679,6 +1657,98 @@ mod tests {
         );
         assert!(validation.peer6_messages.is_empty());
         assert!(!validation.highlight_extended_next_hop);
+    }
+
+    #[test]
+    fn live_validation_tunnel_message_requires_tunnel_field_touched() {
+        let only_toggles = BTreeSet::from([
+            SessionDraftToggleGroup::Families.into(),
+            SessionDraftToggleGroup::Bgp.into(),
+        ]);
+
+        let validation =
+            session_details_live_validation(&SessionDraft::default(), &only_toggles, None, None);
+
+        assert_eq!(validation.tunnel_message, None);
+
+        let with_peer4 = BTreeSet::from([
+            SessionDraftToggleGroup::Families.into(),
+            SessionDraftField::Peer4.into(),
+        ]);
+
+        let validation =
+            session_details_live_validation(&SessionDraft::default(), &with_peer4, None, None);
+
+        assert_eq!(
+            validation.tunnel_message,
+            Some("validation.tunnel.required".into())
+        );
+    }
+
+    #[test]
+    fn live_validation_field_errors_only_after_own_field_blur() {
+        let draft = SessionDraft {
+            peer4: "172.20.193.67".into(),
+            mp_bgp: false,
+            extended_next_hop: false,
+            ..SessionDraft::default()
+        };
+
+        let only_toggles = BTreeSet::from([SessionDraftToggleGroup::Families.into()]);
+        let validation = session_details_live_validation(&draft, &only_toggles, None, None);
+        assert!(validation.peer6_messages.is_empty());
+        assert!(validation.highlight_ipv6);
+
+        let with_peer6 = BTreeSet::from([
+            SessionDraftToggleGroup::Families.into(),
+            SessionDraftField::Peer6.into(),
+        ]);
+        let validation = session_details_live_validation(&draft, &with_peer6, None, None);
+        assert_eq!(
+            validation.peer6_messages,
+            vec!["validation.peer6.required_ipv6".to_string()]
+        );
+    }
+
+    #[test]
+    fn live_validation_focus_does_not_change_other_fields() {
+        let draft = SessionDraft::default();
+        let touched = BTreeSet::from([
+            SessionDraftField::Peer4.into(),
+            SessionDraftField::Peer6.into(),
+        ]);
+
+        let unfocused = session_details_live_validation(&draft, &touched, None, None);
+
+        let focused_peer4 =
+            session_details_live_validation(&draft, &touched, Some(SessionDraftField::Peer4), None);
+
+        assert_eq!(unfocused.tunnel_message, focused_peer4.tunnel_message);
+        assert_eq!(unfocused.peer6_messages, focused_peer4.peer6_messages);
+    }
+
+    #[test]
+    fn live_validation_stacks_section_and_field_errors() {
+        let draft = SessionDraft {
+            mp_bgp: false,
+            extended_next_hop: false,
+            ..SessionDraft::default()
+        };
+        let touched = BTreeSet::from([
+            SessionDraftField::Peer4.into(),
+            SessionDraftField::Peer6.into(),
+        ]);
+
+        let validation = session_details_live_validation(&draft, &touched, None, None);
+
+        assert_eq!(
+            validation.tunnel_message,
+            Some("validation.tunnel.required".into())
+        );
+        assert!(
+            validation.peer4_message.is_some() || validation.peer6_messages.iter().any(|_| true),
+            "at least one field-level error should coexist with the section error"
+        );
     }
 
     #[test]

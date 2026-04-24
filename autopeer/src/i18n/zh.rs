@@ -409,7 +409,7 @@ pub(super) const TABLE: &[(&str, &str)] = &[
     ("stage3.review.psk.not_set", "未配置"),
     ("stage3.review.psk.unchanged", "已配置（未更改）"),
     ("stage3.review.psk.cleared", "将被移除"),
-    ("stage3.review.encrypt_endpoint.enabled", "已启用"),
+    ("stage3.review.encrypt_endpoint.enabled", "已加密"),
     ("stage3.review.note", "你的备注"),
     ("stage3.review.our_node_details", "我方节点详情"),
     ("stage3.review.our_endpoint", "端点"),
@@ -1067,7 +1067,7 @@ pub(super) const TABLE: &[(&str, &str)] = &[
     ),
     (
         "validation.peer6.required_mp_bgp",
-        "MP-BGP 基于 IPv6 传输层时需要对端 IPv6 地址",
+        "需要对端 IPv6 地址，或在高级选项中切换为 IPv4 传输",
     ),
     (
         "validation.peer6.required_ipv6",

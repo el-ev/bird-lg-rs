@@ -421,7 +421,7 @@ pub(super) const TABLE: &[(&str, &str)] = &[
     ("stage3.review.psk.not_set", "Non posita"),
     ("stage3.review.psk.unchanged", "Configurata (immutata)"),
     ("stage3.review.psk.cleared", "Removebitur"),
-    ("stage3.review.encrypt_endpoint.enabled", "Activata"),
+    ("stage3.review.encrypt_endpoint.enabled", "Encryptata"),
     ("stage3.review.note", "Nota tua"),
     ("stage3.review.our_node_details", "Singula nodi nostri"),
     ("stage3.review.our_endpoint", "Terminus"),
@@ -1079,7 +1079,7 @@ pub(super) const TABLE: &[(&str, &str)] = &[
     ),
     (
         "validation.peer6.required_mp_bgp",
-        "Inscriptio IPv6 paris necessaria est pro MP-BGP super transitu IPv6",
+        "Inscriptio IPv6 paris necessaria est, vel muta transitum ad IPv4 in optionibus provectis",
     ),
     (
         "validation.peer6.required_ipv6",

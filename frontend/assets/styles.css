@@ -1470,6 +1470,14 @@ details[open] .summary-header {
     margin: 0;
 }
 
+.peering-label.peering-label--active {
+    color: var(--shell-prompt);
+}
+
+.autopeer-review-item--changed {
+    border-color: var(--shell-prompt);
+}
+
 .autopeer-empty-state {
     padding: var(--spacing-lg);
     border: 1px dashed var(--border);

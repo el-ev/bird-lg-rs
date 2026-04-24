@@ -1,16 +1,15 @@
+use ui_components::shell::{ShellButton, ShellInput, ShellLine, ShellPrompt, ShellSelect};
 use web_sys::HtmlSelectElement;
 use yew::prelude::*;
 
+use super::{
+    pgp_export_command, pgp_sign_command, render_error, render_ongoing_tasks,
+    render_readonly_block, ssh_sign_command,
+};
 use crate::{
-    controller::{default_pgp_key, selected_registry_email_target, OngoingTask},
+    controller::{OngoingTask, default_pgp_key, selected_registry_email_target},
     i18n::I18n,
     models::{AuthMethod, AuthMethodKind, UiMessage},
-};
-use ui_components::shell::{ShellButton, ShellInput, ShellLine, ShellPrompt, ShellSelect};
-
-use super::{
-    pgp_export_command, pgp_sign_command, render_error, render_ongoing_tasks, render_readonly_block,
-    ssh_sign_command,
 };
 
 #[derive(Properties, PartialEq)]
@@ -211,10 +210,8 @@ pub fn verify_method_panel(props: &VerifyMethodProps) -> Html {
             }
         }
         AuthMethodKind::RegistryEmail => {
-            let selected_target = selected_registry_email_target(
-                method,
-                props.selected_email_maintainer.as_str(),
-            );
+            let selected_target =
+                selected_registry_email_target(method, props.selected_email_maintainer.as_str());
             let selected_target_value = selected_target
                 .map(|target| target.maintainer.clone())
                 .unwrap_or_else(|| props.selected_email_maintainer.clone());
@@ -231,8 +228,7 @@ pub fn verify_method_panel(props: &VerifyMethodProps) -> Html {
             } else {
                 i18n.t("action.resend_signin_link")
             };
-            let selected_target_emails =
-                selected_target.map(|target| target.emails.join(", "));
+            let selected_target_emails = selected_target.map(|target| target.emails.join(", "));
 
             html! {
                 <>

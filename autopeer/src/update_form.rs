@@ -28,35 +28,6 @@ impl From<SessionDraftToggleGroup> for SessionDraftTouchedControl {
 
 pub type SessionDraftTouchedControls = BTreeSet<SessionDraftTouchedControl>;
 
-pub fn touch_field(touched_controls: &mut SessionDraftTouchedControls, field: SessionDraftField) {
-    touched_controls.insert(field.into());
-}
-
-pub fn touch_toggle_group(
-    touched_controls: &mut SessionDraftTouchedControls,
-    group: SessionDraftToggleGroup,
-) {
-    touched_controls.insert(group.into());
-}
-
-pub fn field_is_touched(
-    touched_controls: &SessionDraftTouchedControls,
-    field: SessionDraftField,
-) -> bool {
-    touched_controls.contains(&field.into())
-}
-
-pub fn toggle_group_is_touched(
-    touched_controls: &SessionDraftTouchedControls,
-    group: SessionDraftToggleGroup,
-) -> bool {
-    touched_controls.contains(&group.into())
-}
-
-fn control_is_focused(focused_field: Option<SessionDraftField>, field: SessionDraftField) -> bool {
-    focused_field == Some(field)
-}
-
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct SessionDraftLiveValidation {
     pub peer4_message: Option<String>,
@@ -99,19 +70,18 @@ pub fn session_details_live_validation(
     focused_field: Option<SessionDraftField>,
     fallback_own6: Option<&str>,
 ) -> SessionDraftLiveValidation {
-    let peer4_touched = field_is_touched(touched_controls, SessionDraftField::Peer4);
-    let peer6_touched = field_is_touched(touched_controls, SessionDraftField::Peer6);
-    let own6_touched = field_is_touched(touched_controls, SessionDraftField::Own6);
-    let peer4_focused = control_is_focused(focused_field, SessionDraftField::Peer4);
-    let peer6_focused = control_is_focused(focused_field, SessionDraftField::Peer6);
-    let own6_focused = control_is_focused(focused_field, SessionDraftField::Own6);
+    let peer4_touched = touched_controls.contains(&SessionDraftField::Peer4.into());
+    let peer6_touched = touched_controls.contains(&SessionDraftField::Peer6.into());
+    let own6_touched = touched_controls.contains(&SessionDraftField::Own6.into());
+    let peer4_focused = focused_field == Some(SessionDraftField::Peer4);
+    let peer6_focused = focused_field == Some(SessionDraftField::Peer6);
+    let own6_focused = focused_field == Some(SessionDraftField::Own6);
     let peer4_error = draft.field_error(SessionDraftField::Peer4);
     let peer6_error = draft.field_error(SessionDraftField::Peer6);
     let bgp_error = draft.bgp_error();
-    let families_touched =
-        toggle_group_is_touched(touched_controls, SessionDraftToggleGroup::Families);
-    let bgp_touched = toggle_group_is_touched(touched_controls, SessionDraftToggleGroup::Bgp);
-    let combo_touched = families_touched || bgp_touched;
+    let families_touched = touched_controls.contains(&SessionDraftToggleGroup::Families.into());
+    let bgp_touched = touched_controls.contains(&SessionDraftToggleGroup::Bgp.into());
+
 
     let peer4_blank = draft.peer4.trim().is_empty();
     let peer6_blank = draft.peer6.trim().is_empty();
@@ -121,37 +91,19 @@ pub fn session_details_live_validation(
     let peer4_missing_for_ipv4 = draft.ipv4 && !draft.mp_bgp && peer4_blank;
     let peer6_missing_for_ipv6 = draft.ipv6 && !draft.mp_bgp && peer6_blank;
     let link_local_own6_collision = draft.link_local_collision_with(fallback_own6);
+    let tunnel_touched = peer4_touched || peer6_touched || own6_touched;
     let show_generic_tunnel_required = !own6_present
         && peer4_blank
         && peer6_blank
-        && (peer4_touched || peer6_touched || own6_touched || combo_touched)
-        && !peer4_focused
-        && !peer6_focused;
-    let peer4_requirement_touched = peer4_touched || families_touched || bgp_touched;
-    let peer6_requirement_touched = peer6_touched || families_touched || bgp_touched;
-
-    let peer4_message = if !peer4_focused
-        && !show_generic_tunnel_required
-        && ((peer4_blank && peer4_requirement_touched && peer4_error.is_some())
-            || (!peer4_blank && peer4_touched && peer4_error.is_some()))
-    {
+        && tunnel_touched;
+    let peer4_message = if peer4_touched {
         peer4_error.clone()
     } else {
         None
     };
-    let peer6_messages = if link_local_own6_collision || show_generic_tunnel_required {
+    let peer6_messages = if link_local_own6_collision {
         Vec::new()
-    } else if peer6_blank {
-        if peer6_focused && !peer6_touched {
-            Vec::new()
-        } else if peer6_requirement_touched {
-            peer6_error.clone().into_iter().collect()
-        } else {
-            Vec::new()
-        }
-    } else if peer6_focused {
-        Vec::new()
-    } else if !peer6_blank && peer6_touched {
+    } else if peer6_touched {
         peer6_error.clone().into_iter().collect()
     } else {
         Vec::new()

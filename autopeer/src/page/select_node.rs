@@ -1,12 +1,11 @@
+use ui_components::shell::ShellButton;
 use yew::prelude::*;
 
+use super::{humanize_ip_support, node_context_line, render_error};
 use crate::{
     i18n::I18n,
     models::{NodeView, SessionState, SessionView, UiMessage},
 };
-use ui_components::shell::ShellButton;
-
-use super::{humanize_ip_support, node_context_line, render_error};
 
 #[derive(Properties, PartialEq)]
 pub struct SelectNodeProps {
