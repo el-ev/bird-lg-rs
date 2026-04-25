@@ -549,16 +549,16 @@ async function loadRepoState(env: Env, github: GitHubClient) {
   }
 
   const hosts = loadInventoryHosts(inventoryFile.text, policyFile.text ?? null);
-  const peerFileEntries = await Promise.all(
+  const peerFileResults = await Promise.all(
     hosts.map(async (host) => {
       const file = await github.getFile(PEER_FILE_PATH(host.name), env.GITHUB_BASE_BRANCH);
       if (!file.exists || !file.text) {
-        throw new HttpError(uiMessage("error.repo.peer_file.missing", { path: PEER_FILE_PATH(host.name) }), 502);
+        return null;
       }
       return [host.name, file.text] as const;
     }),
   );
-  const peerFiles = new Map(peerFileEntries);
+  const peerFiles = new Map(peerFileResults.filter((entry): entry is NonNullable<typeof entry> => entry !== null));
 
   return {
     hosts,
