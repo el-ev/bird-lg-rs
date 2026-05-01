@@ -267,9 +267,35 @@ function forwardedHeaderValue(request: Request, name: string): string | undefine
   return value || undefined;
 }
 
+function trustedForwardedHosts(env: Env): Set<string> {
+  const hosts = new Set<string>();
+  const configured = configuredUrl(env.AUTOPEER_SITE_URL);
+  if (configured) {
+    try {
+      hosts.add(new URL(configured).host.toLowerCase());
+    } catch {
+      // ignore malformed configuration
+    }
+  }
+  const list = readOptionalEnvString(env, "AUTOPEER_TRUSTED_FORWARDED_HOSTS");
+  if (list) {
+    for (const entry of list.split(",")) {
+      const trimmed = entry.trim().toLowerCase();
+      if (trimmed) hosts.add(trimmed);
+    }
+  }
+  return hosts;
+}
+
+function trustedForwardedHost(env: Env, request: Request): string | undefined {
+  const forwarded = forwardedHeaderValue(request, "x-forwarded-host")?.toLowerCase();
+  if (!forwarded) return undefined;
+  return trustedForwardedHosts(env).has(forwarded) ? forwarded : undefined;
+}
+
 function externalSiteBaseUrl(env: Env, request: Request): URL {
   const base = new URL(configuredUrl(env.AUTOPEER_SITE_URL) ?? request.url);
-  const forwardedHost = forwardedHeaderValue(request, "x-forwarded-host");
+  const forwardedHost = trustedForwardedHost(env, request);
   if (!forwardedHost) {
     return base;
   }
@@ -283,8 +309,8 @@ function externalSiteBaseUrl(env: Env, request: Request): URL {
   return external;
 }
 
-function isDn42Request(request: Request): boolean {
-  const host = forwardedHeaderValue(request, "x-forwarded-host") ?? new URL(request.url).host;
+function isDn42Request(env: Env, request: Request): boolean {
+  const host = trustedForwardedHost(env, request) ?? new URL(request.url).host.toLowerCase();
   return host.endsWith(".dn42");
 }
 
@@ -1579,7 +1605,7 @@ async function router(request: Request, env: Env): Promise<Response> {
     }
 
     const discovery = await fetchOidcDiscovery(provider);
-    if (isDn42Request(request) && provider.dn42_issuer) {
+    if (isDn42Request(env, request) && provider.dn42_issuer) {
       discovery.authorization_endpoint = rewriteIssuerHost(
         discovery.authorization_endpoint,
         provider,

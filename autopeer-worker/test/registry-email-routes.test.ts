@@ -64,6 +64,7 @@ function makeEnv(overrides: Partial<Env> & { RESEND_API_KEY?: string } = {}): En
     HOST_ASNS: "4242421023",
     AUTOPEER_API_URL: "https://api.autopeer.example",
     AUTOPEER_SITE_URL: "https://autopeer.example",
+    AUTOPEER_TRUSTED_FORWARDED_HOSTS: "autopeer.iris.dn42",
     LOOKING_GLASS_URL: "https://lg.example",
     RESEND_API_KEY: "test-resend-key",
     ...overrides,

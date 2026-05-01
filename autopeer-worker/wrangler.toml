@@ -60,6 +60,7 @@ OIDC_PROVIDERS = """[
 HOST_ASNS = "4242421023"
 AUTOPEER_API_URL = "https://autopeer.owo.li"
 AUTOPEER_SITE_URL = "https://autopeer.owo.li"
+AUTOPEER_TRUSTED_FORWARDED_HOSTS = "autopeer.iris.dn42"
 LOOKING_GLASS_URL = "https://network.owo.li"
 AUTOPEER_APPLY_RETRY_LIMIT = "2"
 AUTOPEER_APPLY_RETRY_INTERVAL_SECONDS = "30"
