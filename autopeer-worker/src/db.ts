@@ -9,7 +9,7 @@ import type {
   PeerSessionSpec,
   SessionRecord,
 } from "./types";
-import { nowIso } from "./utils";
+import { HttpError, nowIso, uiMessage } from "./utils";
 
 type ConsumeChallengeResult =
   | { kind: "available"; challenge: ChallengeRecord }
@@ -443,7 +443,7 @@ export async function claimNodeOperationLock(
     .first<Record<string, unknown>>();
 
   if (!row) {
-    throw new Error(`node lock for ${node} could not be read`);
+    throw new HttpError(uiMessage("error.node.lock.unreadable", { node }), 500);
   }
 
   const lock = mapNodeOperationLockRow(row);

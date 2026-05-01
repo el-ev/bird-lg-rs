@@ -1333,11 +1333,11 @@ pub(super) const TABLE: &[(&str, &str)] = &[
     ),
     (
         "loading.check_ssh",
-        "Überprüfen Sie Ihre SSH-Signatur anhand der dn42-Registrierung ...",
+        "Überprüfen Sie Ihre SSH-Signatur ...",
     ),
     (
         "loading.check_pgp",
-        "Überprüfen Sie Ihre PGP-Signatur anhand der dn42-Registrierung ...",
+        "Überprüfen Sie Ihre PGP-Signatur ...",
     ),
     (
         "loading.check_email",
@@ -1390,6 +1390,101 @@ pub(super) const TABLE: &[(&str, &str)] = &[
     (
         "loading.drop_operation",
         "Änderungen verwerfen und Pull-Request schließen...",
+    ),
+    // Worker validation / infrastructure errors
+    ("error.field.required", "{field} ist erforderlich."),
+    ("error.field.must_be_string", "{field} muss eine Zeichenkette sein."),
+    ("error.field.must_be_boolean", "{field} muss ein Boolescher Wert sein."),
+    ("error.field.must_be_integer", "{field} muss eine ganze Zahl sein."),
+    ("error.field.must_be_object", "{field} muss ein Objekt sein."),
+    ("error.asn.format", "Die ASN muss dem Format 424242xxxx entsprechen."),
+    (
+        "error.node.lock.unreadable",
+        "Knotensperre für {node} konnte nicht gelesen werden.",
+    ),
+    (
+        "error.email.send_failed",
+        "Anmelde-E-Mail konnte nicht gesendet werden: {detail}",
+    ),
+    (
+        "error.github.api_failed",
+        "GitHub-Anfrage für {path} fehlgeschlagen (HTTP {status}).",
+    ),
+    (
+        "error.github.file_read_failed",
+        "Lesen von {path} aus GitHub fehlgeschlagen (HTTP {status}).",
+    ),
+    (
+        "error.registry.request_failed",
+        "Registry-Anfrage für {path} fehlgeschlagen (HTTP {status}).",
+    ),
+    (
+        "error.registry.invalid_payload",
+        "Die Registry hat eine unerwartete Antwort für {path} zurückgegeben.",
+    ),
+    (
+        "error.registry.lookup_failed",
+        "DN42-Registry-Lookup für AS{asn} fehlgeschlagen.",
+    ),
+    (
+        "error.oidc.claim.asn_missing",
+        "Der OIDC-Identität fehlt der erforderliche ASN-Claim ({claim}).",
+    ),
+    (
+        "error.oidc.claim.maintainer_missing",
+        "Der OIDC-Identität fehlt der erforderliche Maintainer-Claim ({claim}).",
+    ),
+    (
+        "error.oidc.maintainer.not_in_mnt_by",
+        "{provider} hat {candidates} bestätigt, was nicht in aut-num mnt-by enthalten ist.",
+    ),
+    (
+        "error.oidc.discovery.failed",
+        "OIDC-Discovery für {provider} fehlgeschlagen (HTTP {status}).",
+    ),
+    (
+        "error.oidc.discovery.invalid_json",
+        "OIDC-Discovery für {provider} hat ungültiges JSON zurückgegeben.",
+    ),
+    (
+        "error.oidc.discovery.missing_field",
+        "Bei OIDC-Discovery für {provider} fehlt {field}.",
+    ),
+    (
+        "error.oidc.client_secret.missing",
+        "{provider} fehlt client_secret_env für {method}.",
+    ),
+    (
+        "error.oidc.token.invalid_json",
+        "{provider} hat ungültiges JSON vom Token-Endpunkt zurückgegeben.",
+    ),
+    (
+        "error.oidc.token.rejected",
+        "{provider} hat den Login-Callback abgelehnt: {description}",
+    ),
+    (
+        "error.oidc.userinfo.failed",
+        "{provider}-Userinfo-Anfrage fehlgeschlagen (HTTP {status}).",
+    ),
+    (
+        "error.oidc.userinfo.invalid_json",
+        "{provider}-Userinfo-Endpunkt hat ungültiges JSON zurückgegeben.",
+    ),
+    (
+        "error.oidc.id_token.missing",
+        "{provider} hat kein ID-Token zurückgegeben.",
+    ),
+    (
+        "error.oidc.id_token.invalid",
+        "{provider}-ID-Token-Verifizierung fehlgeschlagen: {detail}",
+    ),
+    (
+        "error.oidc.id_token.invalid_nonce",
+        "{provider} hat ein Login-Token mit ungültigem Nonce zurückgegeben.",
+    ),
+    (
+        "error.oidc.asn.mismatch",
+        "OIDC-Identitäts-ASN {token_asn} stimmt nicht mit der angeforderten ASN {requested_asn} überein.",
     ),
 ];
 

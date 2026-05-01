@@ -35,14 +35,6 @@ function invalidPgpSignature(message: string): never {
   throw new HttpError(message, 400);
 }
 
-function requireAuthField(value: unknown, field: string): string {
-  try {
-    return requireNonEmptyString(value, field);
-  } catch (error) {
-    throw new HttpError(error instanceof Error ? error.message : `${field} is required`, 400);
-  }
-}
-
 function readUint32(reader: Reader): number {
   if (reader.offset + 4 > reader.bytes.length) {
     invalidSshSignature("error.auth.ssh.malformed_signature");
@@ -254,7 +246,7 @@ export async function verifyRegistrySshChallenge(
   challenge: ChallengeRecord,
   request: RegistrySshVerifyRequest,
 ): Promise<SessionRecord> {
-  const signature = requireAuthField(request.signature, "signature");
+  const signature = requireNonEmptyString(request.signature, "signature");
   const parsed = parseSshSignature(signature);
 
   const maintainer = matchingMaintainerBySshKey(challenge.maintainers, parsed.publicKey);
@@ -280,8 +272,8 @@ export async function verifyRegistryPgpChallenge(
   challenge: ChallengeRecord,
   request: RegistryPgpVerifyRequest,
 ): Promise<SessionRecord> {
-  const armoredKey = requireAuthField(request.public_key, "public_key");
-  const signedMessage = requireAuthField(request.signed_message, "signed_message");
+  const armoredKey = requireNonEmptyString(request.public_key, "public_key");
+  const signedMessage = requireNonEmptyString(request.signed_message, "signed_message");
 
   const publicKey = await readKey({ armoredKey }).catch(() =>
     invalidPgpSignature("error.auth.pgp.invalid_public_key"),

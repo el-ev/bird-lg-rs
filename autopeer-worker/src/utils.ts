@@ -96,7 +96,7 @@ export function bearerToken(request: Request): string | null {
 
 export function requireNonEmptyString(value: unknown, field: string): string {
   if (typeof value !== "string" || value.trim().length === 0) {
-    throw new Error(`${field} is required`);
+    throw new HttpError(uiMessage("error.field.required", { field }), 400);
   }
   return value.trim();
 }
@@ -106,7 +106,7 @@ export function requireOptionalString(value: unknown, field: string): string | n
     return null;
   }
   if (typeof value !== "string") {
-    throw new Error(`${field} must be a string`);
+    throw new HttpError(uiMessage("error.field.must_be_string", { field }), 400);
   }
   const trimmed = value.trim();
   return trimmed.length > 0 ? trimmed : null;
@@ -114,7 +114,7 @@ export function requireOptionalString(value: unknown, field: string): string | n
 
 export function requireBoolean(value: unknown, field: string): boolean {
   if (typeof value !== "boolean") {
-    throw new Error(`${field} must be a boolean`);
+    throw new HttpError(uiMessage("error.field.must_be_boolean", { field }), 400);
   }
   return value;
 }
@@ -124,14 +124,14 @@ export function requireOptionalInteger(value: unknown, field: string): number | 
     return null;
   }
   if (typeof value !== "number" || !Number.isInteger(value)) {
-    throw new Error(`${field} must be an integer`);
+    throw new HttpError(uiMessage("error.field.must_be_integer", { field }), 400);
   }
   return value;
 }
 
 export function requireRecord(value: unknown, field: string): Record<string, unknown> {
   if (!isTruthyRecord(value)) {
-    throw new Error(`${field} must be an object`);
+    throw new HttpError(uiMessage("error.field.must_be_object", { field }), 400);
   }
   return value;
 }
@@ -139,7 +139,7 @@ export function requireRecord(value: unknown, field: string): Record<string, unk
 export function normalizeAsn(raw: string): string {
   const asn = raw.trim().toUpperCase().replace(/^AS/, "");
   if (!ASN_PATTERN.test(asn)) {
-    throw new Error("ASN must look like 424242xxxx");
+    throw new HttpError(uiMessage("error.asn.format"), 400);
   }
   return asn;
 }
@@ -147,7 +147,7 @@ export function normalizeAsn(raw: string): string {
 export function normalizeSupportedAutopeerAsn(raw: string): string {
   const asn = raw.trim().toUpperCase().replace(/^AS/, "");
   if (!ASN_PATTERN.test(asn)) {
-    throw new Error(UNSUPPORTED_ASN_RANGE_MESSAGE);
+    throw new HttpError(uiMessage(UNSUPPORTED_ASN_RANGE_MESSAGE), 400);
   }
   return asn;
 }

@@ -1,5 +1,5 @@
 import type { OperationRecord } from "./types";
-import { joinPath, readSecret, toBase64 } from "./utils";
+import { HttpError, joinPath, readSecret, toBase64, uiMessage } from "./utils";
 
 interface GitHubRefResponse {
   object: { sha: string };
@@ -106,8 +106,15 @@ export class GitHubClient {
 
     if (!response.ok) {
       const body = await response.text();
-      throw new Error(
+      console.error(
         `GitHub API ${path} failed with HTTP ${response.status}: ${body}${this.errorHint(response.status)}`,
+      );
+      throw new HttpError(
+        uiMessage("error.github.api_failed", {
+          path,
+          status: String(response.status),
+        }),
+        502,
       );
     }
 
@@ -143,8 +150,15 @@ export class GitHubClient {
     }
     if (!response.ok) {
       const body = await response.text();
-      throw new Error(
+      console.error(
         `GitHub file read failed for ${path}: HTTP ${response.status}: ${body}${this.errorHint(response.status)}`,
+      );
+      throw new HttpError(
+        uiMessage("error.github.file_read_failed", {
+          path,
+          status: String(response.status),
+        }),
+        502,
       );
     }
 

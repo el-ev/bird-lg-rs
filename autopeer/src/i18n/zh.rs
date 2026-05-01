@@ -1264,11 +1264,11 @@ pub(super) const TABLE: &[(&str, &str)] = &[
     ),
     (
         "loading.check_ssh",
-        "正在根据 dn42 注册库验证你的 SSH 签名...",
+        "正在验证你的 SSH 签名...",
     ),
     (
         "loading.check_pgp",
-        "正在根据 dn42 注册库验证你的 PGP 签名...",
+        "正在验证你的 PGP 签名...",
     ),
     (
         "loading.check_email",
@@ -1321,6 +1321,101 @@ pub(super) const TABLE: &[(&str, &str)] = &[
     (
         "loading.drop_operation",
         "正在放弃更改并关闭拉取请求……",
+    ),
+    // Worker validation / infrastructure errors
+    ("error.field.required", "{field} 不能为空。"),
+    ("error.field.must_be_string", "{field} 必须为字符串。"),
+    ("error.field.must_be_boolean", "{field} 必须为布尔值。"),
+    ("error.field.must_be_integer", "{field} 必须为整数。"),
+    ("error.field.must_be_object", "{field} 必须为对象。"),
+    ("error.asn.format", "ASN 必须形如 424242xxxx。"),
+    (
+        "error.node.lock.unreadable",
+        "无法读取节点 {node} 的锁。",
+    ),
+    (
+        "error.email.send_failed",
+        "登录邮件发送失败：{detail}",
+    ),
+    (
+        "error.github.api_failed",
+        "GitHub 请求 {path} 失败（HTTP {status}）。",
+    ),
+    (
+        "error.github.file_read_failed",
+        "无法从 GitHub 读取 {path}（HTTP {status}）。",
+    ),
+    (
+        "error.registry.request_failed",
+        "Registry 请求 {path} 失败（HTTP {status}）。",
+    ),
+    (
+        "error.registry.invalid_payload",
+        "Registry 对 {path} 返回了意外的响应内容。",
+    ),
+    (
+        "error.registry.lookup_failed",
+        "查询 DN42 Registry AS{asn} 时失败。",
+    ),
+    (
+        "error.oidc.claim.asn_missing",
+        "OIDC 身份缺少所需的 ASN claim（{claim}）。",
+    ),
+    (
+        "error.oidc.claim.maintainer_missing",
+        "OIDC 身份缺少所需的维护者 claim（{claim}）。",
+    ),
+    (
+        "error.oidc.maintainer.not_in_mnt_by",
+        "{provider} 声明了 {candidates}，但其不在 aut-num mnt-by 中。",
+    ),
+    (
+        "error.oidc.discovery.failed",
+        "{provider} 的 OIDC 发现失败（HTTP {status}）。",
+    ),
+    (
+        "error.oidc.discovery.invalid_json",
+        "{provider} 的 OIDC 发现返回了无效 JSON。",
+    ),
+    (
+        "error.oidc.discovery.missing_field",
+        "{provider} 的 OIDC 发现缺少 {field}。",
+    ),
+    (
+        "error.oidc.client_secret.missing",
+        "{provider} 缺少用于 {method} 的 client_secret_env。",
+    ),
+    (
+        "error.oidc.token.invalid_json",
+        "{provider} 的 token 端点返回了无效 JSON。",
+    ),
+    (
+        "error.oidc.token.rejected",
+        "{provider} 拒绝了登录回调：{description}",
+    ),
+    (
+        "error.oidc.userinfo.failed",
+        "{provider} userinfo 请求失败（HTTP {status}）。",
+    ),
+    (
+        "error.oidc.userinfo.invalid_json",
+        "{provider} userinfo 端点返回了无效 JSON。",
+    ),
+    (
+        "error.oidc.id_token.missing",
+        "{provider} 未返回 ID token。",
+    ),
+    (
+        "error.oidc.id_token.invalid",
+        "{provider} ID token 验证失败：{detail}",
+    ),
+    (
+        "error.oidc.id_token.invalid_nonce",
+        "{provider} 返回的登录 token nonce 无效。",
+    ),
+    (
+        "error.oidc.asn.mismatch",
+        "OIDC 身份的 ASN {token_asn} 与请求的 ASN {requested_asn} 不匹配。",
     ),
 ];
 

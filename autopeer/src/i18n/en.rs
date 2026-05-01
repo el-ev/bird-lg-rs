@@ -1282,11 +1282,11 @@ pub(super) const TABLE: &[(&str, &str)] = &[
     ),
     (
         "loading.check_ssh",
-        "Checking your SSH signature against the dn42 registry...",
+        "Checking your SSH signature...",
     ),
     (
         "loading.check_pgp",
-        "Checking your PGP signature against the dn42 registry...",
+        "Checking your PGP signature...",
     ),
     (
         "loading.check_email",
@@ -1339,6 +1339,101 @@ pub(super) const TABLE: &[(&str, &str)] = &[
     (
         "loading.drop_operation",
         "Dropping changes and closing the pull request...",
+    ),
+    // Worker validation / infrastructure errors
+    ("error.field.required", "{field} is required."),
+    ("error.field.must_be_string", "{field} must be a string."),
+    ("error.field.must_be_boolean", "{field} must be a boolean."),
+    ("error.field.must_be_integer", "{field} must be an integer."),
+    ("error.field.must_be_object", "{field} must be an object."),
+    ("error.asn.format", "ASN must look like 424242xxxx."),
+    (
+        "error.node.lock.unreadable",
+        "Node lock for {node} could not be read.",
+    ),
+    (
+        "error.email.send_failed",
+        "Failed to send sign-in email: {detail}",
+    ),
+    (
+        "error.github.api_failed",
+        "GitHub request for {path} failed (HTTP {status}).",
+    ),
+    (
+        "error.github.file_read_failed",
+        "Failed to read {path} from GitHub (HTTP {status}).",
+    ),
+    (
+        "error.registry.request_failed",
+        "Registry request for {path} failed (HTTP {status}).",
+    ),
+    (
+        "error.registry.invalid_payload",
+        "Registry returned an unexpected payload for {path}.",
+    ),
+    (
+        "error.registry.lookup_failed",
+        "DN42 registry lookup failed while loading AS{asn}.",
+    ),
+    (
+        "error.oidc.claim.asn_missing",
+        "OIDC identity is missing the required ASN claim ({claim}).",
+    ),
+    (
+        "error.oidc.claim.maintainer_missing",
+        "OIDC identity is missing the required maintainer claim ({claim}).",
+    ),
+    (
+        "error.oidc.maintainer.not_in_mnt_by",
+        "{provider} asserted {candidates}, which is not in aut-num mnt-by.",
+    ),
+    (
+        "error.oidc.discovery.failed",
+        "OIDC discovery failed for {provider} (HTTP {status}).",
+    ),
+    (
+        "error.oidc.discovery.invalid_json",
+        "OIDC discovery for {provider} returned invalid JSON.",
+    ),
+    (
+        "error.oidc.discovery.missing_field",
+        "OIDC discovery for {provider} is missing {field}.",
+    ),
+    (
+        "error.oidc.client_secret.missing",
+        "{provider} is missing client_secret_env for {method}.",
+    ),
+    (
+        "error.oidc.token.invalid_json",
+        "{provider} returned invalid JSON from the token endpoint.",
+    ),
+    (
+        "error.oidc.token.rejected",
+        "{provider} rejected the login callback: {description}",
+    ),
+    (
+        "error.oidc.userinfo.failed",
+        "{provider} userinfo request failed (HTTP {status}).",
+    ),
+    (
+        "error.oidc.userinfo.invalid_json",
+        "{provider} userinfo endpoint returned invalid JSON.",
+    ),
+    (
+        "error.oidc.id_token.missing",
+        "{provider} did not return an ID token.",
+    ),
+    (
+        "error.oidc.id_token.invalid",
+        "{provider} ID token verification failed: {detail}",
+    ),
+    (
+        "error.oidc.id_token.invalid_nonce",
+        "{provider} returned a login token with an invalid nonce.",
+    ),
+    (
+        "error.oidc.asn.mismatch",
+        "OIDC identity ASN {token_asn} does not match requested ASN {requested_asn}.",
     ),
 ];
 

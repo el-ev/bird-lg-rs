@@ -1279,11 +1279,11 @@ pub(super) const TABLE: &[(&str, &str)] = &[
     ),
     (
         "loading.check_ssh",
-        "Subscriptionem SSH tuam contra registrum dn42 probamus...",
+        "Subscriptionem SSH tuam probamus...",
     ),
     (
         "loading.check_pgp",
-        "Subscriptionem PGP tuam contra registrum dn42 probamus...",
+        "Subscriptionem PGP tuam probamus...",
     ),
     (
         "loading.check_email",
@@ -1336,6 +1336,101 @@ pub(super) const TABLE: &[(&str, &str)] = &[
     (
         "loading.drop_operation",
         "Mutationes abicimus et rogationem tractionis claudimus...",
+    ),
+    // Worker validation / infrastructure errors
+    ("error.field.required", "{field} requiritur."),
+    ("error.field.must_be_string", "{field} debet esse chorda."),
+    ("error.field.must_be_boolean", "{field} debet esse Booleanum."),
+    ("error.field.must_be_integer", "{field} debet esse numerus integer."),
+    ("error.field.must_be_object", "{field} debet esse obiectum."),
+    ("error.asn.format", "ASN debet esse formae 424242xxxx."),
+    (
+        "error.node.lock.unreadable",
+        "Sera nodi {node} legi non potuit.",
+    ),
+    (
+        "error.email.send_failed",
+        "Epistula aditus mitti non potuit: {detail}",
+    ),
+    (
+        "error.github.api_failed",
+        "Petitio GitHub pro {path} defecit (HTTP {status}).",
+    ),
+    (
+        "error.github.file_read_failed",
+        "Lectio {path} ex GitHub defecit (HTTP {status}).",
+    ),
+    (
+        "error.registry.request_failed",
+        "Petitio tabularii pro {path} defecit (HTTP {status}).",
+    ),
+    (
+        "error.registry.invalid_payload",
+        "Tabularium responsum inexspectatum pro {path} reddidit.",
+    ),
+    (
+        "error.registry.lookup_failed",
+        "Inquisitio tabularii DN42 pro AS{asn} defecit.",
+    ),
+    (
+        "error.oidc.claim.asn_missing",
+        "Identitati OIDC deest postulatum ASN ({claim}).",
+    ),
+    (
+        "error.oidc.claim.maintainer_missing",
+        "Identitati OIDC deest postulatum curatoris ({claim}).",
+    ),
+    (
+        "error.oidc.maintainer.not_in_mnt_by",
+        "{provider} {candidates} asseruit, quod in aut-num mnt-by non est.",
+    ),
+    (
+        "error.oidc.discovery.failed",
+        "Inventio OIDC pro {provider} defecit (HTTP {status}).",
+    ),
+    (
+        "error.oidc.discovery.invalid_json",
+        "Inventio OIDC pro {provider} JSON invalidum reddidit.",
+    ),
+    (
+        "error.oidc.discovery.missing_field",
+        "Inventioni OIDC pro {provider} deest {field}.",
+    ),
+    (
+        "error.oidc.client_secret.missing",
+        "{provider} caret client_secret_env pro {method}.",
+    ),
+    (
+        "error.oidc.token.invalid_json",
+        "{provider} JSON invalidum ex termino tesserae reddidit.",
+    ),
+    (
+        "error.oidc.token.rejected",
+        "{provider} reditum aditus reiecit: {description}",
+    ),
+    (
+        "error.oidc.userinfo.failed",
+        "Petitio userinfo {provider} defecit (HTTP {status}).",
+    ),
+    (
+        "error.oidc.userinfo.invalid_json",
+        "Terminus userinfo {provider} JSON invalidum reddidit.",
+    ),
+    (
+        "error.oidc.id_token.missing",
+        "{provider} tesseram identitatis non reddidit.",
+    ),
+    (
+        "error.oidc.id_token.invalid",
+        "Verificatio tesserae identitatis {provider} defecit: {detail}",
+    ),
+    (
+        "error.oidc.id_token.invalid_nonce",
+        "{provider} tesseram aditus cum nonce invalido reddidit.",
+    ),
+    (
+        "error.oidc.asn.mismatch",
+        "ASN identitatis OIDC {token_asn} non convenit cum ASN postulato {requested_asn}.",
     ),
 ];
 

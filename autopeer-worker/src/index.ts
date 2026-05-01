@@ -159,8 +159,10 @@ type RefreshOperationOptions = {
   allowMergeAttempt?: boolean;
 };
 
-function errorMessage(error: unknown, fallback: string): string {
-  return error instanceof Error && error.message.trim().length > 0 ? error.message : fallback;
+function errorMessage(error: unknown, fallbackKey: string): UiMessage {
+  if (error instanceof HttpError) return error.uiMessage;
+  if (error instanceof I18nError) return error.uiMessage;
+  return uiMessage(fallbackKey);
 }
 
 function fragmentMessage(name: string, message: string | UiMessage): string {
@@ -171,62 +173,6 @@ function withLangFragment(fragment: string, locale?: string | null): string {
   return locale ? `${fragment}&lang=${encodeURIComponent(locale)}` : fragment;
 }
 
-function requireRequestString(value: unknown, field: string): string {
-  try {
-    return requireNonEmptyString(value, field);
-  } catch (error) {
-    throw new HttpError(errorMessage(error, `${field} is required`), 400);
-  }
-}
-
-function requireRequestRecord(value: unknown, field: string): Record<string, unknown> {
-  try {
-    return requireRecord(value, field);
-  } catch (error) {
-    throw new HttpError(errorMessage(error, `${field} must be an object`), 400);
-  }
-}
-
-function requireOptionalRequestString(value: unknown, field: string): string | null {
-  try {
-    return requireOptionalString(value, field);
-  } catch (error) {
-    throw new HttpError(errorMessage(error, `${field} must be a string`), 400);
-  }
-}
-
-function requireRequestBoolean(value: unknown, field: string): boolean {
-  try {
-    return requireBoolean(value, field);
-  } catch (error) {
-    throw new HttpError(errorMessage(error, `${field} must be a boolean`), 400);
-  }
-}
-
-function requireOptionalRequestInteger(value: unknown, field: string): number | null {
-  try {
-    return requireOptionalInteger(value, field);
-  } catch (error) {
-    throw new HttpError(errorMessage(error, `${field} must be an integer`), 400);
-  }
-}
-
-function requireRequestAsn(value: unknown): string {
-  const raw = requireRequestString(value, "asn");
-  try {
-    return normalizeSupportedAutopeerAsn(raw);
-  } catch (error) {
-    throw new HttpError(errorMessage(error, "error.auth.asn.unsupported"), 400);
-  }
-}
-
-function normalizeRequestAsn(value: string): string {
-  try {
-    return normalizeSupportedAutopeerAsn(value);
-  } catch (error) {
-    throw new HttpError(errorMessage(error, "error.auth.asn.unsupported"), 400);
-  }
-}
 
 export function classifyMaintainerLookupError(asn: string, error: unknown): HttpError {
   if (error instanceof RegistryPathNotFoundError) {
@@ -237,10 +183,10 @@ export function classifyMaintainerLookupError(asn: string, error: unknown): Http
     return new HttpError(uiMessage("error.auth.asn.no_supported_auth", { asn }), 400);
   }
 
-  return new HttpError(
-    errorMessage(error, `DN42 registry lookup failed while loading AS${asn}`),
-    502,
-  );
+  if (error instanceof HttpError) {
+    return error;
+  }
+  return new HttpError(uiMessage("error.registry.lookup_failed", { asn }), 502);
 }
 
 async function loadMaintainersForRequestAsn(
@@ -255,12 +201,12 @@ async function loadMaintainersForRequestAsn(
 }
 
 function parseRequestSessionSpec(value: unknown): PeerSessionSpec {
-  const record = requireRequestRecord(value, "session");
-  const peeringStrategy = requireOptionalRequestString(
+  const record = requireRecord(value, "session");
+  const peeringStrategy = requireOptionalString(
     record.peering_strategy,
     "session.peering_strategy",
   ) ?? "full_table";
-  const mpBgpTransport = requireOptionalRequestString(
+  const mpBgpTransport = requireOptionalString(
     record.mp_bgp_transport,
     "session.mp_bgp_transport",
   );
@@ -272,25 +218,25 @@ function parseRequestSessionSpec(value: unknown): PeerSessionSpec {
     throw new HttpError("error.request.session.mp_bgp_transport.invalid", 400);
   }
   return {
-    comment: requireOptionalRequestString(record.comment, "session.comment"),
-    endpoint: requireOptionalRequestString(record.endpoint, "session.endpoint"),
-    wg_public_key: requireRequestString(record.wg_public_key, "session.wg_public_key"),
-    port: requireOptionalRequestInteger(record.port, "session.port"),
-    peer4: requireOptionalRequestString(record.peer4, "session.peer4"),
-    peer6: requireOptionalRequestString(record.peer6, "session.peer6"),
-    own6: requireOptionalRequestString(record.own6, "session.own6"),
-    keepalive: requireOptionalRequestInteger(record.keepalive, "session.keepalive"),
-    mtu: requireOptionalRequestInteger(record.mtu, "session.mtu"),
-    ipv4: requireRequestBoolean(record.ipv4, "session.ipv4"),
-    ipv6: requireRequestBoolean(record.ipv6, "session.ipv6"),
-    extended_next_hop: requireRequestBoolean(
+    comment: requireOptionalString(record.comment, "session.comment"),
+    endpoint: requireOptionalString(record.endpoint, "session.endpoint"),
+    wg_public_key: requireNonEmptyString(record.wg_public_key, "session.wg_public_key"),
+    port: requireOptionalInteger(record.port, "session.port"),
+    peer4: requireOptionalString(record.peer4, "session.peer4"),
+    peer6: requireOptionalString(record.peer6, "session.peer6"),
+    own6: requireOptionalString(record.own6, "session.own6"),
+    keepalive: requireOptionalInteger(record.keepalive, "session.keepalive"),
+    mtu: requireOptionalInteger(record.mtu, "session.mtu"),
+    ipv4: requireBoolean(record.ipv4, "session.ipv4"),
+    ipv6: requireBoolean(record.ipv6, "session.ipv6"),
+    extended_next_hop: requireBoolean(
       record.extended_next_hop,
       "session.extended_next_hop",
     ),
-    mp_bgp: requireRequestBoolean(record.mp_bgp, "session.mp_bgp"),
+    mp_bgp: requireBoolean(record.mp_bgp, "session.mp_bgp"),
     mp_bgp_transport: mpBgpTransport as PeerSessionSpec["mp_bgp_transport"],
     peering_strategy: peeringStrategy as PeerSessionSpec["peering_strategy"],
-    psk: record.psk === undefined ? undefined : requireOptionalRequestString(record.psk, "session.psk"),
+    psk: record.psk === undefined ? undefined : requireOptionalString(record.psk, "session.psk"),
     encrypt_endpoint: typeof record.encrypt_endpoint === "boolean" ? record.encrypt_endpoint : undefined,
   };
 }
@@ -303,9 +249,6 @@ function assertValidSessionSpec(
   try {
     validateSessionSpec(node, asn, spec);
   } catch (error) {
-    if (error instanceof I18nError) {
-      throw new HttpError(error.uiMessage, 400);
-    }
     throw new HttpError(errorMessage(error, "error.request.session_payload.invalid"), 400);
   }
 }
@@ -1120,11 +1063,11 @@ async function handleMutation(
   let nodeName = nodeFromPath;
   let sessionPayload: CreateSessionRequest["session"] | UpdateSessionRequest["session"] | undefined;
   if (kind === "create") {
-    const body = requireRequestRecord(await readJson<CreateSessionRequest>(request), "request body");
-    nodeName = requireRequestString(body.node, "node");
+    const body = requireRecord(await readJson<CreateSessionRequest>(request), "request body");
+    nodeName = requireNonEmptyString(body.node, "node");
     sessionPayload = parseRequestSessionSpec(body.session);
   } else if (kind === "update") {
-    const body = requireRequestRecord(await readJson<UpdateSessionRequest>(request), "request body");
+    const body = requireRecord(await readJson<UpdateSessionRequest>(request), "request body");
     sessionPayload = parseRequestSessionSpec(body.session);
   }
 
@@ -1181,10 +1124,7 @@ async function handleMutation(
       vaultPassword,
     });
   } catch (error) {
-    if (error instanceof I18nError) {
-      throw new HttpError(error.uiMessage, 409);
-    }
-    throw new HttpError(String((error as Error).message), 409);
+    throw new HttpError(errorMessage(error, "error.request.session_payload.invalid"), 409);
   }
 
   if (mutation.content === currentFile.text) {
@@ -1217,6 +1157,7 @@ async function handleMutation(
       ? await github.getPullRequest(reusableOperation.pr_number)
       : null;
 
+    const reusedAt = nowIso();
     const updated: OperationRecord = {
       ...reusableOperation,
       kind,
@@ -1226,13 +1167,14 @@ async function handleMutation(
       workflow_run_url: null,
       pull_request_url: refreshedPr?.html_url ?? reusableOperation.pull_request_url ?? null,
       session_snapshot: mutation.sessionSnapshot,
-      created_at: nowIso(),
-      updated_at: nowIso(),
+      created_at: reusedAt,
+      updated_at: reusedAt,
     };
     await putOperation(env, updated);
     return jsonWithCors(request, updated, 202);
   }
 
+  const now = nowIso();
   const operation: OperationRecord = {
     id: crypto.randomUUID(),
     asn: authSession.asn,
@@ -1246,8 +1188,8 @@ async function handleMutation(
     workflow_run_url: null,
     message: buildOperationMessage("pending_pull_request"),
     failure_details: null,
-    created_at: nowIso(),
-    updated_at: nowIso(),
+    created_at: now,
+    updated_at: now,
     session_snapshot: mutation.sessionSnapshot,
   };
   operation.branch = branchName(operation);
@@ -1380,8 +1322,8 @@ async function router(request: Request, env: Env): Promise<Response> {
   }
 
   if (request.method === "POST" && url.pathname === "/v1/auth/start") {
-    const body = requireRequestRecord(await readJson<AuthStartRequest>(request), "request body");
-    const asn = requireRequestAsn(body.asn);
+    const body = requireRecord(await readJson<AuthStartRequest>(request), "request body");
+    const asn = normalizeSupportedAutopeerAsn(requireNonEmptyString(body.asn, "asn"));
     const maintainers = await loadMaintainersForRequestAsn(env, asn);
     const challenge = createChallenge(asn);
     challenge.maintainers = maintainers;
@@ -1416,15 +1358,15 @@ async function router(request: Request, env: Env): Promise<Response> {
       );
     }
 
-    const body = requireRequestRecord(
+    const body = requireRecord(
       await readJson<HostImpersonationRequest>(request),
       "request body",
     );
-    const asn = requireRequestAsn(body.asn);
+    const asn = normalizeSupportedAutopeerAsn(requireNonEmptyString(body.asn, "asn"));
     const maintainers = await loadMaintainersForRequestAsn(env, asn);
     const effectiveMnt = resolveEffectiveMaintainer(
       maintainers,
-      requireOptionalRequestString(body.effective_mnt, "effective_mnt"),
+      requireOptionalString(body.effective_mnt, "effective_mnt"),
     );
     const createdAt = nowIso();
     const session: SessionRecord = {
@@ -1448,11 +1390,11 @@ async function router(request: Request, env: Env): Promise<Response> {
   }
 
   if (request.method === "POST" && url.pathname === "/v1/auth/verify/registry-ssh") {
-    const body = requireRequestRecord(
+    const body = requireRecord(
       await readJson<RegistrySshVerifyRequest>(request),
       "request body",
     );
-    const challengeId = requireRequestString(body.challenge_id, "challenge_id");
+    const challengeId = requireNonEmptyString(body.challenge_id, "challenge_id");
     const verifyRequest: RegistrySshVerifyRequest = {
       challenge_id: challengeId,
       signature: body.signature as RegistrySshVerifyRequest["signature"],
@@ -1464,11 +1406,11 @@ async function router(request: Request, env: Env): Promise<Response> {
   }
 
   if (request.method === "POST" && url.pathname === "/v1/auth/verify/registry-pgp") {
-    const body = requireRequestRecord(
+    const body = requireRecord(
       await readJson<RegistryPgpVerifyRequest>(request),
       "request body",
     );
-    const challengeId = requireRequestString(body.challenge_id, "challenge_id");
+    const challengeId = requireNonEmptyString(body.challenge_id, "challenge_id");
     const verifyRequest: RegistryPgpVerifyRequest = {
       challenge_id: challengeId,
       public_key: body.public_key as RegistryPgpVerifyRequest["public_key"],
@@ -1502,11 +1444,11 @@ async function router(request: Request, env: Env): Promise<Response> {
     if (!registryEmailAuthConfigured(env)) {
       throw new HttpError("error.auth.registry_email.unavailable", 503);
     }
-    const body = requireRequestRecord(
+    const body = requireRecord(
       await readJson<RegistryEmailSendRequest>(request),
       "request body",
     );
-    const challengeId = requireRequestString(body.challenge_id, "challenge_id");
+    const challengeId = requireNonEmptyString(body.challenge_id, "challenge_id");
     const challenge = await getChallenge(env, challengeId);
     if (!challenge) {
       throw new HttpError("error.auth.challenge.unknown_id", 404);
@@ -1515,9 +1457,9 @@ async function router(request: Request, env: Env): Promise<Response> {
 
     const target = resolveRegistryEmailTarget(
       challenge,
-      requireOptionalRequestString(body.effective_mnt, "effective_mnt"),
+      requireOptionalString(body.effective_mnt, "effective_mnt"),
     );
-    const requestedLocale = requireOptionalRequestString(body.locale, "locale");
+    const requestedLocale = requireOptionalString(body.locale, "locale");
     const locale = resolveLocaleCode(requestedLocale) ?? resolveLocale(request);
     const emailAuthRequest = createRegistryEmailAuthRequest(
       challenge,
@@ -1544,12 +1486,12 @@ async function router(request: Request, env: Env): Promise<Response> {
   }
 
   if (request.method === "POST" && url.pathname === "/v1/auth/verify/registry-email") {
-    const body = requireRequestRecord(
+    const body = requireRecord(
       await readJson<RegistryEmailVerifyRequest>(request),
       "request body",
     );
-    const challengeId = requireRequestString(body.challenge_id, "challenge_id");
-    const code = requireRequestString(body.code, "code");
+    const challengeId = requireNonEmptyString(body.challenge_id, "challenge_id");
+    const code = requireNonEmptyString(body.code, "code");
     const emailAuthRequest = await getRegistryEmailAuthRequest(env, challengeId);
     if (!emailAuthRequest) {
       throw new HttpError("error.auth.registry_email.state.missing", 404);
@@ -1578,11 +1520,11 @@ async function router(request: Request, env: Env): Promise<Response> {
   }
 
   if (request.method === "POST" && url.pathname === "/v1/auth/verify/registry-email/complete") {
-    const body = requireRequestRecord(
+    const body = requireRecord(
       await readJson<RegistryEmailCompleteRequest>(request),
       "request body",
     );
-    const token = requireRequestString(body.token, "token");
+    const token = requireNonEmptyString(body.token, "token");
     const emailAuthRequest = await consumeCompletedRegistryEmailAuthRequestByToken(env, token);
     if (!emailAuthRequest) {
       const pendingRequest = await getRegistryEmailAuthRequestByToken(env, token);
@@ -1621,8 +1563,8 @@ async function router(request: Request, env: Env): Promise<Response> {
     url.pathname.split("/").length === 6
   ) {
     const providerName = decodeURIComponent(url.pathname.split("/")[4] ?? "");
-    const body = requireRequestRecord(await readJson<OidcStartRequest>(request), "request body");
-    const challengeId = requireOptionalRequestString(body.challenge_id, "challenge_id");
+    const body = requireRecord(await readJson<OidcStartRequest>(request), "request body");
+    const challengeId = requireOptionalString(body.challenge_id, "challenge_id");
     if (challengeId) {
       const challenge = await getChallenge(env, challengeId);
       if (!challenge) {
@@ -1801,14 +1743,11 @@ async function router(request: Request, env: Env): Promise<Response> {
       );
     } catch (callbackError) {
       await deleteOidcAuthRequest(env, authRequest.state);
-      const message = errorMessage(
-        callbackError,
-        "error.auth.oidc.callback.failed",
-      );
+      const message = errorMessage(callbackError, "error.auth.oidc.callback.failed");
       return siteRedirectResponse(
         env,
         request,
-        fragmentMessage("oidc_error", toUiMessage(message)),
+        fragmentMessage("oidc_error", message),
       );
     }
   }
@@ -1867,21 +1806,18 @@ async function router(request: Request, env: Env): Promise<Response> {
       );
     } catch (callbackError) {
       await deleteRegistryEmailAuthRequest(env, emailAuthRequest.challenge_id);
-      const message = errorMessage(
-        callbackError,
-        "error.auth.registry_email.callback.failed",
-      );
+      const message = errorMessage(callbackError, "error.auth.registry_email.callback.failed");
       return siteRedirectResponse(
         env,
         request,
-        fragmentMessage("email_error", toUiMessage(message)),
+        fragmentMessage("email_error", message),
       );
     }
   }
 
   if (request.method === "POST" && url.pathname === "/v1/auth/oidc/complete") {
-    const body = requireRequestRecord(await readJson<OidcCompleteRequest>(request), "request body");
-    const authRequest = await getOidcAuthRequest(env, requireRequestString(body.state, "state"));
+    const body = requireRecord(await readJson<OidcCompleteRequest>(request), "request body");
+    const authRequest = await getOidcAuthRequest(env, requireNonEmptyString(body.state, "state"));
     if (!authRequest) {
       throw new HttpError("error.auth.oidc.state.missing", 404);
     }
@@ -1918,7 +1854,7 @@ async function router(request: Request, env: Env): Promise<Response> {
   if (request.method === "POST" && sessionActionMatch) {
     const [, nodeName, asnPath, action] = sessionActionMatch;
     const session = await requireSession(env, request);
-    if (normalizeRequestAsn(asnPath) !== session.asn) {
+    if (normalizeSupportedAutopeerAsn(asnPath) !== session.asn) {
       throw new HttpError("error.auth.session.path_asn_mismatch", 403);
     }
     return handleMutation(env, request, action as OperationKind, nodeName);
@@ -1928,7 +1864,7 @@ async function router(request: Request, env: Env): Promise<Response> {
   if (sessionPathMatch) {
     const [, nodeName, asnPath] = sessionPathMatch;
     const session = await requireSession(env, request);
-    if (normalizeRequestAsn(asnPath) !== session.asn) {
+    if (normalizeSupportedAutopeerAsn(asnPath) !== session.asn) {
       throw new HttpError("error.auth.session.path_asn_mismatch", 403);
     }
 
@@ -1976,14 +1912,15 @@ async function router(request: Request, env: Env): Promise<Response> {
       message: commitMessage(operation.kind, operation.asn, operation.node),
     });
 
+    const retriedAt = nowIso();
     const updated: OperationRecord = {
       ...operation,
       state: "pending_checks",
       message: buildOperationMessage("pending_checks"),
       failure_details: null,
       workflow_run_url: null,
-      created_at: nowIso(),
-      updated_at: nowIso(),
+      created_at: retriedAt,
+      updated_at: retriedAt,
     };
     await putOperation(env, updated);
     return jsonWithCors(request, updated, 202);
@@ -2048,6 +1985,9 @@ export default {
           ? error.uiMessage
           : uiMessage(stripOperatorHints(error.uiMessage.key));
         return errorWithCors(request, publicMessage, error.status);
+      }
+      if (error instanceof I18nError) {
+        return errorWithCors(request, error.uiMessage, 500);
       }
 
       console.error("autopeer-worker request failed", error);

@@ -114,7 +114,7 @@ describe("registry SSH auth validation", () => {
         signature: {} as never,
       }),
     ).rejects.toMatchObject({
-      message: "signature is required",
+      uiMessage: { key: "error.field.required", params: { field: "signature" } },
       status: 400,
     });
   });
@@ -182,7 +182,7 @@ describe("registry PGP auth validation", () => {
         signed_message: [] as never,
       }),
     ).rejects.toMatchObject({
-      message: "public_key is required",
+      uiMessage: { key: "error.field.required", params: { field: "public_key" } },
       status: 400,
     });
   });

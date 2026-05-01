@@ -34,7 +34,7 @@ describe("ASN normalization", () => {
 
   it("rejects malformed or non-DN42 identifiers", () => {
     for (const value of ["foo4242421024", "1234242421024", "1111111024", "4242431024"]) {
-      expect(() => normalizeAsn(value)).toThrow("ASN must look like 424242xxxx");
+      expect(() => normalizeAsn(value)).toThrow("error.asn.format");
     }
   });
 
@@ -49,7 +49,7 @@ describe("request value validation", () => {
   it("treats blank optional strings as absent but rejects non-strings", () => {
     expect(requireOptionalString("  ", "field")).toBeNull();
     expect(requireOptionalString(" value ", "field")).toBe("value");
-    expect(() => requireOptionalString(123, "field")).toThrow("field must be a string");
+    expect(() => requireOptionalString(123, "field")).toThrow("error.field.must_be_string");
   });
 
   it("requires booleans, integers, and object records", () => {
@@ -58,8 +58,8 @@ describe("request value validation", () => {
     expect(requireOptionalInteger(null, "count")).toBeNull();
     expect(requireRecord({ ok: true }, "payload")).toEqual({ ok: true });
 
-    expect(() => requireBoolean("true", "flag")).toThrow("flag must be a boolean");
-    expect(() => requireOptionalInteger(1.5, "count")).toThrow("count must be an integer");
-    expect(() => requireRecord([], "payload")).toThrow("payload must be an object");
+    expect(() => requireBoolean("true", "flag")).toThrow("error.field.must_be_boolean");
+    expect(() => requireOptionalInteger(1.5, "count")).toThrow("error.field.must_be_integer");
+    expect(() => requireRecord([], "payload")).toThrow("error.field.must_be_object");
   });
 });

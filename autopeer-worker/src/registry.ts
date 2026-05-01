@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 
 import type { AuthMethod, MaintainerRecord, RegistryEmailTarget } from "./types";
-import { fromBase64, joinPath, readSecret, uiMessage } from "./utils";
+import { HttpError, fromBase64, joinPath, readSecret, uiMessage } from "./utils";
 
 export class RegistryPathNotFoundError extends Error {
   constructor(public readonly path: string) {
@@ -84,12 +84,18 @@ async function fetchRegistryContent(env: Env, path: string): Promise<string> {
     throw new RegistryPathNotFoundError(path);
   }
   if (!response.ok) {
-    throw new Error(`Registry request failed for ${path}: HTTP ${response.status}`);
+    throw new HttpError(
+      uiMessage("error.registry.request_failed", {
+        path,
+        status: String(response.status),
+      }),
+      502,
+    );
   }
 
   const body = (await response.json()) as GiteaContentResponse;
   if (body.encoding !== "base64" || typeof body.content !== "string") {
-    throw new Error(`Registry API returned unexpected payload for ${path}`);
+    throw new HttpError(uiMessage("error.registry.invalid_payload", { path }), 502);
   }
 
   return fromBase64(body.content);

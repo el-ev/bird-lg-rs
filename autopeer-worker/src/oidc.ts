@@ -10,6 +10,7 @@ import type {
   OidcTokenEndpointAuthMethod,
   OidcTokenResponse,
   SessionRecord,
+  UiMessage,
 } from "./types";
 import { HttpError, addSeconds, nowIso, readNamedSecret, uiMessage } from "./utils";
 
@@ -66,7 +67,7 @@ async function sha256Base64Url(input: string): Promise<string> {
   return toBase64Url(new Uint8Array(digest));
 }
 
-function jsonObject(value: unknown, message: string): JsonObject {
+function jsonObject(value: unknown, message: UiMessage): JsonObject {
   if (typeof value === "object" && value !== null && !Array.isArray(value)) {
     return value as JsonObject;
   }
@@ -143,7 +144,9 @@ function resolveAsnClaim(sources: JsonObject[], provider: OidcProviderConfig): s
   const asn = claimValueToString(value)?.replace(/^AS/i, "");
   if (!asn) {
     throw new HttpError(
-      `OIDC identity is missing required ASN claim ${describeClaimPaths(provider.asn_claim)}`,
+      uiMessage("error.oidc.claim.asn_missing", {
+        claim: describeClaimPaths(provider.asn_claim),
+      }),
       400,
     );
   }
@@ -159,7 +162,9 @@ function resolveMaintainerClaim(
   const claimCandidates = claimValueToStrings(rawClaim).map((value) => value.toUpperCase());
   if (claimCandidates.length === 0) {
     throw new HttpError(
-      `OIDC identity is missing required maintainer claim ${describeClaimPaths(provider.mntner_claim)}`,
+      uiMessage("error.oidc.claim.maintainer_missing", {
+        claim: describeClaimPaths(provider.mntner_claim),
+      }),
       400,
     );
   }
@@ -175,7 +180,10 @@ function resolveMaintainerClaim(
   }
 
   throw new HttpError(
-    `${provider.label} asserted ${claimCandidates.join(", ")}, which is not in aut-num -> mnt-by`,
+    uiMessage("error.oidc.maintainer.not_in_mnt_by", {
+      provider: provider.label,
+      candidates: claimCandidates.join(", "),
+    }),
     400,
   );
 }
@@ -252,14 +260,17 @@ export async function fetchOidcDiscovery(provider: OidcProviderConfig): Promise<
   const response = await fetch(discoveryUrlForProvider(provider));
   if (!response.ok) {
     throw new HttpError(
-      `OIDC discovery failed for ${provider.label}: HTTP ${response.status}`,
+      uiMessage("error.oidc.discovery.failed", {
+        provider: provider.label,
+        status: String(response.status),
+      }),
       502,
     );
   }
 
   const body = jsonObject(
     await response.json().catch(() => null),
-    `OIDC discovery for ${provider.label} returned invalid JSON`,
+    uiMessage("error.oidc.discovery.invalid_json", { provider: provider.label }),
   );
 
   return {
@@ -269,7 +280,10 @@ export async function fetchOidcDiscovery(provider: OidcProviderConfig): Promise<
       claimValueToString(body.authorization_endpoint) ??
       (() => {
         throw new HttpError(
-          `OIDC discovery for ${provider.label} is missing authorization_endpoint`,
+          uiMessage("error.oidc.discovery.missing_field", {
+            provider: provider.label,
+            field: "authorization_endpoint",
+          }),
           502,
         );
       })(),
@@ -278,7 +292,10 @@ export async function fetchOidcDiscovery(provider: OidcProviderConfig): Promise<
       claimValueToString(body.token_endpoint) ??
       (() => {
         throw new HttpError(
-          `OIDC discovery for ${provider.label} is missing token_endpoint`,
+          uiMessage("error.oidc.discovery.missing_field", {
+            provider: provider.label,
+            field: "token_endpoint",
+          }),
           502,
         );
       })(),
@@ -286,7 +303,13 @@ export async function fetchOidcDiscovery(provider: OidcProviderConfig): Promise<
       provider.jwks_uri ??
       claimValueToString(body.jwks_uri) ??
       (() => {
-        throw new HttpError(`OIDC discovery for ${provider.label} is missing jwks_uri`, 502);
+        throw new HttpError(
+          uiMessage("error.oidc.discovery.missing_field", {
+            provider: provider.label,
+            field: "jwks_uri",
+          }),
+          502,
+        );
       })(),
     userinfo_endpoint:
       provider.userinfo_endpoint ?? claimValueToString(body.userinfo_endpoint),
@@ -361,7 +384,10 @@ export async function exchangeAuthorizationCode(
     case "client_secret_post": {
       if (!provider.client_secret_env) {
         throw new HttpError(
-          `${provider.label} is missing client_secret_env for client_secret_post`,
+          uiMessage("error.oidc.client_secret.missing", {
+            provider: provider.label,
+            method: "client_secret_post",
+          }),
           500,
         );
       }
@@ -371,7 +397,10 @@ export async function exchangeAuthorizationCode(
     case "client_secret_basic": {
       if (!provider.client_secret_env) {
         throw new HttpError(
-          `${provider.label} is missing client_secret_env for client_secret_basic`,
+          uiMessage("error.oidc.client_secret.missing", {
+            provider: provider.label,
+            method: "client_secret_basic",
+          }),
           500,
         );
       }
@@ -390,7 +419,7 @@ export async function exchangeAuthorizationCode(
   });
   const body = jsonObject(
     await response.json().catch(() => null),
-    `${provider.label} returned invalid JSON from the token endpoint`,
+    uiMessage("error.oidc.token.invalid_json", { provider: provider.label }),
   );
 
   if (!response.ok) {
@@ -398,7 +427,13 @@ export async function exchangeAuthorizationCode(
       claimValueToString(body.error_description) ??
       claimValueToString(body.error) ??
       `HTTP ${response.status}`;
-    throw new HttpError(`${provider.label} rejected the login callback: ${description}`, 400);
+    throw new HttpError(
+      uiMessage("error.oidc.token.rejected", {
+        provider: provider.label,
+        description,
+      }),
+      400,
+    );
   }
 
   return body as OidcTokenResponse;
@@ -420,14 +455,17 @@ async function fetchUserInfo(
   });
   if (!response.ok) {
     throw new HttpError(
-      `${provider.label} userinfo request failed: HTTP ${response.status}`,
+      uiMessage("error.oidc.userinfo.failed", {
+        provider: provider.label,
+        status: String(response.status),
+      }),
       502,
     );
   }
 
   return jsonObject(
     await response.json().catch(() => null),
-    `${provider.label} userinfo endpoint returned invalid JSON`,
+    uiMessage("error.oidc.userinfo.invalid_json", { provider: provider.label }),
   );
 }
 
@@ -438,7 +476,10 @@ export async function verifiedOidcClaimSources(
   expectedNonce: string,
 ): Promise<JsonObject[]> {
   if (!tokenResponse.id_token) {
-    throw new HttpError(`${provider.label} did not return an ID token`, 400);
+    throw new HttpError(
+      uiMessage("error.oidc.id_token.missing", { provider: provider.label }),
+      400,
+    );
   }
 
   const jwks = createRemoteJWKSet(jwksUrlForProvider(provider, discovery));
@@ -447,9 +488,10 @@ export async function verifiedOidcClaimSources(
     audience: provider.audience,
   }).catch((error) => {
     throw new HttpError(
-      `${provider.label} ID token verification failed: ${
-        error instanceof Error ? error.message : "unknown error"
-      }`,
+      uiMessage("error.oidc.id_token.invalid", {
+        provider: provider.label,
+        detail: error instanceof Error ? error.message : "unknown error",
+      }),
       400,
     );
   });
@@ -457,7 +499,10 @@ export async function verifiedOidcClaimSources(
   const payload = verified.payload as JsonObject;
   const nonce = claimValueToString(payload.nonce);
   if (nonce !== expectedNonce) {
-    throw new HttpError(`${provider.label} returned a login token with an invalid nonce`, 400);
+    throw new HttpError(
+      uiMessage("error.oidc.id_token.invalid_nonce", { provider: provider.label }),
+      400,
+    );
   }
 
   const claimSources = [payload];
@@ -507,7 +552,10 @@ export async function verifyOidcToken(
   const tokenAsn = resolveAsnClaim(claimSources, provider);
   if (tokenAsn !== asn) {
     throw new HttpError(
-      `OIDC identity ASN ${tokenAsn} does not match requested ASN ${asn}`,
+      uiMessage("error.oidc.asn.mismatch", {
+        token_asn: tokenAsn,
+        requested_asn: asn,
+      }),
       400,
     );
   }

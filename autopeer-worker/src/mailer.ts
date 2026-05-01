@@ -1,6 +1,6 @@
 import { type WorkerLocale, t } from "./i18n";
 import type { RegistryEmailAuthRequestRecord } from "./types";
-import { readSecret } from "./utils";
+import { HttpError, readSecret, uiMessage } from "./utils";
 
 const RESEND_EMAILS_ENDPOINT = "https://api.resend.com/emails";
 const AUTOPEER_FROM = "IRIS-AS Autopeer <autopeer@owo.li>";
@@ -97,5 +97,5 @@ export async function sendRegistryEmailAuthMessage(
     // Keep the HTTP status fallback.
   }
 
-  throw new Error(`Resend email send failed: ${detail}`);
+  throw new HttpError(uiMessage("error.email.send_failed", { detail }), 502);
 }

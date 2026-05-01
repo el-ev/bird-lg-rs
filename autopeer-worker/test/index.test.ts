@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import {
+import worker, {
   classifyMaintainerLookupError,
   decideApplyGate,
   decideCheckGate,
@@ -199,5 +199,63 @@ describe("host impersonation maintainer resolution", () => {
         "OTHER-MNT",
       ),
     ).toThrowError("error.auth.impersonation.maintainer.missing");
+  });
+});
+
+describe("API endpoint error i18n", () => {
+  const env = {} as Env;
+
+  function jsonRequest(path: string, body: unknown): Request {
+    return new Request(`https://autopeer.example${path}`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(body),
+    });
+  }
+
+  it("returns uiMessage key for a missing required field on /v1/auth/start", async () => {
+    const response = await worker.fetch(jsonRequest("/v1/auth/start", {}) as never, env);
+    expect(response.status).toBe(400);
+    const body = (await response.json()) as { error: { key: string; params?: Record<string, string> } };
+    expect(body.error).toEqual({
+      key: "error.field.required",
+      params: { field: "asn" },
+    });
+  });
+
+  it("returns uiMessage key for a malformed ASN", async () => {
+    const response = await worker.fetch(
+      jsonRequest("/v1/auth/start", { asn: "not-an-asn" }) as never,
+      env,
+    );
+    expect(response.status).toBe(400);
+    const body = (await response.json()) as { error: { key: string } };
+    expect(body.error.key).toBe("error.auth.asn.unsupported");
+  });
+
+  it("returns uiMessage key when request body is not valid JSON", async () => {
+    const response = await worker.fetch(
+      new Request("https://autopeer.example/v1/auth/start", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: "{",
+      }) as never,
+      env,
+    );
+    expect(response.status).toBe(400);
+    const body = (await response.json()) as { error: { key: string } };
+    expect(body.error.key).toBe("error.request.body.invalid_json");
+  });
+
+  it("returns uiMessage key with bearer token missing", async () => {
+    const response = await worker.fetch(
+      new Request("https://autopeer.example/v1/sessions", {
+        method: "GET",
+      }) as never,
+      env,
+    );
+    expect(response.status).toBe(401);
+    const body = (await response.json()) as { error: { key: string } };
+    expect(body.error.key).toBe("error.auth.session.token.missing");
   });
 });
