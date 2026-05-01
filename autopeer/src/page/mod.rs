@@ -477,6 +477,7 @@ pub fn auto_peer_page() -> Html {
         selected_pgp_key,
         pgp_public_key,
         pgp_signed_message,
+        pgp_key_lookups,
         selected_email_maintainer,
         registry_email_code,
         registry_email_sent_to,
@@ -693,6 +694,7 @@ pub fn auto_peer_page() -> Html {
                     selected_pgp_key={(*selected_pgp_key).clone()}
                     pgp_public_key={(*pgp_public_key).clone()}
                     pgp_signed_message={(*pgp_signed_message).clone()}
+                    pgp_key_lookups={(*pgp_key_lookups).clone()}
                     on_pgp_key_change={Callback::from({
                         let selected_pgp_key = selected_pgp_key.clone();
                         move |v| selected_pgp_key.set(v)
@@ -980,8 +982,10 @@ pub fn auto_peer_page() -> Html {
                                     </>
                                 }
                             }).unwrap_or_default()}
-                            <ShellButton text={i18n.t("action.refresh")} onclick={on_refresh.clone()} disabled={loading} />
-                            <ShellButton text={i18n.t("action.logout")} onclick={on_logout} disabled={loading} />
+                            <div class="autopeer-overview-actions">
+                                <ShellButton text={i18n.t("action.refresh")} onclick={on_refresh.clone()} disabled={loading} />
+                                <ShellButton text={i18n.t("action.logout")} onclick={on_logout} disabled={loading} />
+                            </div>
                         </div>
                     </section>
 

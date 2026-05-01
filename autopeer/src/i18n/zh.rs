@@ -141,6 +141,9 @@ pub(super) const TABLE: &[(&str, &str)] = &[
         "verify.pgp.pubkey_placeholder",
         "-----BEGIN PGP PUBLIC KEY BLOCK-----",
     ),
+    ("verify.pgp.lookup.searching", "正在密钥服务器上查找\u{2026}"),
+    ("verify.pgp.lookup.found", "已从密钥服务器获取"),
+    ("verify.pgp.lookup.found_from", "已从 {source} 获取"),
     // Step: VerifyMethod (Email)
     (
         "verify.email.intro",

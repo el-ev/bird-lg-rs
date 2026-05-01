@@ -150,6 +150,12 @@ pub(super) const TABLE: &[(&str, &str)] = &[
         "verify.pgp.pubkey_placeholder",
         "-----BEGIN PGP PUBLIC KEY BLOCK-----",
     ),
+    (
+        "verify.pgp.lookup.searching",
+        "Clavem in servitoribus quaerimus\u{2026}",
+    ),
+    ("verify.pgp.lookup.found", "Ex servitore clavium accepta"),
+    ("verify.pgp.lookup.found_from", "Ex {source} accepta"),
     // Step: VerifyMethod (Email)
     (
         "verify.email.intro",

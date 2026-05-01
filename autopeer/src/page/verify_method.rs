@@ -7,7 +7,7 @@ use super::{
     render_readonly_block, ssh_sign_command,
 };
 use crate::{
-    controller::{OngoingTask, default_pgp_key, selected_registry_email_target},
+    controller::{OngoingTask, PgpKeyLookup, PgpKeyLookups, default_pgp_key, selected_registry_email_target},
     i18n::I18n,
     models::{AuthMethod, AuthMethodKind, UiMessage},
 };
@@ -24,6 +24,7 @@ pub struct VerifyMethodProps {
     pub selected_pgp_key: String,
     pub pgp_public_key: String,
     pub pgp_signed_message: String,
+    pub pgp_key_lookups: PgpKeyLookups,
     pub on_pgp_key_change: Callback<String>,
     pub on_pgp_public_key_change: Callback<String>,
     pub on_pgp_signed_message_change: Callback<String>,
@@ -123,6 +124,10 @@ pub fn verify_method_panel(props: &VerifyMethodProps) -> Html {
                     on_pgp_key_change.emit(select.value());
                 })
             };
+            let lookup_for_selected = props
+                .pgp_key_lookups
+                .get(selected_key_value.trim())
+                .cloned();
 
             html! {
                 <>
@@ -145,8 +150,18 @@ pub fn verify_method_panel(props: &VerifyMethodProps) -> Html {
                             <ShellPrompt>{i18n.t("prompt.key")}</ShellPrompt>
                             {" "}
                             <ShellSelect value={selected_key_value.clone()} on_change={on_key_change}>
-                                {for method.pgp_fingerprints.iter().map(|fingerprint| html! {
-                                    <option value={fingerprint.clone()}>{fingerprint.clone()}</option>
+                                {for method.pgp_fingerprints.iter().map(|fingerprint| {
+                                    let status_suffix = match props.pgp_key_lookups.get(fingerprint) {
+                                        Some(PgpKeyLookup::Loading) => " — \u{2026}",
+                                        Some(PgpKeyLookup::Found { .. }) => " \u{2713}",
+                                        Some(PgpKeyLookup::NotFound) => " \u{2717}",
+                                        None => "",
+                                    };
+                                    html! {
+                                        <option value={fingerprint.clone()}>
+                                            {format!("{}{}", fingerprint, status_suffix)}
+                                        </option>
+                                    }
                                 })}
                             </ShellSelect>
                         </ShellLine>
@@ -188,24 +203,14 @@ pub fn verify_method_panel(props: &VerifyMethodProps) -> Html {
                             rows={12}
                         />
                     </ShellLine>
-                    {render_readonly_block(
-                        i18n.t("verify.pgp.export_label"),
-                        pgp_export_command(&selected_key_value),
+                    {render_pgp_public_key_section(
+                        i18n,
+                        props.loading,
+                        &selected_key_value,
+                        &props.pgp_public_key,
+                        on_pubkey_change,
+                        lookup_for_selected.as_ref(),
                     )}
-                    <ShellLine>
-                        <ShellPrompt>{i18n.t("prompt.pubkey")}</ShellPrompt>
-                        {" "}{i18n.t("verify.pgp.pubkey_paste_prompt")}
-                    </ShellLine>
-                    <ShellLine>
-                        <ShellInput
-                            value={props.pgp_public_key.clone()}
-                            on_change={on_pubkey_change}
-                            placeholder={i18n.t("verify.pgp.pubkey_placeholder")}
-                            disabled={props.loading}
-                            multiline=true
-                            rows={8}
-                        />
-                    </ShellLine>
                 </>
             }
         }
@@ -372,5 +377,73 @@ pub fn verify_method_panel(props: &VerifyMethodProps) -> Html {
                 <ShellButton text={verify_button_text} onclick={props.on_verify.clone()} disabled={props.loading} />
             </ShellLine>
         </div>
+    }
+}
+
+fn render_pgp_public_key_section(
+    i18n: &I18n,
+    loading: bool,
+    selected_fingerprint: &str,
+    manual_public_key: &str,
+    on_pubkey_change: Callback<String>,
+    lookup: Option<&PgpKeyLookup>,
+) -> Html {
+    match lookup {
+        Some(PgpKeyLookup::Loading) => html! {
+            <ShellLine>
+                <span class="text-secondary">
+                    {i18n.t("verify.pgp.lookup.searching")}
+                </span>
+            </ShellLine>
+        },
+        Some(PgpKeyLookup::Found { public_key, source, .. }) => {
+            let label = match source {
+                Some(source) if !source.is_empty() => i18n.translate_params(
+                    "verify.pgp.lookup.found_from",
+                    &[("source", source.as_str())],
+                ),
+                _ => i18n.t("verify.pgp.lookup.found").to_string(),
+            };
+            html! {
+                <>
+                    <ShellLine>
+                        <ShellPrompt>{i18n.t("prompt.pubkey")}</ShellPrompt>
+                        {" "}{label}
+                    </ShellLine>
+                    <ShellLine>
+                        <ShellInput
+                            value={public_key.clone()}
+                            on_change={Callback::noop()}
+                            placeholder={i18n.t("verify.pgp.pubkey_placeholder")}
+                            disabled=true
+                            multiline=true
+                            rows={8}
+                        />
+                    </ShellLine>
+                </>
+            }
+        }
+        _ => html! {
+            <>
+                {render_readonly_block(
+                    i18n.t("verify.pgp.export_label"),
+                    pgp_export_command(selected_fingerprint),
+                )}
+                <ShellLine>
+                    <ShellPrompt>{i18n.t("prompt.pubkey")}</ShellPrompt>
+                    {" "}{i18n.t("verify.pgp.pubkey_paste_prompt")}
+                </ShellLine>
+                <ShellLine>
+                    <ShellInput
+                        value={manual_public_key.to_string()}
+                        on_change={on_pubkey_change}
+                        placeholder={i18n.t("verify.pgp.pubkey_placeholder")}
+                        disabled={loading}
+                        multiline=true
+                        rows={8}
+                    />
+                </ShellLine>
+            </>
+        },
     }
 }

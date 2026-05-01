@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize, de::DeserializeOwned};
 use crate::models::{
     AuthMethod, AuthSessionResponse, AuthStartRequest, AuthStartResponse, CreateSessionRequest,
     HostImpersonationRequest, OidcCompleteRequest, OidcStartRequest, OidcStartResponse,
-    OperationStatus, RegistryEmailCompleteRequest, RegistryEmailSendRequest,
+    OperationStatus, PgpKeyLookupResponse, RegistryEmailCompleteRequest, RegistryEmailSendRequest,
     RegistryEmailSendResponse, RegistryEmailVerifyRequest, RegistryPgpVerifyRequest,
     RegistrySshVerifyRequest, SessionListResponse, UiMessage, UpdateSessionRequest,
 };
@@ -217,6 +217,16 @@ pub async fn verify_registry_ssh(
         },
     )
     .await
+}
+
+pub async fn lookup_pgp_key(
+    api_base: &str,
+    fingerprint: &str,
+) -> Result<PgpKeyLookupResponse, UiMessage> {
+    let trimmed = fingerprint.trim();
+    let path = format!("/v1/auth/lookup/pgp-key?fingerprint={trimmed}");
+    let url = api_url(api_base, &path);
+    send_get(&url, None).await
 }
 
 pub async fn verify_registry_pgp(

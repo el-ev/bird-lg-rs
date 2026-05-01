@@ -1123,6 +1123,13 @@ details[open] .summary-header {
     flex-wrap: wrap;
 }
 
+.autopeer-overview-actions {
+    flex-basis: 100%;
+    display: flex;
+    justify-content: flex-end;
+    gap: var(--spacing-sm);
+}
+
 .autopeer-workspace {
     display: grid;
     grid-template-columns: minmax(0, 1.4fr) minmax(300px, 0.9fr);
@@ -1722,7 +1729,8 @@ details[open] .summary-header {
         flex-direction: column;
     }
 
-    .autopeer-overview-meta {
+    .autopeer-overview-meta,
+    .autopeer-overview-actions {
         justify-content: flex-start;
     }
 }

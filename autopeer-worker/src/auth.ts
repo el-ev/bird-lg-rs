@@ -175,7 +175,10 @@ function matchingMaintainerByFingerprint(
   maintainers: MaintainerRecord[],
   fingerprint: string,
 ): MaintainerRecord | undefined {
-  const normalized = fingerprint.toUpperCase().replace(/\s+/g, "");
+  const normalized = normalizePgpFingerprint(fingerprint);
+  if (!normalized) {
+    return undefined;
+  }
   return maintainers.find((maintainer) =>
     maintainer.pgp_fingerprints.some((candidate) => candidate === normalized),
   );
@@ -322,4 +325,60 @@ export async function verifyRegistryPgpChallenge(
       mnt: maintainer.name,
     }),
   });
+}
+
+const PGP_KEYSERVERS: ReadonlyArray<{
+  source: string;
+  buildUrl: (fingerprint: string) => string;
+}> = [
+  {
+    source: "keys.openpgp.org",
+    buildUrl: (fingerprint) => `https://keys.openpgp.org/vks/v1/by-fingerprint/${fingerprint}`,
+  },
+  {
+    source: "keyserver.ubuntu.com",
+    buildUrl: (fingerprint) =>
+      `https://keyserver.ubuntu.com/pks/lookup?op=get&options=mr&search=0x${fingerprint}`,
+  },
+];
+
+export function normalizePgpFingerprint(value: string): string | null {
+  const cleaned = value.replace(/\s+/g, "").toUpperCase();
+  if (!/^[0-9A-F]+$/.test(cleaned)) {
+    return null;
+  }
+  if (cleaned.length !== 16 && cleaned.length !== 32 && cleaned.length !== 40) {
+    return null;
+  }
+  return cleaned;
+}
+
+export interface PgpKeyLookupResult {
+  fingerprint: string;
+  publicKey: string | null;
+  source: string | null;
+}
+
+export async function lookupPgpKeyOnKeyservers(
+  fingerprint: string,
+): Promise<PgpKeyLookupResult> {
+  for (const server of PGP_KEYSERVERS) {
+    try {
+      const response = await fetch(server.buildUrl(fingerprint), {
+        headers: { accept: "application/pgp-keys, text/plain;q=0.8, */*;q=0.5" },
+      });
+      if (!response.ok) {
+        continue;
+      }
+      const body = (await response.text()).trim();
+      if (!body.includes("BEGIN PGP PUBLIC KEY BLOCK")) {
+        continue;
+      }
+      return { fingerprint, publicKey: body, source: server.source };
+    } catch {
+      continue;
+    }
+  }
+
+  return { fingerprint, publicKey: null, source: null };
 }

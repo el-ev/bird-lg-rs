@@ -48,6 +48,13 @@ export interface RegistryPgpVerifyRequest {
   signed_message: string;
 }
 
+export interface PgpKeyLookupResponse {
+  fingerprint: string;
+  found: boolean;
+  public_key?: string;
+  source?: string;
+}
+
 export interface RegistryEmailSendRequest {
   challenge_id: string;
   effective_mnt?: string | null;

@@ -3,6 +3,8 @@ import {
   createChallenge,
   createRegistryEmailAuthRequest,
   createRegistryEmailSession,
+  lookupPgpKeyOnKeyservers,
+  normalizePgpFingerprint,
   verifyRegistryPgpChallenge,
   verifyRegistrySshChallenge,
 } from "./auth";
@@ -78,6 +80,7 @@ import type {
   OperationState,
   OperationStatus,
   PeerSessionSpec,
+  PgpKeyLookupResponse,
   RegistryPgpVerifyRequest,
   RegistrySshVerifyRequest,
   SessionRecord,
@@ -1475,6 +1478,24 @@ async function router(request: Request, env: Env): Promise<Response> {
     const session = await verifyRegistryPgpChallenge(challenge, verifyRequest);
     await putAuthSession(env, session);
     return jsonWithCors(request, authSessionResponseForEnv(env, session));
+  }
+
+  if (request.method === "GET" && url.pathname === "/v1/auth/lookup/pgp-key") {
+    const rawFingerprint = url.searchParams.get("fingerprint") ?? "";
+    const normalized = normalizePgpFingerprint(rawFingerprint);
+    if (!normalized) {
+      throw new HttpError("error.auth.pgp.invalid_fingerprint", 400);
+    }
+    const result = await lookupPgpKeyOnKeyservers(normalized);
+    const response: PgpKeyLookupResponse = result.publicKey
+      ? {
+          fingerprint: result.fingerprint,
+          found: true,
+          public_key: result.publicKey,
+          source: result.source ?? undefined,
+        }
+      : { fingerprint: result.fingerprint, found: false };
+    return jsonWithCors(request, response);
   }
 
   if (request.method === "POST" && url.pathname === "/v1/auth/verify/registry-email/send") {

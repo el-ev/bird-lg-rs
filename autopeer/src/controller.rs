@@ -1,4 +1,5 @@
 use std::{
+    collections::HashMap,
     rc::Rc,
     sync::atomic::{AtomicU64, Ordering},
 };
@@ -13,6 +14,44 @@ use crate::models::{
     OperationStatus, RegistryEmailTarget, SessionListResponse, SessionView, UiMessage,
     UpdateSessionRequest,
 };
+
+#[derive(Clone, PartialEq, Debug)]
+pub enum PgpKeyLookup {
+    Loading,
+    Found {
+        public_key: String,
+        source: Option<String>,
+    },
+    NotFound,
+}
+
+#[derive(Clone, PartialEq, Default, Debug)]
+pub struct PgpKeyLookups(HashMap<String, PgpKeyLookup>);
+
+impl PgpKeyLookups {
+    pub fn get(&self, key: &str) -> Option<&PgpKeyLookup> {
+        self.0.get(key)
+    }
+
+    pub fn contains_key(&self, key: &str) -> bool {
+        self.0.contains_key(key)
+    }
+}
+
+pub enum PgpKeyLookupAction {
+    Set(String, PgpKeyLookup),
+}
+
+impl Reducible for PgpKeyLookups {
+    type Action = PgpKeyLookupAction;
+
+    fn reduce(self: Rc<Self>, action: Self::Action) -> Rc<Self> {
+        let PgpKeyLookupAction::Set(key, value) = action;
+        let mut next = self.0.clone();
+        next.insert(key, value);
+        Rc::new(PgpKeyLookups(next))
+    }
+}
 
 static NEXT_ONGOING_TASK_ID: AtomicU64 = AtomicU64::new(1);
 
@@ -590,6 +629,7 @@ pub struct AutoPeerController {
     pub selected_pgp_key: UseStateHandle<String>,
     pub pgp_public_key: UseStateHandle<String>,
     pub pgp_signed_message: UseStateHandle<String>,
+    pub pgp_key_lookups: UseReducerHandle<PgpKeyLookups>,
     pub selected_email_maintainer: UseStateHandle<String>,
     pub registry_email_code: UseStateHandle<String>,
     pub registry_email_sent_to: UseStateHandle<Vec<String>>,
@@ -667,6 +707,7 @@ pub fn use_autopeer_controller(
     let selected_pgp_key = use_state(String::new);
     let pgp_public_key = use_state(String::new);
     let pgp_signed_message = use_state(String::new);
+    let pgp_key_lookups = use_reducer(PgpKeyLookups::default);
     let selected_email_maintainer = use_state(String::new);
     let registry_email_code = use_state(String::new);
     let registry_email_sent_to = use_state(Vec::<String>::new);
@@ -954,6 +995,56 @@ pub fn use_autopeer_controller(
                 retire_confirmation.set(false);
                 delete_confirmation.set(false);
                 || ()
+            },
+        );
+    }
+
+    {
+        let api_base = api_base.clone();
+        let selected_method = selected_method.clone();
+        let selected_pgp_key = selected_pgp_key.clone();
+        let pgp_key_lookups = pgp_key_lookups.clone();
+        use_effect_with(
+            (
+                (*api_base).clone(),
+                (*selected_method).clone(),
+                (*selected_pgp_key).clone(),
+            ),
+            move |(api_base, method, fingerprint)| {
+                let cleanup = || ();
+                let Some(method) = method else { return cleanup };
+                if method.kind != AuthMethodKind::RegistryPgp {
+                    return cleanup;
+                }
+                let trimmed = fingerprint.trim();
+                if trimmed.is_empty() {
+                    return cleanup;
+                }
+                let Some(api_base) = api_base.clone() else { return cleanup };
+                if pgp_key_lookups.contains_key(trimmed) {
+                    return cleanup;
+                }
+
+                let fingerprint_value = trimmed.to_string();
+                pgp_key_lookups.dispatch(PgpKeyLookupAction::Set(
+                    fingerprint_value.clone(),
+                    PgpKeyLookup::Loading,
+                ));
+
+                let pgp_key_lookups_for_task = pgp_key_lookups.clone();
+                spawn_local(async move {
+                    let result = service::lookup_pgp_key(&api_base, &fingerprint_value).await;
+                    let value = match result {
+                        Ok(response) if response.found => PgpKeyLookup::Found {
+                            public_key: response.public_key.unwrap_or_default(),
+                            source: response.source,
+                        },
+                        _ => PgpKeyLookup::NotFound,
+                    };
+                    pgp_key_lookups_for_task
+                        .dispatch(PgpKeyLookupAction::Set(fingerprint_value, value));
+                });
+                cleanup
             },
         );
     }
@@ -1246,8 +1337,10 @@ pub fn use_autopeer_controller(
         let error = error.clone();
         let ongoing_tasks = ongoing_tasks.clone();
         let ssh_signature = ssh_signature.clone();
+        let selected_pgp_key = selected_pgp_key.clone();
         let pgp_public_key = pgp_public_key.clone();
         let pgp_signed_message = pgp_signed_message.clone();
+        let pgp_key_lookups = pgp_key_lookups.clone();
         let registry_email_code = registry_email_code.clone();
         let session_handles = session_handles.clone();
         let auth_handles = auth_handles.clone();
@@ -1291,7 +1384,10 @@ pub fn use_autopeer_controller(
             let error = error.clone();
             let ongoing_tasks = ongoing_tasks.clone();
             let ssh_signature_value = (*ssh_signature).clone();
-            let pgp_public_key_value = (*pgp_public_key).clone();
+            let pgp_public_key_value = match pgp_key_lookups.get(selected_pgp_key.trim()) {
+                Some(PgpKeyLookup::Found { public_key, .. }) => public_key.clone(),
+                _ => (*pgp_public_key).clone(),
+            };
             let pgp_signed_message_value = (*pgp_signed_message).clone();
             let registry_email_code_value = (*registry_email_code).clone();
             let session_handles = session_handles.clone();
@@ -1886,6 +1982,7 @@ pub fn use_autopeer_controller(
         selected_pgp_key,
         pgp_public_key,
         pgp_signed_message,
+        pgp_key_lookups,
         selected_email_maintainer,
         registry_email_code,
         registry_email_sent_to,

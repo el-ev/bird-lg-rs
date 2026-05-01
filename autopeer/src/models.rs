@@ -100,6 +100,17 @@ pub struct RegistryPgpVerifyRequest {
 }
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize, PartialEq, Eq)]
+pub struct PgpKeyLookupResponse {
+    pub fingerprint: String,
+    #[serde(default)]
+    pub found: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub public_key: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub source: Option<String>,
+}
+
+#[derive(Clone, Debug, Default, Serialize, Deserialize, PartialEq, Eq)]
 pub struct RegistryEmailSendRequest {
     pub challenge_id: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
