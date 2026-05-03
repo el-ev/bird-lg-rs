@@ -41,15 +41,15 @@ struct ErrorResponse {
 
 async fn decode_json<T: DeserializeOwned>(response: Response) -> Result<T, UiMessage> {
     if response.ok() {
-        response
-            .json::<T>()
-            .await
-            .map_err(|error| UiMessage::key("error.runtime.decode_failed").with_param("detail", error.to_string()))
+        response.json::<T>().await.map_err(|error| {
+            UiMessage::key("error.runtime.decode_failed").with_param("detail", error.to_string())
+        })
     } else {
         let status = response.status();
         match response.json::<ErrorResponse>().await {
             Ok(body) => Err(body.error),
-            Err(_) => Err(UiMessage::key("error.runtime.http_failed").with_param("status", status.to_string())),
+            Err(_) => Err(UiMessage::key("error.runtime.http_failed")
+                .with_param("status", status.to_string())),
         }
     }
 }
@@ -60,13 +60,17 @@ async fn send_json<B: Serialize, T: DeserializeOwned>(
     token: Option<&str>,
     body: &B,
 ) -> Result<T, UiMessage> {
-    let payload = serde_json::to_string(body)
-        .map_err(|error| UiMessage::key("error.runtime.encode_failed").with_param("detail", error.to_string()))?;
+    let payload = serde_json::to_string(body).map_err(|error| {
+        UiMessage::key("error.runtime.encode_failed").with_param("detail", error.to_string())
+    })?;
 
     let request = match method {
         "POST" => Request::post(url),
         "PATCH" => Request::patch(url),
-        other => return Err(UiMessage::key("error.runtime.unsupported_method").with_param("method", other.to_string())),
+        other => {
+            return Err(UiMessage::key("error.runtime.unsupported_method")
+                .with_param("method", other.to_string()));
+        }
     };
 
     let request = if let Some(token) = token {
@@ -85,39 +89,37 @@ async fn send_json<B: Serialize, T: DeserializeOwned>(
         .body(payload)
         .send()
         .await
-        .map_err(|error| UiMessage::key("error.runtime.request_failed").with_param("detail", error.to_string()))?;
+        .map_err(|error| {
+            UiMessage::key("error.runtime.request_failed").with_param("detail", error.to_string())
+        })?;
 
     decode_json(response).await
 }
 
 async fn send_delete<T: DeserializeOwned>(url: &str, token: &str) -> Result<T, UiMessage> {
-    let request = Request::delete(url)
-        .header("Authorization", &format!("Bearer {token}"));
+    let request = Request::delete(url).header("Authorization", &format!("Bearer {token}"));
     let request = if let Some(locale) = current_locale_code() {
         request.header("Accept-Language", &locale)
     } else {
         request
     };
-    let response = request
-        .send()
-        .await
-        .map_err(|error| UiMessage::key("error.runtime.request_failed").with_param("detail", error.to_string()))?;
+    let response = request.send().await.map_err(|error| {
+        UiMessage::key("error.runtime.request_failed").with_param("detail", error.to_string())
+    })?;
 
     decode_json(response).await
 }
 
 async fn send_post_empty<T: DeserializeOwned>(url: &str, token: &str) -> Result<T, UiMessage> {
-    let request = Request::post(url)
-        .header("Authorization", &format!("Bearer {token}"));
+    let request = Request::post(url).header("Authorization", &format!("Bearer {token}"));
     let request = if let Some(locale) = current_locale_code() {
         request.header("Accept-Language", &locale)
     } else {
         request
     };
-    let response = request
-        .send()
-        .await
-        .map_err(|error| UiMessage::key("error.runtime.request_failed").with_param("detail", error.to_string()))?;
+    let response = request.send().await.map_err(|error| {
+        UiMessage::key("error.runtime.request_failed").with_param("detail", error.to_string())
+    })?;
 
     decode_json(response).await
 }
@@ -134,10 +136,9 @@ async fn send_get<T: DeserializeOwned>(url: &str, token: Option<&str>) -> Result
         request
     };
 
-    let response = request
-        .send()
-        .await
-        .map_err(|error| UiMessage::key("error.runtime.request_failed").with_param("detail", error.to_string()))?;
+    let response = request.send().await.map_err(|error| {
+        UiMessage::key("error.runtime.request_failed").with_param("detail", error.to_string())
+    })?;
 
     decode_json(response).await
 }
@@ -164,17 +165,17 @@ fn optional_effective_mnt(effective_mnt: Option<&str>) -> Option<String> {
 }
 
 pub async fn load_runtime_config() -> Result<RuntimeConfig, UiMessage> {
-    let response = Request::get(CONFIG_PATH)
-        .send()
-        .await
-        .map_err(|error| UiMessage::key("error.runtime.config.load_failed").with_param("detail", error.to_string()))?;
+    let response = Request::get(CONFIG_PATH).send().await.map_err(|error| {
+        UiMessage::key("error.runtime.config.load_failed").with_param("detail", error.to_string())
+    })?;
 
     if response.status() == 404 {
         return Ok(RuntimeConfig::default());
     }
 
     if !response.ok() {
-        return Err(UiMessage::key("error.runtime.http_failed").with_param("status", response.status().to_string()));
+        return Err(UiMessage::key("error.runtime.http_failed")
+            .with_param("status", response.status().to_string()));
     }
 
     match response.json::<RuntimeConfig>().await {

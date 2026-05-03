@@ -355,7 +355,9 @@ fn require_api_base(
         .map(str::to_string);
 
     if value.is_none() {
-        error.set(Some(UiMessage::key("error.runtime.config.autopeer_api_url.missing")));
+        error.set(Some(UiMessage::key(
+            "error.runtime.config.autopeer_api_url.missing",
+        )));
     }
 
     value
@@ -1020,7 +1022,9 @@ pub fn use_autopeer_controller(
                 if trimmed.is_empty() {
                     return cleanup;
                 }
-                let Some(api_base) = api_base.clone() else { return cleanup };
+                let Some(api_base) = api_base.clone() else {
+                    return cleanup;
+                };
                 if pgp_key_lookups.contains_key(trimmed) {
                     return cleanup;
                 }
@@ -1879,8 +1883,7 @@ pub fn use_autopeer_controller(
                 return;
             };
 
-            let task_id =
-                start_loading(&ongoing_tasks, UiMessage::key("loading.retry_operation"));
+            let task_id = start_loading(&ongoing_tasks, UiMessage::key("loading.retry_operation"));
             error.set(None);
 
             let operation = operation.clone();
@@ -1931,8 +1934,7 @@ pub fn use_autopeer_controller(
                 return;
             };
 
-            let task_id =
-                start_loading(&ongoing_tasks, UiMessage::key("loading.drop_operation"));
+            let task_id = start_loading(&ongoing_tasks, UiMessage::key("loading.drop_operation"));
             error.set(None);
 
             let error = error.clone();

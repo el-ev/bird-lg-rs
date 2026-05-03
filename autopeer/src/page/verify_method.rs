@@ -7,7 +7,9 @@ use super::{
     render_readonly_block, ssh_sign_command,
 };
 use crate::{
-    controller::{OngoingTask, PgpKeyLookup, PgpKeyLookups, default_pgp_key, selected_registry_email_target},
+    controller::{
+        OngoingTask, PgpKeyLookup, PgpKeyLookups, default_pgp_key, selected_registry_email_target,
+    },
     i18n::I18n,
     models::{AuthMethod, AuthMethodKind, UiMessage},
 };
@@ -396,7 +398,9 @@ fn render_pgp_public_key_section(
                 </span>
             </ShellLine>
         },
-        Some(PgpKeyLookup::Found { public_key, source, .. }) => {
+        Some(PgpKeyLookup::Found {
+            public_key, source, ..
+        }) => {
             let label = match source {
                 Some(source) if !source.is_empty() => i18n.translate_params(
                     "verify.pgp.lookup.found_from",

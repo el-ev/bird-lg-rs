@@ -1107,7 +1107,7 @@ details[open] .summary-header {
 .autopeer-overview {
     display: flex;
     justify-content: space-between;
-    align-items: flex-start;
+    align-items: stretch;
     gap: var(--spacing-lg);
 }
 
@@ -1117,6 +1117,13 @@ details[open] .summary-header {
 
 .autopeer-overview-meta {
     display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: var(--spacing-sm);
+}
+
+.autopeer-overview-summary {
+    display: flex;
     align-items: center;
     justify-content: flex-end;
     gap: var(--spacing-sm);
@@ -1124,10 +1131,10 @@ details[open] .summary-header {
 }
 
 .autopeer-overview-actions {
-    flex-basis: 100%;
     display: flex;
     justify-content: flex-end;
     gap: var(--spacing-sm);
+    margin-top: auto;
 }
 
 .autopeer-workspace {
@@ -1729,7 +1736,11 @@ details[open] .summary-header {
         flex-direction: column;
     }
 
-    .autopeer-overview-meta,
+    .autopeer-overview-meta {
+        align-items: flex-start;
+    }
+
+    .autopeer-overview-summary,
     .autopeer-overview-actions {
         justify-content: flex-start;
     }

@@ -25,12 +25,11 @@ pub fn parse_protocols(output: &str) -> Vec<Protocol> {
             parts.next(),
         ) {
             let remaining: Vec<&str> = parts.collect();
-            let (since, info_parts) =
-                if remaining.first().map_or(false, |t| t.contains(':')) {
-                    (format!("{} {}", since_date, remaining[0]), &remaining[1..])
-                } else {
-                    (since_date.to_string(), remaining.as_slice())
-                };
+            let (since, info_parts) = if remaining.first().map_or(false, |t| t.contains(':')) {
+                (format!("{} {}", since_date, remaining[0]), &remaining[1..])
+            } else {
+                (since_date.to_string(), remaining.as_slice())
+            };
             protocols.push(Protocol {
                 name: name.to_string(),
                 proto: proto.to_string(),

@@ -82,7 +82,6 @@ pub fn session_details_live_validation(
     let families_touched = touched_controls.contains(&SessionDraftToggleGroup::Families.into());
     let bgp_touched = touched_controls.contains(&SessionDraftToggleGroup::Bgp.into());
 
-
     let peer4_blank = draft.peer4.trim().is_empty();
     let peer6_blank = draft.peer6.trim().is_empty();
     let own6_present = !draft.own6.trim().is_empty();
@@ -92,10 +91,8 @@ pub fn session_details_live_validation(
     let peer6_missing_for_ipv6 = draft.ipv6 && !draft.mp_bgp && peer6_blank;
     let link_local_own6_collision = draft.link_local_collision_with(fallback_own6);
     let tunnel_touched = peer4_touched || peer6_touched || own6_touched;
-    let show_generic_tunnel_required = !own6_present
-        && peer4_blank
-        && peer6_blank
-        && tunnel_touched;
+    let show_generic_tunnel_required =
+        !own6_present && peer4_blank && peer6_blank && tunnel_touched;
     let peer4_message = if peer4_touched {
         peer4_error.clone()
     } else {

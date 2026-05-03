@@ -2,11 +2,7 @@ use wasm_bindgen_futures::spawn_local;
 use yew::prelude::*;
 use yew_router::prelude::*;
 
-use crate::{
-    routes::Route,
-    services::api::perform_peer_routes,
-    store::LgStateHandle,
-};
+use crate::{routes::Route, services::api::perform_peer_routes, store::LgStateHandle};
 
 #[function_component(PeerRoutesPage)]
 pub fn peer_routes_page() -> Html {

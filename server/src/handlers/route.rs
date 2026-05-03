@@ -88,14 +88,8 @@ pub async fn get_peer_routes(
     Extension(config): Extension<Arc<Config>>,
     Extension(state): Extension<AppState>,
 ) -> Sse<impl futures_util::Stream<Item = Result<Event, Infallible>>> {
-    let response_stream = perform_peer_routes(
-        state,
-        config,
-        params.request_id,
-        node_name,
-        peer_name,
-    )
-    .await;
+    let response_stream =
+        perform_peer_routes(state, config, params.request_id, node_name, peer_name).await;
 
     Sse::new(response_stream_to_sse(response_stream))
 }

@@ -965,23 +965,25 @@ pub fn auto_peer_page() -> Html {
                             </p>
                         </div>
                         <div class="autopeer-overview-meta">
-                            {auth_summary.as_ref().map(|session| {
-                                let auth_label = i18n.translate_message(&session.auth_method.label);
-                                html! {
-                                    <>
-                                        <span class="autopeer-status-pill">{format!("AS{}", session.asn)}</span>
-                                        <span class="autopeer-node-badge">
-                                            {i18n.translate_params(
-                                                "dashboard.session_badge_template",
-                                                &[
-                                                    ("mnt", session.effective_mnt.as_str()),
-                                                    ("label", auth_label.as_str()),
-                                                ],
-                                            )}
-                                        </span>
-                                    </>
-                                }
-                            }).unwrap_or_default()}
+                            <div class="autopeer-overview-summary">
+                                {auth_summary.as_ref().map(|session| {
+                                    let auth_label = i18n.translate_message(&session.auth_method.label);
+                                    html! {
+                                        <>
+                                            <span class="autopeer-status-pill">{format!("AS{}", session.asn)}</span>
+                                            <span class="autopeer-node-badge">
+                                                {i18n.translate_params(
+                                                    "dashboard.session_badge_template",
+                                                    &[
+                                                        ("mnt", session.effective_mnt.as_str()),
+                                                        ("label", auth_label.as_str()),
+                                                    ],
+                                                )}
+                                            </span>
+                                        </>
+                                    }
+                                }).unwrap_or_default()}
+                            </div>
                             <div class="autopeer-overview-actions">
                                 <ShellButton text={i18n.t("action.refresh")} onclick={on_refresh.clone()} disabled={loading} />
                                 <ShellButton text={i18n.t("action.logout")} onclick={on_logout} disabled={loading} />

@@ -18,11 +18,17 @@ pub(super) const TABLE: &[(&str, &str)] = &[
     ("action.open_create_pr", "PR Creationis Aperire"),
     ("action.impersonate_this_asn", "Hunc ASN Personare"),
     ("action.return_to_host_asn", "Ad ASN Hospitis Reverti"),
-    ("action.find_registry_auth", "Modos Auctoritatis Registri Invenire"),
+    (
+        "action.find_registry_auth",
+        "Modos Auctoritatis Registri Invenire",
+    ),
     ("action.verify", "Verificare"),
     ("action.verify_code", "Codicem Verificare"),
     ("action.send_signin_link", "Nexum Subscriptionis Mittere"),
-    ("action.resend_signin_link", "Nexum Subscriptionis Remittere"),
+    (
+        "action.resend_signin_link",
+        "Nexum Subscriptionis Remittere",
+    ),
     ("action.confirm_retirement", "Retractum Confirmare"),
     ("action.retire_session", "Hanc Sessionem Retrahere"),
     ("action.confirm_deletion", "Deletionem Confirmare"),
@@ -110,7 +116,10 @@ pub(super) const TABLE: &[(&str, &str)] = &[
         "verify.ssh.no_fingerprints",
         "Vestigia digitalia clavium SSH pro ASN tuo invenire non potuimus.",
     ),
-    ("verify.ssh.match_one", "Clavem SSH tuam {fingerprint} conferre"),
+    (
+        "verify.ssh.match_one",
+        "Clavem SSH tuam {fingerprint} conferre",
+    ),
     (
         "verify.ssh.match_many",
         "Unam ex clavibus SSH tuis conferre: {fingerprints}",
@@ -132,7 +141,10 @@ pub(super) const TABLE: &[(&str, &str)] = &[
         "Textum provocationis exactum cum clave tua congruente clare signa, deinde eandem clavem publicam exporta et utrumque exitum infra appone.",
     ),
     ("verify.pgp.exact_challenge", "Textus provocationis"),
-    ("verify.pgp.clearsign_label", "Provocationem tuam clare signa"),
+    (
+        "verify.pgp.clearsign_label",
+        "Provocationem tuam clare signa",
+    ),
     (
         "verify.pgp.signed_paste_prompt",
         "Provocationem tuam clare signatam ex mandato supra appone",
@@ -190,10 +202,7 @@ pub(super) const TABLE: &[(&str, &str)] = &[
         "verify.host.note",
         "Personatio praesto est postquam unum ex ASN-ibus hospitis configuratis nostris autenticaveris.",
     ),
-    (
-        "verify.choose_first",
-        "Prius modum autenticationis elige.",
-    ),
+    ("verify.choose_first", "Prius modum autenticationis elige."),
     ("verify.auth_for_as", "{label} pro AS{asn}"),
     // Manage / dashboard headings
     ("dashboard.flow_kicker", "Fluxus Peering Tuus"),
@@ -317,7 +326,10 @@ pub(super) const TABLE: &[(&str, &str)] = &[
         "stage2.title.create_prefix",
         "Sessionem tuam in {node} instituere",
     ),
-    ("stage2.title.create_blank", "Sessionem novam tuam instituere"),
+    (
+        "stage2.title.create_blank",
+        "Sessionem novam tuam instituere",
+    ),
     (
         "stage2.update_intro",
         "Sessionem administratam in hoc nodo iam habes. Singula peering tua infra renova, vel sessionem retrahe si eam hic amplius non vis.",
@@ -396,17 +408,32 @@ pub(super) const TABLE: &[(&str, &str)] = &[
     ("stage2.field.mtu", "MTU interface"),
     ("stage2.field.mtu.placeholder", "MTU optionalis"),
     ("stage2.field.psk", "Clavis praedivisa"),
-    ("stage2.field.psk.placeholder", "Clavis WireGuard PSK optionalis"),
-    ("stage2.field.psk.placeholder.existing", "PSK configurata — relinque vacuum ad servandum"),
+    (
+        "stage2.field.psk.placeholder",
+        "Clavis WireGuard PSK optionalis",
+    ),
+    (
+        "stage2.field.psk.placeholder.existing",
+        "PSK configurata — relinque vacuum ad servandum",
+    ),
     ("stage2.field.psk.clear", "Dele PSK"),
     ("stage2.field.psk.generate", "Genera PSK"),
     ("stage2.field.psk.copied", "Copiata"),
-    ("stage2.field.psk.help", "Clavis praedivisa WireGuard optionalis ad securitatem augendam. Clavis ante repositionem encryptabitur."),
+    (
+        "stage2.field.psk.help",
+        "Clavis praedivisa WireGuard optionalis ad securitatem augendam. Clavis ante repositionem encryptabitur.",
+    ),
     ("stage2.field.encrypt_endpoint", "Encryptum"),
-    ("stage2.field.encrypt_endpoint.help", "Encrypta inscriptionem terminationis in repositorio git ne in textu aperto appareat."),
+    (
+        "stage2.field.encrypt_endpoint.help",
+        "Encrypta inscriptionem terminationis in repositorio git ne in textu aperto appareat.",
+    ),
     // Stage 3: Review
     ("stage3.kicker", "Gradus III"),
-    ("stage3.title", "Mutationem tuam recense antequam PR aperiamus"),
+    (
+        "stage3.title",
+        "Mutationem tuam recense antequam PR aperiamus",
+    ),
     ("stage3.review.our_node", "Nodus noster"),
     ("stage3.review.not_selected", "Non selectus"),
     ("stage3.review.endpoint", "Terminus"),
@@ -414,8 +441,14 @@ pub(super) const TABLE: &[(&str, &str)] = &[
     ("stage3.review.route_families", "Familiae itinerum"),
     ("stage3.review.bgp_behavior", "Comportamentum BGP"),
     ("stage3.review.bgp.mpbgp", "MP-BGP"),
-    ("stage3.review.bgp.separate", "Sessiones IPv4/IPv6 separatae"),
-    ("stage3.review.bgp.enh_suffix", " + Saltus Proximus Extensus"),
+    (
+        "stage3.review.bgp.separate",
+        "Sessiones IPv4/IPv6 separatae",
+    ),
+    (
+        "stage3.review.bgp.enh_suffix",
+        " + Saltus Proximus Extensus",
+    ),
     ("stage3.review.routing_policy", "Consilium cursus"),
     ("stage3.review.peer4", "Inscriptio IPv4 paris"),
     ("stage3.review.peer6", "Inscriptio IPv6 paris"),
@@ -442,12 +475,27 @@ pub(super) const TABLE: &[(&str, &str)] = &[
     ("draft.families.ipv6_only", "IPv6 solum"),
     ("draft.families.none", "Nullae familiae selectae"),
     ("location.region.europe", "Europa"),
-    ("location.region.north_america_e", "America Septentrionalis Orientalis"),
-    ("location.region.north_america_c", "America Septentrionalis Centralis"),
-    ("location.region.north_america_w", "America Septentrionalis Occidentalis"),
+    (
+        "location.region.north_america_e",
+        "America Septentrionalis Orientalis",
+    ),
+    (
+        "location.region.north_america_c",
+        "America Septentrionalis Centralis",
+    ),
+    (
+        "location.region.north_america_w",
+        "America Septentrionalis Occidentalis",
+    ),
     ("location.region.central_america", "America Centralis"),
-    ("location.region.south_america_e", "America Meridionalis Orientalis"),
-    ("location.region.south_america_w", "America Meridionalis Occidentalis"),
+    (
+        "location.region.south_america_e",
+        "America Meridionalis Orientalis",
+    ),
+    (
+        "location.region.south_america_w",
+        "America Meridionalis Occidentalis",
+    ),
     ("location.region.africa_n", "Africa Septentrionalis"),
     ("location.region.africa_s", "Africa Meridionalis"),
     ("location.region.asia_s", "Asia Meridionalis"),
@@ -456,7 +504,10 @@ pub(super) const TABLE: &[(&str, &str)] = &[
     ("location.region.asia_n", "Asia Septentrionalis"),
     ("location.region.asia_w", "Asia Occidentalis"),
     ("location.region.central_asia", "Asia Centralis"),
-    ("location.region.pacific_oceania", "Oceanus Pacificus et Oceania"),
+    (
+        "location.region.pacific_oceania",
+        "Oceanus Pacificus et Oceania",
+    ),
     ("location.region.antarctica", "Antarctica"),
     ("location.country.au", "Australia"),
     ("location.country.at", "Austria"),
@@ -686,10 +737,7 @@ pub(super) const TABLE: &[(&str, &str)] = &[
         "Unum ex nodis nostris elige antequam pergas",
     ),
     ("error.auth.asn.required", "ASN necessarius est"),
-    (
-        "error.auth.oidc.provider.missing",
-        "Provisor OIDC deest",
-    ),
+    ("error.auth.oidc.provider.missing", "Provisor OIDC deest"),
     ("error.request.challenge_id.missing", "challenge_id deest"),
     (
         "error.ui.auth.method.choose_first",
@@ -743,10 +791,7 @@ pub(super) const TABLE: &[(&str, &str)] = &[
         "error.runtime.unsupported_method",
         "Methodus HTTP {method} non sustinetur",
     ),
-    (
-        "error.runtime.request_failed",
-        "Rogatio defecit: {detail}",
-    ),
+    ("error.runtime.request_failed", "Rogatio defecit: {detail}"),
     (
         "error.runtime.config.load_failed",
         "config.json onerare defecit: {detail}",
@@ -804,8 +849,14 @@ pub(super) const TABLE: &[(&str, &str)] = &[
         "error.auth.session.token.missing",
         "Tessera sessionis bearer deest.",
     ),
-    ("error.auth.session.unknown", "Sessio autenticationis ignota."),
-    ("error.auth.session.expired", "Sessio autenticationis exspiravit."),
+    (
+        "error.auth.session.unknown",
+        "Sessio autenticationis ignota.",
+    ),
+    (
+        "error.auth.session.expired",
+        "Sessio autenticationis exspiravit.",
+    ),
     (
         "error.auth.impersonation.no_maintainers",
         "Hic ASN nullos custodes ad personationem praebitos habet.",
@@ -948,10 +999,22 @@ pub(super) const TABLE: &[(&str, &str)] = &[
         "{requested} in aut-num -> mnt-by pro hoc ASN non adest. Custodes praesto: {available}.",
     ),
     ("error.request.operation.not_found", "Operatio non inventa."),
-    ("error.request.operation.not_retryable", "Haec operatio iterari non potest."),
-    ("error.request.operation.not_droppable", "Haec operatio abici non potest."),
-    ("error.request.operation.pr_closed", "Rogatio tractus clausa est et iterari non potest."),
-    ("error.request.operation.branch_missing", "Ramus operationis in repositorio deest."),
+    (
+        "error.request.operation.not_retryable",
+        "Haec operatio iterari non potest.",
+    ),
+    (
+        "error.request.operation.not_droppable",
+        "Haec operatio abici non potest.",
+    ),
+    (
+        "error.request.operation.pr_closed",
+        "Rogatio tractus clausa est et iterari non potest.",
+    ),
+    (
+        "error.request.operation.branch_missing",
+        "Ramus operationis in repositorio deest.",
+    ),
     ("error.request.route.not_found", "Non inventum."),
     (
         "error.vault.not_configured",
@@ -1014,10 +1077,7 @@ pub(super) const TABLE: &[(&str, &str)] = &[
         "error.peer.managed.already_exists",
         "Par administratus AS{asn} iam in hoc nodo exstat",
     ),
-    (
-        "error.peer.not_found",
-        "Par AS{asn} in hoc nodo non exstat",
-    ),
+    ("error.peer.not_found", "Par AS{asn} in hoc nodo non exstat"),
     (
         "error.peer.already_managed",
         "Par AS{asn} iam ab Autopeer administratur",
@@ -1171,7 +1231,7 @@ pub(super) const TABLE: &[(&str, &str)] = &[
         "validation.wg_public_key.length",
         "Clavis WireGuard paris clavis publica Base64 44 characterum esse debet",
     ),
-(
+    (
         "validation.wg_public_key.charset",
         "Clavis WireGuard paris characteres Base64 invalidos continet",
     ),
@@ -1215,7 +1275,7 @@ pub(super) const TABLE: &[(&str, &str)] = &[
         "validation.psk.length",
         "Clavis praecommunicata clavis Base64 44 characterum esse debet",
     ),
-(
+    (
         "validation.psk.charset",
         "Clavis praecommunicata characteres Base64 invalidos continet",
     ),
@@ -1277,14 +1337,8 @@ pub(super) const TABLE: &[(&str, &str)] = &[
         "loading.send_email",
         "Nexum subscriptionis et codicem unius usus ad inscriptiones electronicas registri tui mittimus...",
     ),
-    (
-        "loading.check_ssh",
-        "Subscriptionem SSH tuam probamus...",
-    ),
-    (
-        "loading.check_pgp",
-        "Subscriptionem PGP tuam probamus...",
-    ),
+    ("loading.check_ssh", "Subscriptionem SSH tuam probamus..."),
+    ("loading.check_pgp", "Subscriptionem PGP tuam probamus..."),
     (
         "loading.check_email",
         "Codicem autenticationis electronicae registri tui probamus...",
@@ -1340,8 +1394,14 @@ pub(super) const TABLE: &[(&str, &str)] = &[
     // Worker validation / infrastructure errors
     ("error.field.required", "{field} requiritur."),
     ("error.field.must_be_string", "{field} debet esse chorda."),
-    ("error.field.must_be_boolean", "{field} debet esse Booleanum."),
-    ("error.field.must_be_integer", "{field} debet esse numerus integer."),
+    (
+        "error.field.must_be_boolean",
+        "{field} debet esse Booleanum.",
+    ),
+    (
+        "error.field.must_be_integer",
+        "{field} debet esse numerus integer.",
+    ),
     ("error.field.must_be_object", "{field} debet esse obiectum."),
     ("error.asn.format", "ASN debet esse formae 424242xxxx."),
     (

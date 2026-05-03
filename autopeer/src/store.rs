@@ -2,7 +2,9 @@ use std::net::{Ipv4Addr, Ipv6Addr};
 
 use serde::{Deserialize, Serialize};
 
-use crate::models::{AuthSessionResponse, MpBgpTransport, PeerSessionSpec, PeeringStrategy, PskField};
+use crate::models::{
+    AuthSessionResponse, MpBgpTransport, PeerSessionSpec, PeeringStrategy, PskField,
+};
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum AutoPeerStep {
@@ -188,8 +190,7 @@ impl SessionDraft {
 
     pub fn peer6_is_active(&self) -> bool {
         let transport = self.effective_mp_bgp_transport();
-        (self.ipv6 && !self.mp_bgp)
-            || (self.mp_bgp && transport == Some(MpBgpTransport::Ipv6))
+        (self.ipv6 && !self.mp_bgp) || (self.mp_bgp && transport == Some(MpBgpTransport::Ipv6))
     }
 
     fn tunnel_fields(&self) -> (Option<String>, Option<String>, Option<String>) {
@@ -1322,7 +1323,10 @@ mod tests {
 
         #[test]
         fn valid_32_byte_key() {
-            assert_eq!(decode_base64_len("sLbzTRr2gfLFb24NPzDOpy8j09Y6zI+a7NkeVMdVSR8="), Some(32));
+            assert_eq!(
+                decode_base64_len("sLbzTRr2gfLFb24NPzDOpy8j09Y6zI+a7NkeVMdVSR8="),
+                Some(32)
+            );
         }
 
         #[test]

@@ -1331,14 +1331,8 @@ pub(super) const TABLE: &[(&str, &str)] = &[
         "loading.send_email",
         "Anmeldelink und Einmalcode werden an Ihre Registry-E-Mail-Kontakte gesendet...",
     ),
-    (
-        "loading.check_ssh",
-        "Überprüfen Sie Ihre SSH-Signatur ...",
-    ),
-    (
-        "loading.check_pgp",
-        "Überprüfen Sie Ihre PGP-Signatur ...",
-    ),
+    ("loading.check_ssh", "Überprüfen Sie Ihre SSH-Signatur ..."),
+    ("loading.check_pgp", "Überprüfen Sie Ihre PGP-Signatur ..."),
     (
         "loading.check_email",
         "Überprüfen Sie den E-Mail-Authentifizierungscode Ihrer Registrierung ...",
@@ -1393,11 +1387,26 @@ pub(super) const TABLE: &[(&str, &str)] = &[
     ),
     // Worker validation / infrastructure errors
     ("error.field.required", "{field} ist erforderlich."),
-    ("error.field.must_be_string", "{field} muss eine Zeichenkette sein."),
-    ("error.field.must_be_boolean", "{field} muss ein Boolescher Wert sein."),
-    ("error.field.must_be_integer", "{field} muss eine ganze Zahl sein."),
-    ("error.field.must_be_object", "{field} muss ein Objekt sein."),
-    ("error.asn.format", "Die ASN muss dem Format 424242xxxx entsprechen."),
+    (
+        "error.field.must_be_string",
+        "{field} muss eine Zeichenkette sein.",
+    ),
+    (
+        "error.field.must_be_boolean",
+        "{field} muss ein Boolescher Wert sein.",
+    ),
+    (
+        "error.field.must_be_integer",
+        "{field} muss eine ganze Zahl sein.",
+    ),
+    (
+        "error.field.must_be_object",
+        "{field} muss ein Objekt sein.",
+    ),
+    (
+        "error.asn.format",
+        "Die ASN muss dem Format 424242xxxx entsprechen.",
+    ),
     (
         "error.node.lock.unreadable",
         "Knotensperre für {node} konnte nicht gelesen werden.",

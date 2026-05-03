@@ -1,9 +1,7 @@
 use std::collections::BTreeMap;
 
 use common::models::PeeringInfo;
-use serde::de::Deserializer;
-use serde::ser::Serializer;
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Serialize, de::Deserializer, ser::Serializer};
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize, PartialEq, Eq)]
 pub struct UiMessage {

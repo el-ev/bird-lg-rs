@@ -141,7 +141,10 @@ pub(super) const TABLE: &[(&str, &str)] = &[
         "verify.pgp.pubkey_placeholder",
         "-----BEGIN PGP PUBLIC KEY BLOCK-----",
     ),
-    ("verify.pgp.lookup.searching", "正在密钥服务器上查找\u{2026}"),
+    (
+        "verify.pgp.lookup.searching",
+        "正在密钥服务器上查找\u{2026}",
+    ),
     ("verify.pgp.lookup.found", "已从密钥服务器获取"),
     ("verify.pgp.lookup.found_from", "已从 {source} 获取"),
     // Step: VerifyMethod (Email)
@@ -159,17 +162,11 @@ pub(super) const TABLE: &[(&str, &str)] = &[
         "verify.email.sent_to_prefix",
         "我们已发送登入链接和认证代码至 {emails}。",
     ),
-    (
-        "verify.email.code_prompt",
-        "粘贴来自你的邮件的认证代码",
-    ),
+    ("verify.email.code_prompt", "粘贴来自你的邮件的认证代码"),
     ("verify.email.code_placeholder", "12345678"),
     // Step: VerifyMethod (OIDC / Host)
     ("verify.oidc.continue_to", "继续前往 {provider}"),
-    (
-        "verify.oidc.in_browser",
-        "在你的浏览器中前往 {provider}",
-    ),
+    ("verify.oidc.in_browser", "在你的浏览器中前往 {provider}"),
     (
         "verify.oidc.redirect_note",
         "我们将会把你重定向至你的提供商，并在其证明你的 ASN 和维护者声明后带你回到此处。",
@@ -178,22 +175,13 @@ pub(super) const TABLE: &[(&str, &str)] = &[
         "verify.host.note",
         "在认证了我们配置的任一主 ASN 后即可使用冒充功能。",
     ),
-    (
-        "verify.choose_first",
-        "请先选择一种认证方式。",
-    ),
+    ("verify.choose_first", "请先选择一种认证方式。"),
     ("verify.auth_for_as", "{label} 用于 AS{asn}"),
     // Manage / dashboard headings
     ("dashboard.flow_kicker", "你的对等流程"),
-    (
-        "dashboard.host_readonly_title",
-        "我们的主 ASN 在此保持只读",
-    ),
+    ("dashboard.host_readonly_title", "我们的主 ASN 在此保持只读"),
     ("dashboard.update_managed_title", "更新你的会话"),
-    (
-        "dashboard.create_or_manage_title",
-        "创建或管理你的会话",
-    ),
+    ("dashboard.create_or_manage_title", "创建或管理你的会话"),
     (
         "dashboard.host_readonly_body",
         "我们的主 ASN 仅用于支持其他网络。在创建、更新或停用会话前，请先冒充你想要管理的 ASN。",
@@ -202,7 +190,10 @@ pub(super) const TABLE: &[(&str, &str)] = &[
         "dashboard.create_or_manage_body",
         "完成一次认证并选择我们的一个节点。随后你可以创建新会话，或打开现有会话以更新或停用它。",
     ),
-    ("dashboard.session_badge_template", "{mnt} 通过 {label} 认证"),
+    (
+        "dashboard.session_badge_template",
+        "{mnt} 通过 {label} 认证",
+    ),
     // Sidebar
     ("sidebar.your_session_kicker", "你的会话"),
     ("sidebar.no_active_session", "无活跃会话"),
@@ -258,10 +249,7 @@ pub(super) const TABLE: &[(&str, &str)] = &[
     ),
     ("stage1.state.available", "可用"),
     ("stage1.state.disabled", "已禁用"),
-    (
-        "stage1.state.note.create",
-        "在此节点上创建你的会话。",
-    ),
+    ("stage1.state.note.create", "在此节点上创建你的会话。"),
     (
         "stage1.state.note.managed",
         "打开此节点以更新或停用你的会话。",
@@ -270,10 +258,7 @@ pub(super) const TABLE: &[(&str, &str)] = &[
         "stage1.state.note.manual",
         "打开此节点以查看当前仓库配置。保存后该会话将自动纳入自助对等管理。",
     ),
-    (
-        "stage1.state.note.pending",
-        "此处你的会话变更已在进行中。",
-    ),
+    ("stage1.state.note.pending", "此处你的会话变更已在进行中。"),
     (
         "stage1.state.note.stalled",
         "上次部署失败——点击修改、重新部署或放弃更改。",
@@ -298,10 +283,7 @@ pub(super) const TABLE: &[(&str, &str)] = &[
         "stage2.title.update_prefix",
         "在 {node} 上更新或停用你的会话",
     ),
-    (
-        "stage2.title.create_prefix",
-        "在 {node} 上配置你的会话",
-    ),
+    ("stage2.title.create_prefix", "在 {node} 上配置你的会话"),
     ("stage2.title.create_blank", "配置你的新会话"),
     (
         "stage2.update_intro",
@@ -369,10 +351,7 @@ pub(super) const TABLE: &[(&str, &str)] = &[
     ("stage2.field.bgp.transport", "传输层"),
     ("stage2.field.policy", "策略"),
     ("stage2.field.comment", "备注"),
-    (
-        "stage2.field.comment.placeholder",
-        "关于你的会话的可选备注",
-    ),
+    ("stage2.field.comment.placeholder", "关于你的会话的可选备注"),
     ("stage2.field.keepalive", "持久保活"),
     (
         "stage2.field.keepalive.placeholder",
@@ -382,13 +361,22 @@ pub(super) const TABLE: &[(&str, &str)] = &[
     ("stage2.field.mtu.placeholder", "可选 MTU"),
     ("stage2.field.psk", "预共享密钥"),
     ("stage2.field.psk.placeholder", "可选的 WireGuard PSK"),
-    ("stage2.field.psk.placeholder.existing", "已配置 PSK — 留空以保留"),
+    (
+        "stage2.field.psk.placeholder.existing",
+        "已配置 PSK — 留空以保留",
+    ),
     ("stage2.field.psk.clear", "清除 PSK"),
     ("stage2.field.psk.generate", "生成 PSK"),
     ("stage2.field.psk.copied", "已复制"),
-    ("stage2.field.psk.help", "可选的 WireGuard 预共享密钥，用于增强安全性。密钥将在存储前加密。"),
+    (
+        "stage2.field.psk.help",
+        "可选的 WireGuard 预共享密钥，用于增强安全性。密钥将在存储前加密。",
+    ),
     ("stage2.field.encrypt_endpoint", "加密"),
-    ("stage2.field.encrypt_endpoint.help", "在 Git 仓库中加密你的 Endpoint 地址，使其不以明文形式出现。"),
+    (
+        "stage2.field.encrypt_endpoint.help",
+        "在 Git 仓库中加密你的 Endpoint 地址，使其不以明文形式出现。",
+    ),
     // Stage 3: Review
     ("stage3.kicker", "阶段 3"),
     ("stage3.title", "在我们创建拉取请求前审核你的变更"),
@@ -532,10 +520,7 @@ pub(super) const TABLE: &[(&str, &str)] = &[
         "operation.message.pending_merge",
         "节点上应用成功；正在等待合并。",
     ),
-    (
-        "operation.message.completed",
-        "你的变更已成功应用并合并。",
-    ),
+    ("operation.message.completed", "你的变更已成功应用并合并。"),
     ("operation.message.failed", "你的变更失败。"),
     (
         "operation.message.conflict",
@@ -581,10 +566,7 @@ pub(super) const TABLE: &[(&str, &str)] = &[
         "operation.message.merge_failed",
         "正在等待合并。合并尝试失败：{error}",
     ),
-    (
-        "operation.message.dropped",
-        "更改已放弃——拉取请求已关闭。",
-    ),
+    ("operation.message.dropped", "更改已放弃——拉取请求已关闭。"),
     ("operation.failure_stage.checks", "CI 检查"),
     ("operation.failure_stage.preflight", "节点预检"),
     ("operation.failure_stage.apply", "节点应用"),
@@ -634,10 +616,7 @@ pub(super) const TABLE: &[(&str, &str)] = &[
     ("prompt.code", "验证码"),
     // Generic loading / errors
     ("status.working", "处理中..."),
-    (
-        "error.ui.node.choose",
-        "请先选择我们的一个节点再继续",
-    ),
+    ("error.ui.node.choose", "请先选择我们的一个节点再继续"),
     (
         "error.ui.node.choose_inline",
         "请先选择我们的一个节点再创建拉取请求",
@@ -662,19 +641,13 @@ pub(super) const TABLE: &[(&str, &str)] = &[
         "error.ui.session.choose_managed_to_delete",
         "请先选择一个会话再删除",
     ),
-    (
-        "error.ui.auth.authenticate_first",
-        "请先完成认证再继续",
-    ),
+    ("error.ui.auth.authenticate_first", "请先完成认证再继续"),
     (
         "error.ui.node.choose_default",
         "请先选择我们的一个节点再继续",
     ),
     ("error.auth.asn.required", "ASN 为必填项"),
-    (
-        "error.auth.oidc.provider.missing",
-        "缺少 OIDC 提供商",
-    ),
+    ("error.auth.oidc.provider.missing", "缺少 OIDC 提供商"),
     ("error.request.challenge_id.missing", "缺少 challenge_id"),
     (
         "error.ui.auth.method.choose_first",
@@ -712,34 +685,22 @@ pub(super) const TABLE: &[(&str, &str)] = &[
         "error.ui.auth.impersonation.host_required",
         "冒充功能仅在认证了我们配置的主 ASN 之一后可用。",
     ),
-    (
-        "error.runtime.decode_failed",
-        "响应解码失败：{detail}",
-    ),
+    ("error.runtime.decode_failed", "响应解码失败：{detail}"),
     (
         "error.runtime.http_failed",
         "HTTP 请求失败，状态码 {status}",
     ),
-    (
-        "error.runtime.encode_failed",
-        "载荷编码失败：{detail}",
-    ),
+    ("error.runtime.encode_failed", "载荷编码失败：{detail}"),
     (
         "error.runtime.unsupported_method",
         "不支持的 HTTP 方法 {method}",
     ),
-    (
-        "error.runtime.request_failed",
-        "请求失败：{detail}",
-    ),
+    ("error.runtime.request_failed", "请求失败：{detail}"),
     (
         "error.runtime.config.load_failed",
         "加载 config.json 失败：{detail}",
     ),
-    (
-        "error.runtime.browser.unavailable",
-        "浏览器窗口不可用",
-    ),
+    ("error.runtime.browser.unavailable", "浏览器窗口不可用"),
     (
         "error.runtime.oidc.redirect_failed",
         "无法打开 OIDC 登录重定向",
@@ -777,18 +738,9 @@ pub(super) const TABLE: &[(&str, &str)] = &[
         "此部署中不提供注册库邮件登录。",
     ),
     ("error.auth.challenge.unknown_id", "未知的 challenge_id。"),
-    (
-        "error.auth.challenge.expired",
-        "你的认证质询已过期。",
-    ),
-    (
-        "error.auth.challenge.used",
-        "此认证质询已被使用。",
-    ),
-    (
-        "error.auth.session.token.missing",
-        "缺少 Bearer 会话令牌。",
-    ),
+    ("error.auth.challenge.expired", "你的认证质询已过期。"),
+    ("error.auth.challenge.used", "此认证质询已被使用。"),
+    ("error.auth.session.token.missing", "缺少 Bearer 会话令牌。"),
     ("error.auth.session.unknown", "未知的认证会话。"),
     ("error.auth.session.expired", "认证会话已过期。"),
     (
@@ -803,10 +755,7 @@ pub(super) const TABLE: &[(&str, &str)] = &[
         "error.auth.ssh.unrecognized_key",
         "你的 SSH 签名使用的密钥不存在于已解析的维护者对象中。",
     ),
-    (
-        "error.auth.ssh.verification_failed",
-        "SSH 签名验证失败。",
-    ),
+    ("error.auth.ssh.verification_failed", "SSH 签名验证失败。"),
     (
         "error.auth.pgp.invalid_public_key",
         "PGP 公钥无效。请导出你的 ASCII 保护的公钥并粘贴完整块。",
@@ -891,26 +840,11 @@ pub(super) const TABLE: &[(&str, &str)] = &[
         "error.auth.oidc.state.missing",
         "OIDC 登录状态未找到或已过期。",
     ),
-    (
-        "error.auth.oidc.state.expired",
-        "OIDC 登录状态已过期。",
-    ),
-    (
-        "error.auth.oidc.state.pending",
-        "OIDC 登录尚未完成。",
-    ),
-    (
-        "error.auth.oidc.session.missing",
-        "OIDC 登录会话已不可用。",
-    ),
-    (
-        "error.auth.oidc.session.expired",
-        "OIDC 登录会话已过期。",
-    ),
-    (
-        "error.auth.oidc.callback.failed",
-        "OIDC 登录失败；请重试。",
-    ),
+    ("error.auth.oidc.state.expired", "OIDC 登录状态已过期。"),
+    ("error.auth.oidc.state.pending", "OIDC 登录尚未完成。"),
+    ("error.auth.oidc.session.missing", "OIDC 登录会话已不可用。"),
+    ("error.auth.oidc.session.expired", "OIDC 登录会话已过期。"),
+    ("error.auth.oidc.callback.failed", "OIDC 登录失败；请重试。"),
     (
         "error.auth.oidc.identity.asn_mismatch",
         "OIDC 身份 ASN {token_asn} 与请求的 ASN {requested_asn} 不匹配。",
@@ -935,8 +869,14 @@ pub(super) const TABLE: &[(&str, &str)] = &[
     ("error.request.operation.not_found", "操作未找到。"),
     ("error.request.operation.not_retryable", "此操作无法重试。"),
     ("error.request.operation.not_droppable", "此操作无法放弃。"),
-    ("error.request.operation.pr_closed", "拉取请求已关闭，无法重试。"),
-    ("error.request.operation.branch_missing", "操作分支在仓库中缺失。"),
+    (
+        "error.request.operation.pr_closed",
+        "拉取请求已关闭，无法重试。",
+    ),
+    (
+        "error.request.operation.branch_missing",
+        "操作分支在仓库中缺失。",
+    ),
     ("error.request.route.not_found", "未找到。"),
     (
         "error.vault.not_configured",
@@ -947,10 +887,7 @@ pub(super) const TABLE: &[(&str, &str)] = &[
         "error.repo.inventory.missing",
         "网络仓库缺少 inventory.yaml",
     ),
-    (
-        "error.repo.peer_file.missing",
-        "网络仓库缺少 {path}",
-    ),
+    ("error.repo.peer_file.missing", "网络仓库缺少 {path}"),
     (
         "error.node.not_eligible",
         "节点 {node} 不符合 Autopeer 条件",
@@ -983,50 +920,26 @@ pub(super) const TABLE: &[(&str, &str)] = &[
         "error.request.session.mp_bgp_transport.invalid",
         "session.mp_bgp_transport 必须为 ipv4 或 ipv6 之一",
     ),
-    (
-        "error.request.session_payload.invalid",
-        "会话载荷无效",
-    ),
-    (
-        "error.peer.duplicate",
-        "对端文件中存在重复的 ASN AS{asn}",
-    ),
-    (
-        "error.peer.create.session_required",
-        "创建操作需要会话载荷",
-    ),
+    ("error.request.session_payload.invalid", "会话载荷无效"),
+    ("error.peer.duplicate", "对端文件中存在重复的 ASN AS{asn}"),
+    ("error.peer.create.session_required", "创建操作需要会话载荷"),
     (
         "error.peer.managed.already_exists",
         "托管对端 AS{asn} 已存在于此节点",
     ),
-    (
-        "error.peer.not_found",
-        "对端 AS{asn} 在此节点上不存在",
-    ),
+    ("error.peer.not_found", "对端 AS{asn} 在此节点上不存在"),
     (
         "error.peer.already_managed",
         "对端 AS{asn} 已由 Autopeer 管理",
     ),
-    (
-        "error.peer.update.session_required",
-        "更新操作需要会话载荷",
-    ),
+    ("error.peer.update.session_required", "更新操作需要会话载荷"),
     (
         "error.peer.manual.cannot_modify",
         "手动对端 AS{asn} 无法由 Autopeer 修改",
     ),
-    (
-        "error.data.yaml_root.invalid",
-        "YAML 根节点必须为映射",
-    ),
-    (
-        "error.data.peer_entry.invalid",
-        "对端条目必须为映射",
-    ),
-    (
-        "error.data.peer_entry.missing_bgp",
-        "对端条目缺少 BGP 映射",
-    ),
+    ("error.data.yaml_root.invalid", "YAML 根节点必须为映射"),
+    ("error.data.peer_entry.invalid", "对端条目必须为映射"),
+    ("error.data.peer_entry.missing_bgp", "对端条目缺少 BGP 映射"),
     (
         "error.data.peer_entry.missing_asn",
         "对端条目缺少有效的 bgp.asn",
@@ -1056,10 +969,7 @@ pub(super) const TABLE: &[(&str, &str)] = &[
         "validation.tunnel.required",
         "至少添加一个隧道地址：IPv4 或 IPv6",
     ),
-    (
-        "validation.bgp_family.required",
-        "至少启用一个 BGP 路由族",
-    ),
+    ("validation.bgp_family.required", "至少启用一个 BGP 路由族"),
     (
         "validation.peer4.required_mp_bgp",
         "MP-BGP 基于 IPv4 传输层时需要对端 IPv4 地址",
@@ -1112,10 +1022,7 @@ pub(super) const TABLE: &[(&str, &str)] = &[
         "validation.own6.must_differ_from_peer6",
         "对端链路本地 IPv6 必须与我方链路本地 IPv6 不同",
     ),
-    (
-        "validation.endpoint.no_spaces",
-        "远程端点不能包含空格",
-    ),
+    ("validation.endpoint.no_spaces", "远程端点不能包含空格"),
     (
         "validation.endpoint.ipv6_format",
         "IPv6 端点必须使用 [addr]:port 格式",
@@ -1128,14 +1035,8 @@ pub(super) const TABLE: &[(&str, &str)] = &[
         "validation.endpoint.host_port_format",
         "远程端点必须使用 host:port 或 [ipv6]:port 格式",
     ),
-    (
-        "validation.endpoint.port_required",
-        "远程端点必须包含端口",
-    ),
-    (
-        "validation.endpoint.host_required",
-        "远程端点主机为必填项",
-    ),
+    ("validation.endpoint.port_required", "远程端点必须包含端口"),
+    ("validation.endpoint.host_required", "远程端点主机为必填项"),
     (
         "validation.endpoint.host_invalid",
         "远程端点主机必须为 IPv4 地址或完整域名",
@@ -1156,7 +1057,7 @@ pub(super) const TABLE: &[(&str, &str)] = &[
         "validation.wg_public_key.length",
         "对端 WireGuard 密钥必须为 44 字符的 Base64 公钥",
     ),
-(
+    (
         "validation.wg_public_key.charset",
         "对端 WireGuard 密钥包含无效的 Base64 字符",
     ),
@@ -1184,26 +1085,14 @@ pub(super) const TABLE: &[(&str, &str)] = &[
         "validation.own6.scope",
         "本地链路本地 IPv6 必须为链路本地 IPv6 地址",
     ),
-    (
-        "validation.keepalive.invalid",
-        "持久保活必须为有效数字",
-    ),
-    (
-        "validation.mtu.invalid",
-        "接口 MTU 必须为有效数字",
-    ),
-    (
-        "validation.mtu.range",
-        "接口 MTU 必须在 1280 到 1500 之间",
-    ),
+    ("validation.keepalive.invalid", "持久保活必须为有效数字"),
+    ("validation.mtu.invalid", "接口 MTU 必须为有效数字"),
+    ("validation.mtu.range", "接口 MTU 必须在 1280 到 1500 之间"),
     (
         "validation.psk.length",
         "预共享密钥必须为 44 字符的 Base64 密钥",
     ),
-(
-        "validation.psk.charset",
-        "预共享密钥包含无效的 Base64 字符",
-    ),
+    ("validation.psk.charset", "预共享密钥包含无效的 Base64 字符"),
     // Backend-only validation
     (
         "validation.mp_bgp_transport.invalid",
@@ -1213,14 +1102,8 @@ pub(super) const TABLE: &[(&str, &str)] = &[
         "validation.peering_strategy.invalid",
         "互联策略必须为 standard 或 aggressive",
     ),
-    (
-        "validation.port.range",
-        "端口必须在 1 到 65535 之间",
-    ),
-    (
-        "validation.endpoint.required",
-        "远程端点为必填项",
-    ),
+    ("validation.port.range", "端口必须在 1 到 65535 之间"),
+    ("validation.endpoint.required", "远程端点为必填项"),
     (
         "validation.endpoint.node_ipv6_only",
         "{node} 仅支持 IPv6；请使用域名或 IPv6 端点",
@@ -1230,14 +1113,8 @@ pub(super) const TABLE: &[(&str, &str)] = &[
         "{node} 仅支持 IPv4；请使用域名或 IPv4 端点",
     ),
     // Loading messages
-    (
-        "loading.email_login",
-        "正在完成你的邮件登录并加载会话...",
-    ),
-    (
-        "loading.oidc_login",
-        "正在完成你的 OIDC 登录并加载会话...",
-    ),
+    ("loading.email_login", "正在完成你的邮件登录并加载会话..."),
+    ("loading.oidc_login", "正在完成你的 OIDC 登录并加载会话..."),
     (
         "loading.fetch_sessions",
         "正在从我们的仓库获取你的当前会话...",
@@ -1262,26 +1139,11 @@ pub(super) const TABLE: &[(&str, &str)] = &[
         "loading.send_email",
         "正在向你的注册库邮件联系人发送登入链接和一次性代码...",
     ),
-    (
-        "loading.check_ssh",
-        "正在验证你的 SSH 签名...",
-    ),
-    (
-        "loading.check_pgp",
-        "正在验证你的 PGP 签名...",
-    ),
-    (
-        "loading.check_email",
-        "正在验证你的注册库邮件认证代码...",
-    ),
-    (
-        "loading.host_session_prep",
-        "正在准备你的主 ASN 会话...",
-    ),
-    (
-        "loading.authing_asn",
-        "正在根据 dn42 注册库认证该 ASN...",
-    ),
+    ("loading.check_ssh", "正在验证你的 SSH 签名..."),
+    ("loading.check_pgp", "正在验证你的 PGP 签名..."),
+    ("loading.check_email", "正在验证你的注册库邮件认证代码..."),
+    ("loading.host_session_prep", "正在准备你的主 ASN 会话..."),
+    ("loading.authing_asn", "正在根据 dn42 注册库认证该 ASN..."),
     (
         "loading.restore_host",
         "正在从我们的仓库恢复你的主 ASN 会话...",
@@ -1310,18 +1172,9 @@ pub(super) const TABLE: &[(&str, &str)] = &[
         "operation.message.workflow_failed.full",
         "工作流在 {stage} 阶段的步骤「{step}」失败：{annotation}（{conclusion}）",
     ),
-    (
-        "loading.delete_pr",
-        "正在从仓库中删除会话并创建拉取请求……",
-    ),
-    (
-        "loading.retry_operation",
-        "正在重试失败的操作……",
-    ),
-    (
-        "loading.drop_operation",
-        "正在放弃更改并关闭拉取请求……",
-    ),
+    ("loading.delete_pr", "正在从仓库中删除会话并创建拉取请求……"),
+    ("loading.retry_operation", "正在重试失败的操作……"),
+    ("loading.drop_operation", "正在放弃更改并关闭拉取请求……"),
     // Worker validation / infrastructure errors
     ("error.field.required", "{field} 不能为空。"),
     ("error.field.must_be_string", "{field} 必须为字符串。"),
@@ -1329,14 +1182,8 @@ pub(super) const TABLE: &[(&str, &str)] = &[
     ("error.field.must_be_integer", "{field} 必须为整数。"),
     ("error.field.must_be_object", "{field} 必须为对象。"),
     ("error.asn.format", "ASN 必须形如 424242xxxx。"),
-    (
-        "error.node.lock.unreadable",
-        "无法读取节点 {node} 的锁。",
-    ),
-    (
-        "error.email.send_failed",
-        "登录邮件发送失败：{detail}",
-    ),
+    ("error.node.lock.unreadable", "无法读取节点 {node} 的锁。"),
+    ("error.email.send_failed", "登录邮件发送失败：{detail}"),
     (
         "error.github.api_failed",
         "GitHub 请求 {path} 失败（HTTP {status}）。",

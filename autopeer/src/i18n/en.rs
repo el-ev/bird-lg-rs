@@ -302,10 +302,7 @@ pub(super) const TABLE: &[(&str, &str)] = &[
         "This node is not accepting autopeer sessions right now.",
     ),
     // Stalled PR banner
-    (
-        "stalled.banner.title",
-        "Deployment Failed",
-    ),
+    ("stalled.banner.title", "Deployment Failed"),
     (
         "stalled.banner.body",
         "A previous change has an open PR that failed to deploy. You can modify the config and submit again, re-deploy the existing PR, or drop the changes entirely.",
@@ -400,13 +397,22 @@ pub(super) const TABLE: &[(&str, &str)] = &[
     ("stage2.field.mtu.placeholder", "Optional MTU"),
     ("stage2.field.psk", "Pre-shared key"),
     ("stage2.field.psk.placeholder", "Optional WireGuard PSK"),
-    ("stage2.field.psk.placeholder.existing", "PSK configured — leave empty to keep"),
+    (
+        "stage2.field.psk.placeholder.existing",
+        "PSK configured — leave empty to keep",
+    ),
     ("stage2.field.psk.clear", "Clear PSK"),
     ("stage2.field.psk.generate", "Generate PSK"),
     ("stage2.field.psk.copied", "Copied"),
-    ("stage2.field.psk.help", "An optional WireGuard pre-shared key for added security. The key will be encrypted before storage."),
+    (
+        "stage2.field.psk.help",
+        "An optional WireGuard pre-shared key for added security. The key will be encrypted before storage.",
+    ),
     ("stage2.field.encrypt_endpoint", "Encrypted"),
-    ("stage2.field.encrypt_endpoint.help", "Encrypt your endpoint address in the git repository so it is not visible in plaintext."),
+    (
+        "stage2.field.encrypt_endpoint.help",
+        "Encrypt your endpoint address in the git repository so it is not visible in plaintext.",
+    ),
     // Stage 3: Review
     ("stage3.kicker", "Stage 3"),
     ("stage3.title", "Review your change before we open the PR"),
@@ -746,10 +752,7 @@ pub(super) const TABLE: &[(&str, &str)] = &[
         "error.runtime.unsupported_method",
         "Unsupported HTTP method {method}",
     ),
-    (
-        "error.runtime.request_failed",
-        "Request failed: {detail}",
-    ),
+    ("error.runtime.request_failed", "Request failed: {detail}"),
     (
         "error.runtime.config.load_failed",
         "Failed to load config.json: {detail}",
@@ -951,10 +954,22 @@ pub(super) const TABLE: &[(&str, &str)] = &[
         "{requested} is not present in aut-num -> mnt-by for this ASN. Available mntners: {available}.",
     ),
     ("error.request.operation.not_found", "Operation not found."),
-    ("error.request.operation.not_retryable", "This operation cannot be retried."),
-    ("error.request.operation.not_droppable", "This operation cannot be dropped."),
-    ("error.request.operation.pr_closed", "The pull request has been closed and cannot be retried."),
-    ("error.request.operation.branch_missing", "The operation branch is missing from the repository."),
+    (
+        "error.request.operation.not_retryable",
+        "This operation cannot be retried.",
+    ),
+    (
+        "error.request.operation.not_droppable",
+        "This operation cannot be dropped.",
+    ),
+    (
+        "error.request.operation.pr_closed",
+        "The pull request has been closed and cannot be retried.",
+    ),
+    (
+        "error.request.operation.branch_missing",
+        "The operation branch is missing from the repository.",
+    ),
     ("error.request.route.not_found", "Not found."),
     (
         "error.vault.not_configured",
@@ -1174,7 +1189,7 @@ pub(super) const TABLE: &[(&str, &str)] = &[
         "validation.wg_public_key.length",
         "Peer WireGuard key must be a 44-character base64 public key",
     ),
-(
+    (
         "validation.wg_public_key.charset",
         "Peer WireGuard key contains invalid base64 characters",
     ),
@@ -1218,7 +1233,7 @@ pub(super) const TABLE: &[(&str, &str)] = &[
         "validation.psk.length",
         "Pre-shared key must be a 44-character base64 key",
     ),
-(
+    (
         "validation.psk.charset",
         "Pre-shared key contains invalid base64 characters",
     ),
@@ -1231,10 +1246,7 @@ pub(super) const TABLE: &[(&str, &str)] = &[
         "validation.peering_strategy.invalid",
         "Peering strategy must be standard or aggressive",
     ),
-    (
-        "validation.port.range",
-        "Port must be between 1 and 65535",
-    ),
+    ("validation.port.range", "Port must be between 1 and 65535"),
     (
         "validation.endpoint.required",
         "Remote endpoint is required",
@@ -1280,14 +1292,8 @@ pub(super) const TABLE: &[(&str, &str)] = &[
         "loading.send_email",
         "Sending a sign-in link and one-time code to your registry email contacts...",
     ),
-    (
-        "loading.check_ssh",
-        "Checking your SSH signature...",
-    ),
-    (
-        "loading.check_pgp",
-        "Checking your PGP signature...",
-    ),
+    ("loading.check_ssh", "Checking your SSH signature..."),
+    ("loading.check_pgp", "Checking your PGP signature..."),
     (
         "loading.check_email",
         "Checking your registry email auth code...",
