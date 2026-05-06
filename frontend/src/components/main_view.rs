@@ -3,6 +3,7 @@ use yew::prelude::*;
 use crate::{
     components::{content_modal::ContentModal, header::Header, status_banner::StatusBanner},
     store::{AppEvent, LgStateHandle, route_info::RouteInfoHandle},
+    utils::clear_hash_route,
 };
 
 #[derive(Properties, PartialEq)]
@@ -21,9 +22,14 @@ pub fn main_view(props: &MainViewProps) -> Html {
     {
         let state = state.clone();
         let route_path = route_info.path.clone();
+        let first_render = use_mut_ref(|| true);
         use_effect_with(route_path, move |_| {
-            state.dispatch(AppEvent::CloseActiveCommandOutput);
-            || ()
+            if *first_render.borrow() {
+                *first_render.borrow_mut() = false;
+            } else {
+                clear_hash_route();
+                state.dispatch(AppEvent::CloseActiveCommandOutput);
+            }
         });
     }
 
@@ -46,6 +52,7 @@ pub fn main_view(props: &MainViewProps) -> Html {
                     on_close={
                         let state = state.clone();
                         Callback::from(move |_| {
+                            clear_hash_route();
                             state.dispatch(AppEvent::CloseActiveCommandOutput);
                         })
                     }
