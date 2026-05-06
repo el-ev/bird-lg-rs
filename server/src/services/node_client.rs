@@ -186,7 +186,7 @@ impl NodeClient {
                     Self::cached_protocol_snapshot(
                         node,
                         current,
-                        "Received invalid response from node. Showing cached data.".to_string(),
+                        "Received invalid response from node.".to_string(),
                     )
                 }
             },
@@ -203,7 +203,7 @@ impl NodeClient {
                 Self::cached_protocol_snapshot(
                     node,
                     current,
-                    "Unable to reach node. Showing cached data.".to_string(),
+                    "Unable to reach node.".to_string(),
                 )
             }
         }
@@ -238,13 +238,20 @@ impl NodeClient {
         current: Option<&NodeProtocol>,
         error: String,
     ) -> NodeProtocol {
+        let has_cached = current.is_some_and(|c| !c.protocols.is_empty());
+        let error_msg = if has_cached {
+            format!("{error} Showing cached data.")
+        } else {
+            error
+        };
         NodeProtocol {
             name: node.name.clone(),
             protocols: current
+                .filter(|_| has_cached)
                 .map(|value| value.protocols.clone())
                 .unwrap_or_default(),
             last_updated: Utc::now(),
-            error: Some(error),
+            error: Some(error_msg),
         }
     }
 }
