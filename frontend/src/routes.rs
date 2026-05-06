@@ -8,8 +8,6 @@ pub enum Route {
     Protocols,
     #[at("/node/:name/")]
     Node { name: String },
-    #[at("/node/:node/peer/:peer/")]
-    PeerRoutes { node: String, peer: String },
     #[at("/peering")]
     Peering,
     #[at("/wireguard")]

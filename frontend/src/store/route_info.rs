@@ -59,7 +59,7 @@ pub fn route_info_provider(props: &RouteInfoProviderProps) -> Html {
     let route_info = use_memo((route.clone(), app_state.clone()), |(route, app_state)| {
         let path = route.to_path();
         let node_name = match route {
-            Route::Node { name } | Route::PeerRoutes { node: name, .. } => Some(name.clone()),
+            Route::Node { name } => Some(name.clone()),
             _ => None,
         };
 
