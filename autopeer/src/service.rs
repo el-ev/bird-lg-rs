@@ -1,4 +1,4 @@
-use reqwasm::http::{Request, Response};
+use gloo_net::http::{Request, RequestBuilder, Response};
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
 
 use crate::browser::{LOCALE_STORAGE_KEY, local_storage};
@@ -19,7 +19,7 @@ fn current_locale_code() -> Option<String> {
         .flatten()
 }
 
-fn apply_locale_header(request: Request) -> Request {
+fn apply_locale_header(request: RequestBuilder) -> RequestBuilder {
     if let Some(locale) = current_locale_code() {
         request.header("Accept-Language", &locale)
     } else {
@@ -88,6 +88,9 @@ async fn send_json<B: Serialize, T: DeserializeOwned>(
     let response = request
         .header("Content-Type", "application/json")
         .body(payload)
+        .map_err(|error| {
+            UiMessage::key("error.runtime.request_failed").with_param("detail", error.to_string())
+        })?
         .send()
         .await
         .map_err(|error| {

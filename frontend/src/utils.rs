@@ -12,7 +12,7 @@ pub async fn sleep_ms(ms: i32) {
 }
 
 pub async fn fetch_json<T: serde::de::DeserializeOwned>(url: &str) -> Result<T, String> {
-    match reqwasm::http::Request::get(url).send().await {
+    match gloo_net::http::Request::get(url).send().await {
         Ok(resp) if resp.ok() => resp
             .json::<T>()
             .await
