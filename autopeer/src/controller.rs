@@ -531,6 +531,9 @@ fn clear_location_hash() {
 }
 
 fn redirect_to(url: &str) -> Result<(), UiMessage> {
+    if !url.starts_with("https://") {
+        return Err(UiMessage::key("error.runtime.oidc.redirect_failed"));
+    }
     let Some(window) = web_sys::window() else {
         return Err(UiMessage::key("error.runtime.browser.unavailable"));
     };
