@@ -332,7 +332,7 @@ impl Serialize for PskField {
     fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
         match self {
             PskField::Unchanged => serializer.serialize_none(),
-            PskField::Clear => serializer.serialize_none(),
+            PskField::Clear => serializer.serialize_str(""),
             PskField::Set(key) => serializer.serialize_str(key),
         }
     }
@@ -534,4 +534,92 @@ pub struct OperationStatus {
     pub failure_details: Option<OperationFailureDetails>,
     pub created_at: String,
     pub updated_at: String,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::{json, from_value, to_value};
+
+    #[test]
+    fn psk_set_roundtrips() {
+        let psk = PskField::Set("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=".into());
+        let val = to_value(&psk).unwrap();
+        assert_eq!(val, json!("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="));
+        let back: PskField = from_value(val).unwrap();
+        assert_eq!(back, psk);
+    }
+
+    #[test]
+    fn psk_clear_serializes_as_empty_string() {
+        let val = to_value(&PskField::Clear).unwrap();
+        assert_eq!(val, json!(""));
+    }
+
+    #[test]
+    fn psk_clear_roundtrips() {
+        let val = to_value(&PskField::Clear).unwrap();
+        let back: PskField = from_value(val).unwrap();
+        assert_eq!(back, PskField::Clear);
+    }
+
+    #[test]
+    fn psk_unchanged_serializes_as_null() {
+        let val = to_value(&PskField::Unchanged).unwrap();
+        assert_eq!(val, json!(null));
+    }
+
+    #[test]
+    fn psk_null_deserializes_as_unchanged() {
+        let back: PskField = from_value(json!(null)).unwrap();
+        assert_eq!(back, PskField::Unchanged);
+    }
+
+    #[test]
+    fn psk_unchanged_skipped_in_struct() {
+        let spec = PeerSessionSpec {
+            wg_public_key: "key".into(),
+            ..Default::default()
+        };
+        let val = to_value(&spec).unwrap();
+        assert!(!val.as_object().unwrap().contains_key("psk"));
+    }
+
+    #[test]
+    fn psk_clear_present_in_struct() {
+        let spec = PeerSessionSpec {
+            wg_public_key: "key".into(),
+            psk: PskField::Clear,
+            ..Default::default()
+        };
+        let val = to_value(&spec).unwrap();
+        assert_eq!(val["psk"], json!(""));
+    }
+
+    #[test]
+    fn psk_absent_field_deserializes_as_unchanged() {
+        let val = json!({
+            "wg_public_key": "key",
+            "ipv4": true,
+            "ipv6": true,
+            "extended_next_hop": true,
+            "mp_bgp": true
+        });
+        let spec: PeerSessionSpec = from_value(val).unwrap();
+        assert_eq!(spec.psk, PskField::Unchanged);
+    }
+
+    #[test]
+    fn psk_empty_string_field_deserializes_as_clear() {
+        let val = json!({
+            "wg_public_key": "key",
+            "ipv4": true,
+            "ipv6": true,
+            "extended_next_hop": true,
+            "mp_bgp": true,
+            "psk": ""
+        });
+        let spec: PeerSessionSpec = from_value(val).unwrap();
+        assert_eq!(spec.psk, PskField::Clear);
+    }
 }

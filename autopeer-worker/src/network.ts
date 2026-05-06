@@ -492,7 +492,7 @@ function specToPeerEntry(
         : authMethod.kind;
 
   const pskValue: YamlValue =
-    spec.psk !== undefined ? (spec.psk ?? null) : (existingWg.psk ?? null);
+    spec.psk !== undefined ? (spec.psk || null) : (existingWg.psk ?? null);
 
   return normalizePeerEntry({
     ...(existing ?? {}),
@@ -773,7 +773,7 @@ export function validateSessionSpec(node: InventoryHost, asn: string, spec: Peer
     throw new Error("validation.port.range");
   }
   validateMtu(spec.mtu);
-  if (spec.psk !== null && spec.psk !== undefined) {
+  if (spec.psk) {
     validateWireGuardPsk(spec.psk);
   }
   if (spec.endpoint) {
