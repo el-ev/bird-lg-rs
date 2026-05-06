@@ -22,6 +22,7 @@ pub fn traceroute_section() -> Html {
     let error = use_state(|| None::<String>);
 
     let nodes: Vec<NodeProtocol> = route_info.scoped_protocol_nodes(state.nodes.as_slice());
+    let is_single_node = nodes.len() == 1;
 
     let active_session = state.traceroute.active_session();
 
@@ -103,22 +104,30 @@ pub fn traceroute_section() -> Html {
             <ShellForm onsubmit={on_submit}>
                 <ShellPrompt>
                     {format!("{}@", state.username)}
-                    <ShellSelect
-                        class="node-select"
-                        value={(*selected_node).clone()}
-                        on_change={on_node_change}
-                    >
-                        {
-                            if nodes.len() > 1 {
-                                html! { <option value="" selected=true>{"(all)"}</option> }
-                            } else {
-                                html! {}
+                    {
+                        if is_single_node {
+                            html! { { &nodes[0].name } }
+                        } else {
+                            html! {
+                                <ShellSelect
+                                    class="node-select"
+                                    value={(*selected_node).clone()}
+                                    on_change={on_node_change}
+                                >
+                                    {
+                                        if nodes.len() > 1 {
+                                            html! { <option value="" selected=true>{"(all)"}</option> }
+                                        } else {
+                                            html! {}
+                                        }
+                                    }
+                                    { for nodes.iter().map(|node| html! {
+                                        <option value={node.name.clone()}>{ &node.name }</option>
+                                    }) }
+                                </ShellSelect>
                             }
                         }
-                        { for nodes.iter().map(|node| html! {
-                            <option value={node.name.clone()}>{ &node.name }</option>
-                        }) }
-                    </ShellSelect>
+                    }
                     {"$ "}
                 </ShellPrompt>
                 { "traceroute " }

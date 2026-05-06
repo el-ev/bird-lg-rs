@@ -23,6 +23,7 @@ pub fn route_lookup() -> Html {
     let state = use_context::<LgStateHandle>().expect("no app state found");
     let route_info = use_context::<RouteInfoHandle>().expect("no route info found");
     let nodes: Vec<NodeProtocol> = route_info.scoped_protocol_nodes(state.nodes.as_slice());
+    let is_single_node = nodes.len() == 1;
 
     let on_node_change = {
         let selected_node = selected_node.clone();
@@ -99,14 +100,22 @@ pub fn route_lookup() -> Html {
             <ShellForm onsubmit={on_submit}>
                 <ShellPrompt>
                     {format!("{}@", state.username)}
-                    <ShellSelect
-                        value={(*selected_node).clone()}
-                        on_change={on_node_change}
-                    >
-                        { for nodes.iter().enumerate().map(|(i, n)| html! {
-                            <option value={n.name.clone()} selected={i == 0}>{ &n.name }</option>
-                        }) }
-                    </ShellSelect>
+                    {
+                        if is_single_node {
+                            html! { { &nodes[0].name } }
+                        } else {
+                            html! {
+                                <ShellSelect
+                                    value={(*selected_node).clone()}
+                                    on_change={on_node_change}
+                                >
+                                    { for nodes.iter().enumerate().map(|(i, n)| html! {
+                                        <option value={n.name.clone()} selected={i == 0}>{ &n.name }</option>
+                                    }) }
+                                </ShellSelect>
+                            }
+                        }
+                    }
                     {"$ "}
                 </ShellPrompt>
                 { "birdc show route for " }
