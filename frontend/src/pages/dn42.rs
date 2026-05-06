@@ -48,11 +48,16 @@ pub fn dn42_page() -> Html {
         .unwrap_or_else(|| "?".to_string());
 
     let node_count = state.nodes.len();
-    let session_count: usize = state.nodes.iter().map(|n| n.protocols.len()).sum();
+    let session_count: usize = state
+        .nodes
+        .iter()
+        .map(|n| n.protocols.iter().filter(|p| p.proto == "BGP").count())
+        .sum();
     let peer_count: usize = state
         .nodes
         .iter()
         .flat_map(|n| n.protocols.iter())
+        .filter(|p| p.proto == "BGP")
         .filter_map(|p| p.name.strip_prefix("dn42_"))
         .collect::<HashSet<_>>()
         .len();
