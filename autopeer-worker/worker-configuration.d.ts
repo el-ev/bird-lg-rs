@@ -20,8 +20,6 @@ declare namespace Cloudflare {
 		AUTOPEER_SITE_URL: "https://autopeer.owo.li";
 		AUTOPEER_TRUSTED_FORWARDED_HOSTS: "autopeer.iris.dn42";
 		LOOKING_GLASS_URL: "https://network.owo.li";
-		AUTOPEER_APPLY_RETRY_LIMIT: "2";
-		AUTOPEER_APPLY_RETRY_INTERVAL_SECONDS: "30";
 	}
 }
 interface Env extends Cloudflare.Env {}
@@ -29,7 +27,7 @@ type StringifyValues<EnvType extends Record<string, unknown>> = {
 	[Binding in keyof EnvType]: EnvType[Binding] extends string ? EnvType[Binding] : string;
 };
 declare namespace NodeJS {
-	interface ProcessEnv extends StringifyValues<Pick<Cloudflare.Env, "GITHUB_OWNER" | "GITHUB_REPO" | "GITHUB_BASE_BRANCH" | "DN42_REGISTRY_OWNER" | "DN42_REGISTRY_REPO" | "DN42_REGISTRY_BRANCH" | "DN42_REGISTRY_BASE_URL" | "OIDC_PROVIDERS" | "HOST_ASNS" | "AUTOPEER_API_URL" | "AUTOPEER_SITE_URL" | "AUTOPEER_TRUSTED_FORWARDED_HOSTS" | "LOOKING_GLASS_URL" | "AUTOPEER_APPLY_RETRY_LIMIT" | "AUTOPEER_APPLY_RETRY_INTERVAL_SECONDS">> {}
+	interface ProcessEnv extends StringifyValues<Pick<Cloudflare.Env, "GITHUB_OWNER" | "GITHUB_REPO" | "GITHUB_BASE_BRANCH" | "DN42_REGISTRY_OWNER" | "DN42_REGISTRY_REPO" | "DN42_REGISTRY_BRANCH" | "DN42_REGISTRY_BASE_URL" | "OIDC_PROVIDERS" | "HOST_ASNS" | "AUTOPEER_API_URL" | "AUTOPEER_SITE_URL" | "AUTOPEER_TRUSTED_FORWARDED_HOSTS" | "LOOKING_GLASS_URL">> {}
 }
 
 // Begin runtime types
