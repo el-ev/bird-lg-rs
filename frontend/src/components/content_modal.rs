@@ -92,7 +92,15 @@ pub fn content_modal(props: &ContentModalProps) -> Html {
     html! {
         <div
             class="modal-backdrop"
-            onclick={move |_| on_close.emit(())}
+            onclick={move |_| {
+                let has_selection = window()
+                    .and_then(|w| w.get_selection().ok().flatten())
+                    .and_then(|s| s.to_string().as_string())
+                    .is_some_and(|s| !s.is_empty());
+                if !has_selection {
+                    on_close.emit(());
+                }
+            }}
             tabindex="0"
         >
             <div
