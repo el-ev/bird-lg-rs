@@ -286,6 +286,10 @@ pub(super) const TABLE: &[(&str, &str)] = &[
         "Open this node to review the current repo config. Saving it will adopt the session into autopeer automatically.",
     ),
     (
+        "stage1.state.note.locked",
+        "This session has been locked and cannot be modified through autopeer.",
+    ),
+    (
         "stage1.state.note.pending",
         "A change for your session is already in progress here.",
     ),
@@ -522,6 +526,7 @@ pub(super) const TABLE: &[(&str, &str)] = &[
     // Session / operation labels
     ("session_state.managed", "Managed"),
     ("session_state.manual", "Manual"),
+    ("session_state.locked", "Locked"),
     ("session_state.pending_pr", "Pending PR"),
     ("session_state.stalled_pr", "Stalled PR"),
     ("session_state.conflict", "Conflict"),
@@ -677,6 +682,10 @@ pub(super) const TABLE: &[(&str, &str)] = &[
     (
         "error.ui.node.blocked_conflict",
         "This node is blocked by a conflict in our repo",
+    ),
+    (
+        "error.ui.session.locked",
+        "This session has been locked and cannot be modified through autopeer",
     ),
     (
         "error.ui.session.choose_managed_to_retire",
@@ -1047,6 +1056,10 @@ pub(super) const TABLE: &[(&str, &str)] = &[
     (
         "error.peer.manual.cannot_modify",
         "Manual peer AS{asn} cannot be modified by autopeer",
+    ),
+    (
+        "error.peer.locked",
+        "Peer AS{asn} is locked and cannot be modified through autopeer",
     ),
     (
         "error.data.yaml_root.invalid",

@@ -422,6 +422,13 @@ function isManagedPeer(peer: PeerEntry): boolean {
   );
 }
 
+function isLockedPeer(peer: PeerEntry): boolean {
+  return (
+    isTruthyRecord(peer.autopeer) &&
+    (peer.autopeer as Record<string, unknown>).managed === false
+  );
+}
+
 function isRemovedPeer(peer: PeerEntry): boolean {
   return Boolean(peer.removed);
 }
@@ -901,7 +908,7 @@ export async function listSessionsForAsn(
     sessions.set(host.name, {
       node: host.name,
       asn,
-      state: isManagedPeer(peer) ? "managed" : "manual",
+      state: isManagedPeer(peer) ? "managed" : isLockedPeer(peer) ? "locked" : "manual",
       spec: specs[i],
       metadata: isManagedPeer(peer)
         ? {
@@ -1056,7 +1063,12 @@ export async function mutatePeerFile(
   const match = matchIndexes[0];
   const existing = match?.peer;
   const isManaged = existing ? isManagedPeer(existing) : false;
+  const isLocked = existing ? isLockedPeer(existing) : false;
   const isRemoved = existing ? isRemovedPeer(existing) : false;
+
+  if (isLocked) {
+    throw new I18nError(uiMessage("error.peer.locked", { asn: input.asn }));
+  }
 
   if (input.kind === "create") {
     if (existing && !isRemoved) {

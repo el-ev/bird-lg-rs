@@ -122,7 +122,7 @@ export interface NodeView {
   autopeer?: boolean;
 }
 
-export type SessionState = "managed" | "manual" | "pending_pr" | "stalled_pr" | "conflict";
+export type SessionState = "managed" | "manual" | "locked" | "pending_pr" | "stalled_pr" | "conflict";
 
 export interface SessionMetadata {
   managed: boolean;

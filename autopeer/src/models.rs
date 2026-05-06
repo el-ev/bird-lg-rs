@@ -195,6 +195,7 @@ pub enum SessionState {
     #[default]
     Managed,
     Manual,
+    Locked,
     PendingPr,
     StalledPr,
     Conflict,
@@ -205,6 +206,7 @@ impl SessionState {
         match self {
             Self::Managed => "session_state.managed",
             Self::Manual => "session_state.manual",
+            Self::Locked => "session_state.locked",
             Self::PendingPr => "session_state.pending_pr",
             Self::StalledPr => "session_state.stalled_pr",
             Self::Conflict => "session_state.conflict",
@@ -341,7 +343,8 @@ impl Serialize for PskField {
 impl<'de> Deserialize<'de> for PskField {
     fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
         match Option::<String>::deserialize(deserializer)? {
-            None => Ok(PskField::Clear),
+            None => Ok(PskField::Unchanged),
+            Some(key) if key.is_empty() => Ok(PskField::Clear),
             Some(key) => Ok(PskField::Set(key)),
         }
     }

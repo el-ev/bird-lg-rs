@@ -65,6 +65,7 @@ pub fn select_node_panel(props: &SelectNodeProps) -> Html {
                                 None => i18n.t("stage1.state.note.create"),
                                 Some(SessionState::Managed) => i18n.t("stage1.state.note.managed"),
                                 Some(SessionState::Manual) => i18n.t("stage1.state.note.manual"),
+                                Some(SessionState::Locked) => i18n.t("stage1.state.note.locked"),
                                 Some(SessionState::PendingPr) => i18n.t("stage1.state.note.pending"),
                                 Some(SessionState::StalledPr) => i18n.t("stage1.state.note.stalled"),
                                 Some(SessionState::Conflict) => i18n.t("stage1.state.note.conflict"),
@@ -92,6 +93,9 @@ pub fn select_node_panel(props: &SelectNodeProps) -> Html {
                                             return;
                                         }
                                         on_select_edit_node.emit((node_name.clone(), session.clone()));
+                                    }
+                                    Some(SessionState::Locked) => {
+                                        on_select_blocked.emit(UiMessage::key("error.ui.session.locked"));
                                     }
                                     Some(SessionState::PendingPr) => {
                                         on_select_blocked.emit(UiMessage::key("error.ui.operation.wait_inflight"));

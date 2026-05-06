@@ -257,6 +257,10 @@ pub(super) const TABLE: &[(&str, &str)] = &[
         "stage1.state.note.manual",
         "打开此节点以查看当前仓库配置。保存后该会话将自动纳入自助对等管理。",
     ),
+    (
+        "stage1.state.note.locked",
+        "此会话已被锁定，无法通过自助对等系统修改。",
+    ),
     ("stage1.state.note.pending", "此处你的会话变更已在进行中。"),
     (
         "stage1.state.note.stalled",
@@ -485,6 +489,7 @@ pub(super) const TABLE: &[(&str, &str)] = &[
     // Session / operation labels
     ("session_state.managed", "托管"),
     ("session_state.manual", "手动"),
+    ("session_state.locked", "已锁定"),
     ("session_state.pending_pr", "拉取请求待处理"),
     ("session_state.stalled_pr", "部署失败"),
     ("session_state.conflict", "冲突"),
@@ -631,6 +636,10 @@ pub(super) const TABLE: &[(&str, &str)] = &[
     (
         "error.ui.node.blocked_conflict",
         "此节点因我们的仓库冲突而被阻止",
+    ),
+    (
+        "error.ui.session.locked",
+        "此会话已被锁定，无法通过自助对等系统修改",
     ),
     (
         "error.ui.session.choose_managed_to_retire",
@@ -935,6 +944,10 @@ pub(super) const TABLE: &[(&str, &str)] = &[
     (
         "error.peer.manual.cannot_modify",
         "手动对端 AS{asn} 无法由 Autopeer 修改",
+    ),
+    (
+        "error.peer.locked",
+        "对端 AS{asn} 已被锁定，无法通过自助对等系统修改",
     ),
     ("error.data.yaml_root.invalid", "YAML 根节点必须为映射"),
     ("error.data.peer_entry.invalid", "对端条目必须为映射"),

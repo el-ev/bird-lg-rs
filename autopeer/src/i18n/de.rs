@@ -301,6 +301,10 @@ pub(super) const TABLE: &[(&str, &str)] = &[
         "Öffnen Sie diesen Node, um die aktuelle Repo-Konfiguration zu prüfen. Beim Speichern wird die Session automatisch in Autopeer übernommen.",
     ),
     (
+        "stage1.state.note.locked",
+        "Diese Session wurde gesperrt und kann nicht über Autopeer geändert werden.",
+    ),
+    (
         "stage1.state.note.pending",
         "Eine Änderung für Ihre Session läuft hier bereits.",
     ),
@@ -540,6 +544,7 @@ pub(super) const TABLE: &[(&str, &str)] = &[
     // Session / operation labels
     ("session_state.managed", "Verwaltet"),
     ("session_state.manual", "Manuell"),
+    ("session_state.locked", "Gesperrt"),
     ("session_state.pending_pr", "Ausstehender PR"),
     ("session_state.stalled_pr", "Steckengebliebener PR"),
     ("session_state.conflict", "Konflikt"),
@@ -704,6 +709,10 @@ pub(super) const TABLE: &[(&str, &str)] = &[
     (
         "error.ui.node.blocked_conflict",
         "Dieser Node ist durch einen Konflikt in unserem Repo blockiert",
+    ),
+    (
+        "error.ui.session.locked",
+        "Diese Session wurde gesperrt und kann nicht über Autopeer geändert werden",
     ),
     (
         "error.ui.session.choose_managed_to_retire",
@@ -1083,6 +1092,10 @@ pub(super) const TABLE: &[(&str, &str)] = &[
     (
         "error.peer.manual.cannot_modify",
         "Der manuelle Peer AS{asn} kann nicht vom Autopeer geändert werden",
+    ),
+    (
+        "error.peer.locked",
+        "Peer AS{asn} ist gesperrt und kann nicht über Autopeer geändert werden",
     ),
     (
         "error.data.yaml_root.invalid",

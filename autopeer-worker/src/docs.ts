@@ -371,7 +371,7 @@ const components = {
         asn: { type: "string" },
         state: {
           type: "string",
-          enum: ["managed", "manual", "pending_pr", "stalled_pr", "conflict"],
+          enum: ["managed", "manual", "locked", "pending_pr", "stalled_pr", "conflict"],
         },
         spec: ref("PeerSessionSpec"),
         metadata: ref("SessionMetadata"),

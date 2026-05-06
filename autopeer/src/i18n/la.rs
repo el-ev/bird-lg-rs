@@ -295,6 +295,10 @@ pub(super) const TABLE: &[(&str, &str)] = &[
         "Hunc nodum aperi ad configurationem repositorii currentem recensendam. Servando eam sessionem in autopeer automatice adoptabis.",
     ),
     (
+        "stage1.state.note.locked",
+        "Haec sessio obserata est nec per autopeer mutari potest.",
+    ),
+    (
         "stage1.state.note.pending",
         "Mutatio pro sessione tua iam hic in progressu est.",
     ),
@@ -564,6 +568,7 @@ pub(super) const TABLE: &[(&str, &str)] = &[
     // Session / operation labels
     ("session_state.managed", "Administratus"),
     ("session_state.manual", "Manualis"),
+    ("session_state.locked", "Obseratus"),
     ("session_state.pending_pr", "PR Expectans"),
     ("session_state.stalled_pr", "PR Impedita"),
     ("session_state.conflict", "Conflictus"),
@@ -719,6 +724,10 @@ pub(super) const TABLE: &[(&str, &str)] = &[
     (
         "error.ui.node.blocked_conflict",
         "Hic nodus conflictu in repositorio nostro impeditur",
+    ),
+    (
+        "error.ui.session.locked",
+        "Haec sessio obserata est nec per autopeer mutari potest",
     ),
     (
         "error.ui.session.choose_managed_to_retire",
@@ -1089,6 +1098,10 @@ pub(super) const TABLE: &[(&str, &str)] = &[
     (
         "error.peer.manual.cannot_modify",
         "Par manualis AS{asn} ab Autopeer modificari non potest",
+    ),
+    (
+        "error.peer.locked",
+        "Par AS{asn} obseratus est nec per autopeer mutari potest",
     ),
     (
         "error.data.yaml_root.invalid",
