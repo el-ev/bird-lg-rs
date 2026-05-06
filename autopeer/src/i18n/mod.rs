@@ -1,13 +1,12 @@
 use yew::prelude::*;
 
+use crate::browser::{self, LOCALE_STORAGE_KEY};
 use crate::models::UiMessage;
 
 mod de;
 mod en;
 mod la;
 mod zh;
-
-const LOCALE_STORAGE_KEY: &str = "bird-lg-rs.autopeer.locale";
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum Locale {
@@ -170,17 +169,13 @@ pub fn i18n_provider(props: &I18nProviderProps) -> Html {
     }
 }
 
-fn local_storage() -> Option<web_sys::Storage> {
-    web_sys::window()?.local_storage().ok().flatten()
-}
-
 fn detect_initial_locale() -> Option<Locale> {
-    if let Some(locale) = hash_locale() {
+    if let Some(locale) = browser::hash_param("lang").and_then(|code| Locale::from_code(&code)) {
         persist_locale(locale);
         return Some(locale);
     }
 
-    if let Some(stored) = local_storage()
+    if let Some(stored) = browser::local_storage()
         .and_then(|storage| storage.get_item(LOCALE_STORAGE_KEY).ok().flatten())
         .and_then(|code| Locale::from_code(&code))
     {
@@ -194,16 +189,8 @@ fn detect_initial_locale() -> Option<Locale> {
     Some(locale)
 }
 
-fn hash_locale() -> Option<Locale> {
-    let window = web_sys::window()?;
-    let hash = window.location().hash().ok()?;
-    let query = hash.strip_prefix('#').unwrap_or(&hash);
-    let params = web_sys::UrlSearchParams::new_with_str(query).ok()?;
-    Locale::from_code(&params.get("lang")?)
-}
-
 fn persist_locale(locale: Locale) {
-    if let Some(storage) = local_storage() {
+    if let Some(storage) = browser::local_storage() {
         let _ = storage.set_item(LOCALE_STORAGE_KEY, locale.code());
     }
 }

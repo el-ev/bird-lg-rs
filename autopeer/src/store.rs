@@ -2,6 +2,7 @@ use std::net::{Ipv4Addr, Ipv6Addr};
 
 use serde::{Deserialize, Serialize};
 
+use crate::browser::local_storage;
 use crate::models::{
     AuthSessionResponse, MpBgpTransport, PeerSessionSpec, PeeringStrategy, PskField,
 };
@@ -161,7 +162,10 @@ impl SessionDraft {
     }
 
     pub fn peer6_is_link_local(&self) -> bool {
-        self.peer6.trim().to_lowercase().starts_with("fe80:")
+        self.peer6
+            .trim()
+            .parse::<Ipv6Addr>()
+            .is_ok_and(is_link_local_ipv6)
     }
 
     pub fn link_local_collision_with(&self, fallback_own6: Option<&str>) -> bool {
@@ -439,10 +443,6 @@ pub struct PersistedSessions {
     pub host_session: Option<AuthSessionResponse>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub pending_operation_id: Option<String>,
-}
-
-fn local_storage() -> Option<web_sys::Storage> {
-    web_sys::window()?.local_storage().ok().flatten()
 }
 
 pub fn load_persisted_sessions() -> Option<PersistedSessions> {

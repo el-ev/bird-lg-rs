@@ -61,24 +61,6 @@ fn render_readonly_block(label: &str, content: String) -> Html {
     }
 }
 
-fn update_draft_state(
-    draft: &UseStateHandle<SessionDraft>,
-    update: impl FnOnce(&mut SessionDraft),
-) {
-    let mut next = (**draft).clone();
-    update(&mut next);
-    draft.set(next);
-}
-
-fn update_touched_controls(
-    touched_fields: &UseStateHandle<SessionDraftTouchedControls>,
-    update: impl FnOnce(&mut SessionDraftTouchedControls),
-) {
-    let mut next = (**touched_fields).clone();
-    update(&mut next);
-    touched_fields.set(next);
-}
-
 fn live_validation_message(i18n: &I18n, message: Option<&str>) -> Html {
     match message {
         Some(message) => html! {

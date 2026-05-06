@@ -6,9 +6,9 @@ use std::{
 
 use gloo_timers::future::TimeoutFuture;
 use wasm_bindgen_futures::spawn_local;
-use web_sys::UrlSearchParams;
 use yew::prelude::*;
 
+use crate::browser;
 use crate::models::{
     AuthMethod, AuthMethodKind, AuthSessionResponse, CreateSessionRequest, NodeView,
     OperationStatus, RegistryEmailTarget, SessionListResponse, SessionView, UiMessage,
@@ -395,17 +395,130 @@ fn clear_all_loading(ongoing_tasks: &UseReducerHandle<OngoingTasks>) {
     ongoing_tasks.dispatch(OngoingTaskAction::Clear);
 }
 
-fn hash_param(name: &str) -> Option<String> {
-    web_sys::window().and_then(|window| {
-        let hash = window.location().hash().ok()?;
-        let query = hash.strip_prefix('#').unwrap_or(&hash);
-        let params = UrlSearchParams::new_with_str(query).ok()?;
-        params.get(name)
+#[derive(Clone, Copy)]
+enum SessionRemovalKind {
+    Retire,
+    Delete,
+}
+
+impl SessionRemovalKind {
+    fn no_selection_error_key(self) -> &'static str {
+        match self {
+            Self::Retire => "error.ui.session.choose_managed_to_retire",
+            Self::Delete => "error.ui.session.choose_managed_to_delete",
+        }
+    }
+
+    fn loading_key(self) -> &'static str {
+        match self {
+            Self::Retire => "loading.retire_pr",
+            Self::Delete => "loading.delete_pr",
+        }
+    }
+}
+
+#[allow(clippy::too_many_arguments)]
+fn build_session_removal_callback(
+    kind: SessionRemovalKind,
+    api_base: &UseStateHandle<Option<String>>,
+    auth_session: &UseStateHandle<Option<AuthSessionResponse>>,
+    draft: &UseStateHandle<SessionDraft>,
+    sessions: &UseStateHandle<Vec<SessionView>>,
+    editing_node: &UseStateHandle<Option<String>>,
+    operation: &UseStateHandle<Option<OperationStatus>>,
+    error: &UseStateHandle<Option<UiMessage>>,
+    ongoing_tasks: &UseReducerHandle<OngoingTasks>,
+    poll_operation: &Callback<OperationStatus>,
+    session_handles: &SessionHandles,
+    self_confirmation: &UseStateHandle<bool>,
+    other_confirmation: &UseStateHandle<bool>,
+) -> Callback<MouseEvent> {
+    let api_base = api_base.clone();
+    let auth_session = auth_session.clone();
+    let draft = draft.clone();
+    let sessions = sessions.clone();
+    let editing_node = editing_node.clone();
+    let operation = operation.clone();
+    let error = error.clone();
+    let ongoing_tasks = ongoing_tasks.clone();
+    let poll_operation = poll_operation.clone();
+    let session_handles = session_handles.clone();
+    let self_confirmation = self_confirmation.clone();
+    let other_confirmation = other_confirmation.clone();
+
+    Callback::from(move |_: MouseEvent| {
+        let Some(api_base) = require_api_base(&api_base, &error) else {
+            return;
+        };
+        let Some(auth_session) = (*auth_session).clone() else {
+            error.set(Some(UiMessage::key("error.ui.auth.authenticate_first")));
+            return;
+        };
+        let selected_node = selected_session_node_name((*editing_node).as_deref(), &draft)
+            .and_then(|node| {
+                sessions
+                    .iter()
+                    .find(|session| session.node == node)
+                    .map(|_| node)
+            });
+        let Some(node) = selected_node else {
+            error.set(Some(UiMessage::key(kind.no_selection_error_key())));
+            return;
+        };
+        if !*self_confirmation {
+            self_confirmation.set(true);
+            other_confirmation.set(false);
+            error.set(None);
+            return;
+        }
+
+        self_confirmation.set(false);
+        reset_session_selection(&session_handles);
+
+        let task_id = start_loading(&ongoing_tasks, UiMessage::key(kind.loading_key()));
+        error.set(None);
+
+        let operation = operation.clone();
+        let error = error.clone();
+        let ongoing_tasks = ongoing_tasks.clone();
+        let poll_operation = poll_operation.clone();
+        let session_asn = auth_session.asn.clone();
+
+        spawn_local(async move {
+            let result = match kind {
+                SessionRemovalKind::Retire => {
+                    service::retire_session(
+                        &api_base,
+                        &auth_session.session_token,
+                        &node,
+                        &session_asn,
+                    )
+                    .await
+                }
+                SessionRemovalKind::Delete => {
+                    service::delete_session(
+                        &api_base,
+                        &auth_session.session_token,
+                        &node,
+                        &session_asn,
+                    )
+                    .await
+                }
+            };
+            match result {
+                Ok(status) => {
+                    operation.set(Some(status.clone()));
+                    poll_operation.emit(status);
+                }
+                Err(message) => error.set(Some(message)),
+            }
+            clear_loading(&ongoing_tasks, task_id);
+        });
     })
 }
 
 fn hash_message_param(name: &str) -> Option<UiMessage> {
-    let value = hash_param(name)?;
+    let value = browser::hash_param(name)?;
     serde_json::from_str::<UiMessage>(&value)
         .ok()
         .or_else(|| Some(UiMessage::key(value)))
@@ -441,27 +554,22 @@ async fn activate_authenticated_session(
     error: &UseStateHandle<Option<UiMessage>>,
 ) {
     let session_asn = session.asn.clone();
-    match service::list_sessions(api_base, &session.session_token).await {
+    let result = service::list_sessions(api_base, &session.session_token).await;
+    set_authenticated_session(
+        &auth_handles.auth_session,
+        &auth_handles.host_session,
+        session,
+    );
+    auth_handles.step.set(AutoPeerStep::ManageSessions);
+    match result {
         Ok(response) => {
-            set_authenticated_session(
-                &auth_handles.auth_session,
-                &auth_handles.host_session,
-                session,
-            );
             apply_session_list_and_reset(response, session_handles);
             error.set(None);
-            auth_handles.step.set(AutoPeerStep::ManageSessions);
         }
         Err(message) => {
-            set_authenticated_session(
-                &auth_handles.auth_session,
-                &auth_handles.host_session,
-                session,
-            );
-            session_handles.asn.set(session_asn.clone());
+            session_handles.asn.set(session_asn);
             reset_loaded_sessions(session_handles);
             error.set(Some(message));
-            auth_handles.step.set(AutoPeerStep::ManageSessions);
         }
     }
 }
@@ -889,7 +997,7 @@ pub fn use_autopeer_controller(
                             return;
                         }
 
-                        if let Some(token) = hash_param("email_token") {
+                        if let Some(token) = browser::hash_param("email_token") {
                             let task_id = start_loading(
                                 &ongoing_tasks,
                                 UiMessage::key("loading.email_login"),
@@ -907,7 +1015,7 @@ pub fn use_autopeer_controller(
                             return;
                         }
 
-                        if let Some(state) = hash_param("oidc_state") {
+                        if let Some(state) = browser::hash_param("oidc_state") {
                             let task_id =
                                 start_loading(&ongoing_tasks, UiMessage::key("loading.oidc_login"));
                             finish_redirected_auth_session(
@@ -1717,155 +1825,37 @@ pub fn use_autopeer_controller(
         })
     };
 
-    let on_retire_selected_session = {
-        let api_base = api_base.clone();
-        let auth_session = auth_session.clone();
-        let draft = draft.clone();
-        let sessions = sessions.clone();
-        let editing_node = editing_node.clone();
-        let operation = operation.clone();
-        let error = error.clone();
-        let ongoing_tasks = ongoing_tasks.clone();
-        let poll_operation = poll_operation.clone();
-        let session_handles = session_handles.clone();
-        let retire_confirmation = retire_confirmation.clone();
-        let delete_confirmation = delete_confirmation.clone();
+    let on_retire_selected_session = build_session_removal_callback(
+        SessionRemovalKind::Retire,
+        &api_base,
+        &auth_session,
+        &draft,
+        &sessions,
+        &editing_node,
+        &operation,
+        &error,
+        &ongoing_tasks,
+        &poll_operation,
+        &session_handles,
+        &retire_confirmation,
+        &delete_confirmation,
+    );
 
-        Callback::from(move |_| {
-            let Some(api_base) = require_api_base(&api_base, &error) else {
-                return;
-            };
-            let Some(auth_session) = (*auth_session).clone() else {
-                error.set(Some(UiMessage::key("error.ui.auth.authenticate_first")));
-                return;
-            };
-            let selected_node = selected_session_node_name((*editing_node).as_deref(), &draft)
-                .and_then(|node| {
-                    sessions
-                        .iter()
-                        .find(|session| session.node == node)
-                        .map(|_| node)
-                });
-            let Some(node) = selected_node else {
-                error.set(Some(UiMessage::key(
-                    "error.ui.session.choose_managed_to_retire",
-                )));
-                return;
-            };
-            if !*retire_confirmation {
-                retire_confirmation.set(true);
-                delete_confirmation.set(false);
-                error.set(None);
-                return;
-            }
-
-            retire_confirmation.set(false);
-            reset_session_selection(&session_handles);
-
-            let task_id = start_loading(&ongoing_tasks, UiMessage::key("loading.retire_pr"));
-            error.set(None);
-
-            let operation = operation.clone();
-            let error = error.clone();
-            let ongoing_tasks = ongoing_tasks.clone();
-            let poll_operation = poll_operation.clone();
-            let session_asn = auth_session.asn.clone();
-
-            spawn_local(async move {
-                match service::retire_session(
-                    &api_base,
-                    &auth_session.session_token,
-                    &node,
-                    &session_asn,
-                )
-                .await
-                {
-                    Ok(status) => {
-                        operation.set(Some(status.clone()));
-                        poll_operation.emit(status);
-                    }
-                    Err(message) => error.set(Some(message)),
-                }
-
-                clear_loading(&ongoing_tasks, task_id);
-            });
-        })
-    };
-
-    let on_delete_selected_session = {
-        let api_base = api_base.clone();
-        let auth_session = auth_session.clone();
-        let draft = draft.clone();
-        let sessions = sessions.clone();
-        let editing_node = editing_node.clone();
-        let operation = operation.clone();
-        let error = error.clone();
-        let ongoing_tasks = ongoing_tasks.clone();
-        let poll_operation = poll_operation.clone();
-        let session_handles = session_handles.clone();
-        let delete_confirmation = delete_confirmation.clone();
-        let retire_confirmation = retire_confirmation.clone();
-
-        Callback::from(move |_| {
-            let Some(api_base) = require_api_base(&api_base, &error) else {
-                return;
-            };
-            let Some(auth_session) = (*auth_session).clone() else {
-                error.set(Some(UiMessage::key("error.ui.auth.authenticate_first")));
-                return;
-            };
-            let selected_node = selected_session_node_name((*editing_node).as_deref(), &draft)
-                .and_then(|node| {
-                    sessions
-                        .iter()
-                        .find(|session| session.node == node)
-                        .map(|_| node)
-                });
-            let Some(node) = selected_node else {
-                error.set(Some(UiMessage::key(
-                    "error.ui.session.choose_managed_to_delete",
-                )));
-                return;
-            };
-            if !*delete_confirmation {
-                delete_confirmation.set(true);
-                retire_confirmation.set(false);
-                error.set(None);
-                return;
-            }
-
-            delete_confirmation.set(false);
-            reset_session_selection(&session_handles);
-
-            let task_id = start_loading(&ongoing_tasks, UiMessage::key("loading.delete_pr"));
-            error.set(None);
-
-            let operation = operation.clone();
-            let error = error.clone();
-            let ongoing_tasks = ongoing_tasks.clone();
-            let poll_operation = poll_operation.clone();
-            let session_asn = auth_session.asn.clone();
-
-            spawn_local(async move {
-                match service::delete_session(
-                    &api_base,
-                    &auth_session.session_token,
-                    &node,
-                    &session_asn,
-                )
-                .await
-                {
-                    Ok(status) => {
-                        operation.set(Some(status.clone()));
-                        poll_operation.emit(status);
-                    }
-                    Err(message) => error.set(Some(message)),
-                }
-
-                clear_loading(&ongoing_tasks, task_id);
-            });
-        })
-    };
+    let on_delete_selected_session = build_session_removal_callback(
+        SessionRemovalKind::Delete,
+        &api_base,
+        &auth_session,
+        &draft,
+        &sessions,
+        &editing_node,
+        &operation,
+        &error,
+        &ongoing_tasks,
+        &poll_operation,
+        &session_handles,
+        &delete_confirmation,
+        &retire_confirmation,
+    );
 
     let on_retry_operation = {
         let api_base = api_base.clone();

@@ -2,7 +2,7 @@ use wasm_bindgen_futures::spawn_local;
 use web_sys::HtmlSelectElement;
 use yew::prelude::*;
 
-use super::{generate_wg_psk, update_draft_state, update_touched_controls};
+use super::generate_wg_psk;
 use crate::{
     models::{MpBgpTransport, PeeringStrategy, UiMessage},
     store::{PeerConfigStage, SessionDraft, SessionDraftField},
@@ -11,6 +11,24 @@ use crate::{
         detect_peer6_address_kind, session_details_submission_error,
     },
 };
+
+fn update_draft_state(
+    draft: &UseStateHandle<SessionDraft>,
+    update: impl FnOnce(&mut SessionDraft),
+) {
+    let mut next = (**draft).clone();
+    update(&mut next);
+    draft.set(next);
+}
+
+fn update_touched_controls(
+    touched_fields: &UseStateHandle<SessionDraftTouchedControls>,
+    update: impl FnOnce(&mut SessionDraftTouchedControls),
+) {
+    let mut next = (**touched_fields).clone();
+    update(&mut next);
+    touched_fields.set(next);
+}
 
 pub struct ManageCallbacks {
     pub on_cancel_edit: Callback<MouseEvent>,

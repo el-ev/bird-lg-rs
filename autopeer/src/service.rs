@@ -1,6 +1,7 @@
 use reqwasm::http::{Request, Response};
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
 
+use crate::browser::{LOCALE_STORAGE_KEY, local_storage};
 use crate::models::{
     AuthMethod, AuthSessionResponse, AuthStartRequest, AuthStartResponse, CreateSessionRequest,
     HostImpersonationRequest, OidcCompleteRequest, OidcStartRequest, OidcStartResponse,
@@ -10,16 +11,20 @@ use crate::models::{
 };
 
 const CONFIG_PATH: &str = "/config.json";
-const LOCALE_STORAGE_KEY: &str = "bird-lg-rs.autopeer.locale";
 
 fn current_locale_code() -> Option<String> {
-    web_sys::window()?
-        .local_storage()
-        .ok()
-        .flatten()?
+    local_storage()?
         .get_item(LOCALE_STORAGE_KEY)
         .ok()
         .flatten()
+}
+
+fn apply_locale_header(request: Request) -> Request {
+    if let Some(locale) = current_locale_code() {
+        request.header("Accept-Language", &locale)
+    } else {
+        request
+    }
 }
 
 #[derive(Clone, Debug, Default, Deserialize, PartialEq, Eq)]
@@ -78,11 +83,7 @@ async fn send_json<B: Serialize, T: DeserializeOwned>(
     } else {
         request
     };
-    let request = if let Some(locale) = current_locale_code() {
-        request.header("Accept-Language", &locale)
-    } else {
-        request
-    };
+    let request = apply_locale_header(request);
 
     let response = request
         .header("Content-Type", "application/json")
@@ -98,11 +99,7 @@ async fn send_json<B: Serialize, T: DeserializeOwned>(
 
 async fn send_delete<T: DeserializeOwned>(url: &str, token: &str) -> Result<T, UiMessage> {
     let request = Request::delete(url).header("Authorization", &format!("Bearer {token}"));
-    let request = if let Some(locale) = current_locale_code() {
-        request.header("Accept-Language", &locale)
-    } else {
-        request
-    };
+    let request = apply_locale_header(request);
     let response = request.send().await.map_err(|error| {
         UiMessage::key("error.runtime.request_failed").with_param("detail", error.to_string())
     })?;
@@ -112,11 +109,7 @@ async fn send_delete<T: DeserializeOwned>(url: &str, token: &str) -> Result<T, U
 
 async fn send_post_empty<T: DeserializeOwned>(url: &str, token: &str) -> Result<T, UiMessage> {
     let request = Request::post(url).header("Authorization", &format!("Bearer {token}"));
-    let request = if let Some(locale) = current_locale_code() {
-        request.header("Accept-Language", &locale)
-    } else {
-        request
-    };
+    let request = apply_locale_header(request);
     let response = request.send().await.map_err(|error| {
         UiMessage::key("error.runtime.request_failed").with_param("detail", error.to_string())
     })?;
@@ -130,11 +123,7 @@ async fn send_get<T: DeserializeOwned>(url: &str, token: Option<&str>) -> Result
     } else {
         Request::get(url)
     };
-    let request = if let Some(locale) = current_locale_code() {
-        request.header("Accept-Language", &locale)
-    } else {
-        request
-    };
+    let request = apply_locale_header(request);
 
     let response = request.send().await.map_err(|error| {
         UiMessage::key("error.runtime.request_failed").with_param("detail", error.to_string())

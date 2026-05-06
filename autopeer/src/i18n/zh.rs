@@ -1,4 +1,3 @@
-#[allow(dead_code)]
 pub(super) const TABLE: &[(&str, &str)] = &[
     ("app.title", "dn42 自助对等"),
     ("app.title.footnote", "之于 IRIS-AS 4242421023"),
