@@ -136,20 +136,19 @@ export function requireRecord(value: unknown, field: string): Record<string, unk
   return value;
 }
 
-export function normalizeAsn(raw: string): string {
+export function normalizeAsn(
+  raw: string,
+  errorKey = "error.asn.format",
+): string {
   const asn = raw.trim().toUpperCase().replace(/^AS/, "");
   if (!ASN_PATTERN.test(asn)) {
-    throw new HttpError(uiMessage("error.asn.format"), 400);
+    throw new HttpError(uiMessage(errorKey), 400);
   }
   return asn;
 }
 
 export function normalizeSupportedAutopeerAsn(raw: string): string {
-  const asn = raw.trim().toUpperCase().replace(/^AS/, "");
-  if (!ASN_PATTERN.test(asn)) {
-    throw new HttpError(uiMessage(UNSUPPORTED_ASN_RANGE_MESSAGE), 400);
-  }
-  return asn;
+  return normalizeAsn(raw, UNSUPPORTED_ASN_RANGE_MESSAGE);
 }
 
 export function defaultPeerPort(asn: string): number {
@@ -285,6 +284,15 @@ export function timingSafeEqual(left: string, right: string): boolean {
   }
 
   return diff === 0;
+}
+
+export function randomBase64Url(byteLength = 32): string {
+  const bytes = crypto.getRandomValues(new Uint8Array(byteLength));
+  let binary = "";
+  for (const byte of bytes) {
+    binary += String.fromCharCode(byte);
+  }
+  return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/u, "");
 }
 
 export function parseConfiguredAsns(raw: string): Set<string> {

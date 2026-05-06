@@ -14,12 +14,13 @@ import {
   HttpError,
   addSeconds,
   nowIso,
+  randomBase64Url,
   requireNonEmptyString,
   uiMessage,
 } from "./utils";
 
 const CHALLENGE_TTL_SECONDS = 15 * 60;
-const SESSION_TTL_SECONDS = 6 * 60 * 60;
+export const SESSION_TTL_SECONDS = 6 * 60 * 60;
 const EMAIL_AUTH_TTL_SECONDS = 15 * 60;
 
 type Reader = {
@@ -27,17 +28,13 @@ type Reader = {
   offset: number;
 };
 
-function invalidSshSignature(message: string): never {
-  throw new HttpError(message, 400);
-}
-
-function invalidPgpSignature(message: string): never {
+function invalidSignature(message: string): never {
   throw new HttpError(message, 400);
 }
 
 function readUint32(reader: Reader): number {
   if (reader.offset + 4 > reader.bytes.length) {
-    invalidSshSignature("error.auth.ssh.malformed_signature");
+    invalidSignature("error.auth.ssh.malformed_signature");
   }
 
   const view = new DataView(reader.bytes.buffer, reader.bytes.byteOffset + reader.offset, 4);
@@ -48,7 +45,7 @@ function readUint32(reader: Reader): number {
 
 function readBytes(reader: Reader, length: number): Uint8Array {
   if (reader.offset + length > reader.bytes.length) {
-    invalidSshSignature("error.auth.ssh.malformed_signature");
+    invalidSignature("error.auth.ssh.malformed_signature");
   }
 
   const slice = reader.bytes.slice(reader.offset, reader.offset + length);
@@ -67,13 +64,13 @@ function bytesToString(bytes: Uint8Array): string {
 function armorToBytes(signature: string): Uint8Array {
   const trimmed = signature.trim();
   if (trimmed.length === 0) {
-    invalidSshSignature("error.auth.ssh.empty_or_missing_blocks");
+    invalidSignature("error.auth.ssh.empty_or_missing_blocks");
   }
   if (!trimmed.includes("-----BEGIN SSH SIGNATURE-----") || !trimmed.includes("-----END SSH SIGNATURE-----")) {
     if (trimmed.includes("dn42-autopeer challenge")) {
-      invalidSshSignature("error.auth.ssh.unsigned_challenge");
+      invalidSignature("error.auth.ssh.unsigned_challenge");
     }
-    invalidSshSignature("error.auth.ssh.empty_or_missing_blocks");
+    invalidSignature("error.auth.ssh.empty_or_missing_blocks");
   }
 
   const base64 = signature
@@ -81,14 +78,14 @@ function armorToBytes(signature: string): Uint8Array {
     .replace(/-----END SSH SIGNATURE-----/g, "")
     .replace(/\s+/g, "");
   if (base64.length === 0) {
-    invalidSshSignature("error.auth.ssh.empty_or_missing_blocks");
+    invalidSignature("error.auth.ssh.empty_or_missing_blocks");
   }
 
   let binary: string;
   try {
     binary = atob(base64);
   } catch {
-    invalidSshSignature("error.auth.ssh.malformed_signature");
+    invalidSignature("error.auth.ssh.malformed_signature");
   }
   return Uint8Array.from(binary, (char) => char.charCodeAt(0));
 }
@@ -103,12 +100,12 @@ function parseSshSignature(signature: string): { publicKey: string } {
 
   const magic = bytesToString(readBytes(reader, 6));
   if (magic !== "SSHSIG") {
-    invalidSshSignature("error.auth.ssh.malformed_signature");
+    invalidSignature("error.auth.ssh.malformed_signature");
   }
 
   const version = readUint32(reader);
   if (version !== 1) {
-    invalidSshSignature("error.auth.ssh.malformed_signature");
+    invalidSignature("error.auth.ssh.malformed_signature");
   }
 
   const rawPublicKey = readStringBytes(reader);
@@ -147,12 +144,6 @@ function randomDigits(length: number): string {
   return Array.from(bytes, (byte) => String(byte % 10)).join("");
 }
 
-function randomBase64Url(length = 32): string {
-  const bytes = crypto.getRandomValues(new Uint8Array(length));
-  const binary = Array.from(bytes, (byte) => String.fromCharCode(byte)).join("");
-  return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/u, "");
-}
-
 function matchingMaintainerBySshKey(
   maintainers: MaintainerRecord[],
   publicKey: string,
@@ -185,7 +176,7 @@ async function verifyAgainstChallenge(signature: string, challengeText: string):
       ? false
       : await verifySshSignature(signature, `${challengeText}\n`);
   } catch {
-    invalidSshSignature("error.auth.ssh.malformed_signature");
+    invalidSignature("error.auth.ssh.malformed_signature");
   }
 }
 
@@ -276,7 +267,7 @@ export async function verifyRegistryPgpChallenge(
   const signedMessage = requireNonEmptyString(request.signed_message, "signed_message");
 
   const publicKey = await readKey({ armoredKey }).catch(() =>
-    invalidPgpSignature("error.auth.pgp.invalid_public_key"),
+    invalidSignature("error.auth.pgp.invalid_public_key"),
   );
 
   const fingerprint = publicKey.getFingerprint().toUpperCase();
@@ -290,12 +281,12 @@ export async function verifyRegistryPgpChallenge(
 
   const cleartext = await readCleartextMessage({
     cleartextMessage: signedMessage,
-  }).catch(() => invalidPgpSignature("error.auth.pgp.invalid_signed_message"));
+  }).catch(() => invalidSignature("error.auth.pgp.invalid_signed_message"));
 
   const verification = await verifyPgp({
       message: cleartext,
       verificationKeys: publicKey,
-    }).catch(() => invalidPgpSignature("error.auth.pgp.verification_failed"));
+    }).catch(() => invalidSignature("error.auth.pgp.verification_failed"));
 
   const signedText = cleartext.getText().trimEnd();
   if (signedText !== challenge.challenge_text.trimEnd()) {
@@ -306,7 +297,7 @@ export async function verifyRegistryPgpChallenge(
     try {
       await signature.verified;
     } catch {
-      invalidPgpSignature("error.auth.pgp.verification_failed");
+      invalidSignature("error.auth.pgp.verification_failed");
     }
   }
 

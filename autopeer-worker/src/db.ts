@@ -328,56 +328,43 @@ export async function getAuthSession(env: Env, token: string): Promise<SessionRe
   return row ? mapSessionRow(row) : null;
 }
 
+function operationBindValues(record: OperationRecord): unknown[] {
+  return [
+    record.id,
+    record.asn,
+    record.node,
+    record.kind,
+    record.state,
+    record.branch,
+    record.session_snapshot ? JSON.stringify(record.session_snapshot) : null,
+    record.pr_number ?? null,
+    record.pr_node_id ?? null,
+    record.pull_request_url ?? null,
+    record.workflow_run_url ?? null,
+    record.message ? JSON.stringify(record.message) : null,
+    record.failure_details ? JSON.stringify(record.failure_details) : null,
+    record.created_at,
+    record.updated_at,
+  ];
+}
+
+const OPERATION_COLUMNS = `(id, asn, node, kind, state, branch, session_snapshot, pr_number, pr_node_id, pull_request_url, workflow_run_url, message, failure_details, created_at, updated_at)`;
+const OPERATION_PLACEHOLDERS = `(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
+
 export async function putOperation(env: Env, record: OperationRecord): Promise<void> {
   await env.DB.prepare(
-    `INSERT OR REPLACE INTO operations
-      (id, asn, node, kind, state, branch, session_snapshot, pr_number, pr_node_id, pull_request_url, workflow_run_url, message, failure_details, created_at, updated_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    `INSERT OR REPLACE INTO operations ${OPERATION_COLUMNS} VALUES ${OPERATION_PLACEHOLDERS}`,
   )
-    .bind(
-      record.id,
-      record.asn,
-      record.node,
-      record.kind,
-      record.state,
-      record.branch,
-      record.session_snapshot ? JSON.stringify(record.session_snapshot) : null,
-      record.pr_number ?? null,
-      record.pr_node_id ?? null,
-      record.pull_request_url ?? null,
-      record.workflow_run_url ?? null,
-      record.message ? JSON.stringify(record.message) : null,
-      record.failure_details ? JSON.stringify(record.failure_details) : null,
-      record.created_at,
-      record.updated_at,
-    )
+    .bind(...operationBindValues(record))
     .run();
 }
 
 export async function insertOperation(env: Env, record: OperationRecord): Promise<boolean> {
   try {
     await env.DB.prepare(
-      `INSERT INTO operations
-        (id, asn, node, kind, state, branch, session_snapshot, pr_number, pr_node_id, pull_request_url, workflow_run_url, message, failure_details, created_at, updated_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO operations ${OPERATION_COLUMNS} VALUES ${OPERATION_PLACEHOLDERS}`,
     )
-      .bind(
-        record.id,
-        record.asn,
-        record.node,
-        record.kind,
-        record.state,
-        record.branch,
-        record.session_snapshot ? JSON.stringify(record.session_snapshot) : null,
-        record.pr_number ?? null,
-        record.pr_node_id ?? null,
-        record.pull_request_url ?? null,
-        record.workflow_run_url ?? null,
-        record.message ? JSON.stringify(record.message) : null,
-        record.failure_details ? JSON.stringify(record.failure_details) : null,
-        record.created_at,
-        record.updated_at,
-      )
+      .bind(...operationBindValues(record))
       .run();
     return true;
   } catch {

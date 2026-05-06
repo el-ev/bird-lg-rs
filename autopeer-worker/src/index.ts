@@ -1,4 +1,5 @@
 import {
+  SESSION_TTL_SECONDS,
   assertChallengeFresh,
   createChallenge,
   createRegistryEmailAuthRequest,
@@ -88,6 +89,7 @@ import type {
   UpdateSessionRequest,
 } from "./types";
 import {
+  addSeconds,
   bearerToken,
   buildCorsHeaders,
   errorWithCors,
@@ -716,50 +718,71 @@ function buildNoChangeOperation(
   };
 }
 
+type WorkflowGateConfig = {
+  graceMs: number;
+  pendingState: OperationState;
+  successState: OperationState;
+  shouldAttemptMerge: boolean;
+  notStartedKey: string;
+  waitStartKey: string;
+  failedKey: string;
+};
+
+const CHECK_GATE_CONFIG: WorkflowGateConfig = {
+  graceMs: CHECK_WORKFLOW_GRACE_MS,
+  pendingState: "pending_checks",
+  successState: "applying",
+  shouldAttemptMerge: false,
+  notStartedKey: "operation.message.check_not_started",
+  waitStartKey: "operation.message.check_wait_start",
+  failedKey: "operation.message.check_failed",
+};
+
+const APPLY_GATE_CONFIG: WorkflowGateConfig = {
+  graceMs: CHECK_WORKFLOW_GRACE_MS + APPLY_WORKFLOW_GRACE_MS,
+  pendingState: "applying",
+  successState: "pending_merge",
+  shouldAttemptMerge: true,
+  notStartedKey: "operation.message.apply_not_started",
+  waitStartKey: "operation.message.apply_wait_start",
+  failedKey: "operation.message.apply_failed",
+};
+
+function decideWorkflowGate(
+  operation: Pick<OperationRecord, "created_at">,
+  run: ValidationWorkflowRun | undefined,
+  config: WorkflowGateConfig,
+  now = Date.now(),
+): PreMergeGateDecision {
+  if (!run) {
+    const createdAt = Date.parse(operation.created_at);
+    if (Number.isFinite(createdAt) && now - createdAt > config.graceMs) {
+      return { state: "failed", message: uiMessage(config.notStartedKey), shouldAttemptMerge: false };
+    }
+    return { state: config.pendingState, message: uiMessage(config.waitStartKey), shouldAttemptMerge: false };
+  }
+
+  if (run.status !== "completed") {
+    return { state: config.pendingState, message: buildOperationMessage(config.pendingState), shouldAttemptMerge: false };
+  }
+
+  if (!["success", "neutral", "skipped"].includes(run.conclusion ?? "")) {
+    return {
+      state: "failed",
+      message: uiMessage(config.failedKey, { conclusion: run.conclusion ?? "unknown" }),
+      shouldAttemptMerge: false,
+    };
+  }
+
+  return { state: config.successState, message: buildOperationMessage(config.successState), shouldAttemptMerge: config.shouldAttemptMerge };
+}
+
 export function decideCheckGate(
   operation: Pick<OperationRecord, "created_at">,
   validationRun: ValidationWorkflowRun | undefined,
   now = Date.now(),
 ): PreMergeGateDecision {
-  if (!validationRun) {
-    const createdAt = Date.parse(operation.created_at);
-    if (Number.isFinite(createdAt) && now - createdAt > CHECK_WORKFLOW_GRACE_MS) {
-      return {
-        state: "failed",
-        message: uiMessage("operation.message.check_not_started"),
-        shouldAttemptMerge: false,
-      };
-    }
-    return {
-      state: "pending_checks",
-      message: uiMessage("operation.message.check_wait_start"),
-      shouldAttemptMerge: false,
-    };
-  }
-
-  if (validationRun.status !== "completed") {
-    return {
-      state: "pending_checks",
-      message: buildOperationMessage("pending_checks"),
-      shouldAttemptMerge: false,
-    };
-  }
-
-  if (!["success", "neutral", "skipped"].includes(validationRun.conclusion ?? "")) {
-    return {
-      state: "failed",
-      message: uiMessage("operation.message.check_failed", {
-        conclusion: validationRun.conclusion ?? "unknown",
-      }),
-      shouldAttemptMerge: false,
-    };
-  }
-
-  return {
-    state: "applying",
-    message: buildOperationMessage("applying"),
-    shouldAttemptMerge: false,
-  };
+  return decideWorkflowGate(operation, validationRun, CHECK_GATE_CONFIG, now);
 }
 
 export function decideApplyGate(
@@ -767,45 +790,7 @@ export function decideApplyGate(
   applyRun: ValidationWorkflowRun | undefined,
   now = Date.now(),
 ): PreMergeGateDecision {
-  if (!applyRun) {
-    const createdAt = Date.parse(operation.created_at);
-    if (Number.isFinite(createdAt) && now - createdAt > CHECK_WORKFLOW_GRACE_MS + APPLY_WORKFLOW_GRACE_MS) {
-      return {
-        state: "failed",
-        message: uiMessage("operation.message.apply_not_started"),
-        shouldAttemptMerge: false,
-      };
-    }
-    return {
-      state: "applying",
-      message: uiMessage("operation.message.apply_wait_start"),
-      shouldAttemptMerge: false,
-    };
-  }
-
-  if (applyRun.status !== "completed") {
-    return {
-      state: "applying",
-      message: buildOperationMessage("applying"),
-      shouldAttemptMerge: false,
-    };
-  }
-
-  if (!["success", "neutral", "skipped"].includes(applyRun.conclusion ?? "")) {
-    return {
-      state: "failed",
-      message: uiMessage("operation.message.apply_failed", {
-        conclusion: applyRun.conclusion ?? "unknown",
-      }),
-      shouldAttemptMerge: false,
-    };
-  }
-
-  return {
-    state: "pending_merge",
-    message: buildOperationMessage("pending_merge"),
-    shouldAttemptMerge: true,
-  };
+  return decideWorkflowGate(operation, applyRun, APPLY_GATE_CONFIG, now);
 }
 
 export function decideNodeLockGate(hasNodeLock: boolean): PreMergeGateDecision {
@@ -1409,7 +1394,7 @@ async function router(request: Request, env: Env): Promise<Response> {
         provider: `AS${impersonatorSession.asn}`,
       },
       created_at: createdAt,
-      expires_at: new Date(Date.parse(createdAt) + 6 * 60 * 60 * 1000).toISOString(),
+      expires_at: addSeconds(createdAt, SESSION_TTL_SECONDS),
     };
     await putAuthSession(env, session);
     return jsonWithCors(request, authSessionResponseForEnv(env, session));

@@ -1,5 +1,6 @@
 import { createRemoteJWKSet, jwtVerify } from "jose";
 
+import { SESSION_TTL_SECONDS } from "./auth";
 import type {
   AuthMethod,
   MaintainerRecord,
@@ -12,7 +13,7 @@ import type {
   SessionRecord,
   UiMessage,
 } from "./types";
-import { HttpError, addSeconds, nowIso, readNamedSecret, uiMessage } from "./utils";
+import { HttpError, addSeconds, nowIso, randomBase64Url, readNamedSecret, uiMessage } from "./utils";
 
 const OIDC_AUTH_TTL_SECONDS = 15 * 60;
 const DEFAULT_OIDC_SCOPES = ["openid", "profile", "email"];
@@ -48,23 +49,14 @@ export function oidcProviderByName(
   return providers.find((provider) => provider.name === name);
 }
 
-function toBase64Url(bytes: Uint8Array): string {
+async function sha256Base64Url(input: string): Promise<string> {
+  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(input));
+  const bytes = new Uint8Array(digest);
   let binary = "";
   for (const byte of bytes) {
     binary += String.fromCharCode(byte);
   }
   return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
-}
-
-function randomBase64Url(byteLength: number): string {
-  const bytes = new Uint8Array(byteLength);
-  crypto.getRandomValues(bytes);
-  return toBase64Url(bytes);
-}
-
-async function sha256Base64Url(input: string): Promise<string> {
-  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(input));
-  return toBase64Url(new Uint8Array(digest));
 }
 
 function jsonObject(value: unknown, message: UiMessage): JsonObject {
@@ -208,7 +200,7 @@ function buildOidcSession(
       }),
     },
     created_at: createdAt,
-    expires_at: addSeconds(createdAt, 6 * 60 * 60),
+    expires_at: addSeconds(createdAt, SESSION_TTL_SECONDS),
   };
 }
 
