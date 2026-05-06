@@ -946,6 +946,54 @@ details[open] .summary-header {
     border-radius: 0 0 4px 4px;
 }
 
+/* Protocol Detail Page */
+.protocol-detail {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-lg);
+}
+
+.protocol-detail-header {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.protocol-detail-title {
+    margin: 0;
+    font-size: 1.25rem;
+}
+
+.protocol-detail-subtitle {
+    font-size: var(--font-size-sm);
+    color: var(--text-secondary);
+}
+
+.protocol-detail-subtitle a {
+    text-decoration: underline dotted;
+}
+
+.protocol-detail-command .shell-line {
+    margin-bottom: 0;
+    border-bottom: none;
+    border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+}
+
+.protocol-detail-output {
+    margin: 0;
+    padding: 10px;
+    background: #EDEDED;
+    border: 1px solid var(--border);
+    border-top: none;
+    border-radius: 0 0 var(--radius-sm) var(--radius-sm);
+    overflow-x: auto;
+    font-size: 13px;
+    line-height: 1.45;
+    white-space: pre-wrap;
+    word-break: break-all;
+}
+
 /* ==========================================================================
    Responsive
    ========================================================================== */

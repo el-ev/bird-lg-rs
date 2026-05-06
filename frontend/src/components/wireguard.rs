@@ -1,3 +1,5 @@
+use std::{cell::Cell, rc::Rc};
+
 use ui_components::shell::ShellLine;
 use wasm_bindgen_futures::spawn_local;
 use yew::prelude::*;
@@ -6,7 +8,10 @@ use super::data_table::{DataTable, TableRow};
 use crate::{
     services::api::request_wireguard,
     store::{LgStateHandle, route_info::RouteInfoHandle},
+    utils::sleep_ms,
 };
+
+const REFRESH_INTERVAL_MS: i32 = 30_000;
 
 #[function_component(WireGuard)]
 pub fn wireguard_section() -> Html {
@@ -16,31 +21,32 @@ pub fn wireguard_section() -> Html {
 
     let wireguard_data = route_info.scoped_wireguard_nodes(state.wireguard.as_slice());
 
-    let on_refresh = {
+    {
         let state = state.clone();
-        Callback::from(move |e: MouseEvent| {
-            e.prevent_default();
-            let state = state.clone();
+        use_effect(move || {
+            let active = Rc::new(Cell::new(true));
+            let cleanup = active.clone();
             spawn_local(async move {
-                if let Err(error) = request_wireguard(&state).await {
-                    tracing::error!("Failed to refresh WireGuard data: {}", error);
+                loop {
+                    sleep_ms(REFRESH_INTERVAL_MS).await;
+                    if !active.get() {
+                        break;
+                    }
+                    if let Err(error) = request_wireguard(&state).await {
+                        tracing::error!("Failed to refresh WireGuard data: {}", error);
+                    }
+                    if !active.get() {
+                        break;
+                    }
                 }
             });
-        })
-    };
+            move || cleanup.set(false)
+        });
+    }
 
     html! {
         <section>
-            <h3>
-                {"WireGuard"}
-                <button
-                    class="refresh-button"
-                    onclick={on_refresh}
-                    title="Refresh WireGuard status"
-                >
-                    {"↻"}
-                </button>
-            </h3>
+            <h3>{"WireGuard"}</h3>
             <div>
                 {
                     if node_route && wireguard_data.is_empty() {

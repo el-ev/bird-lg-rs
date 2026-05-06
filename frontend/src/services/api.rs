@@ -1,4 +1,8 @@
-use std::sync::atomic::{AtomicU64, Ordering};
+use std::{
+    cell::RefCell,
+    rc::Rc,
+    sync::atomic::{AtomicU64, Ordering},
+};
 
 use common::api::{AppRequest, AppResponse};
 use futures::future::join_all;
@@ -406,4 +410,53 @@ pub async fn request_wireguard(
             Err(error)
         }
     }
+}
+
+pub async fn fetch_protocol_details_content(
+    backend_url: &str,
+    node: &str,
+    proto: &str,
+) -> Result<String, String> {
+    let request_id = build_request_id("protocol-view");
+    let url = format!(
+        "{}/api/protocols/{}/{}?request_id={}",
+        backend_url.trim_end_matches('/'),
+        node,
+        proto,
+        request_id
+    );
+
+    let output = Rc::new(RefCell::new(String::new()));
+    let buf = output.clone();
+
+    consume_app_sse(url, move |response| match response {
+        AppResponse::ProtocolDetailsInit { .. } => {
+            buf.borrow_mut().clear();
+        }
+        AppResponse::ProtocolDetailsUpdate { lines, .. } => {
+            let mut s = buf.borrow_mut();
+            if !lines.is_empty() {
+                if !s.is_empty() && !s.ends_with('\n') {
+                    s.push('\n');
+                }
+                s.push_str(&lines.join("\n"));
+                if !s.ends_with('\n') {
+                    s.push('\n');
+                }
+            }
+        }
+        AppResponse::ProtocolDetailsError { error, .. } => {
+            let mut s = buf.borrow_mut();
+            if !s.is_empty() && !s.ends_with('\n') {
+                s.push('\n');
+            }
+            s.push_str("Error: ");
+            s.push_str(&error);
+            s.push('\n');
+        }
+        _ => {}
+    })
+    .await?;
+
+    Ok(output.borrow().clone())
 }

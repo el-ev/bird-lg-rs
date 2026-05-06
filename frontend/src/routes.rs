@@ -6,6 +6,8 @@ pub enum Route {
     Root,
     #[at("/protocols")]
     Protocols,
+    #[at("/node/:node/protocol/:protocol")]
+    NodeProtocol { node: String, protocol: String },
     #[at("/node/:name/")]
     Node { name: String },
     #[at("/peering")]

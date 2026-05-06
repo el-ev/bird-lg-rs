@@ -60,6 +60,7 @@ pub fn route_info_provider(props: &RouteInfoProviderProps) -> Html {
         let path = route.to_path();
         let node_name = match route {
             Route::Node { name } => Some(name.clone()),
+            Route::NodeProtocol { node, .. } => Some(node.clone()),
             _ => None,
         };
 
