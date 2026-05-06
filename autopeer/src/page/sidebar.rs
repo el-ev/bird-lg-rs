@@ -4,7 +4,7 @@ use yew::prelude::*;
 use super::{render_error, render_operation_progress};
 use crate::{
     i18n::I18n,
-    models::{AuthSessionResponse, OperationState, OperationStatus, UiMessage},
+    models::{AuthSessionResponse, OperationKind, OperationState, OperationStatus, UiMessage},
 };
 
 #[derive(Properties, PartialEq)]
@@ -14,6 +14,7 @@ pub struct DashboardSidebarProps {
     pub auth_session: Option<AuthSessionResponse>,
     pub host_session: Option<AuthSessionResponse>,
     pub operation: Option<OperationStatus>,
+    pub looking_glass_site_href: String,
     pub support_error: Option<UiMessage>,
     pub impersonate_asn: String,
     pub impersonate_mnt: String,
@@ -159,6 +160,23 @@ pub fn dashboard_sidebar(props: &DashboardSidebarProps) -> Html {
                         }
                         if let Some(run_url) = &operation_status.workflow_run_url {
                             <a href={run_url.clone()} target="_blank" rel="noreferrer">{i18n.t("action.workflow_run")}</a>
+                        }
+                        if operation_status.state == OperationState::Completed
+                            && !matches!(operation_status.kind, OperationKind::Delete | OperationKind::Retire)
+                            && !props.looking_glass_site_href.is_empty()
+                        {
+                            <a
+                                href={format!(
+                                    "{}/node/{}/protocol/dn42_{}",
+                                    props.looking_glass_site_href.trim_end_matches('/'),
+                                    operation_status.node,
+                                    &operation_status.asn[operation_status.asn.len().saturating_sub(4)..],
+                                )}
+                                target="_blank"
+                                rel="noreferrer"
+                            >
+                                {i18n.t("action.check_bgp_session")}
+                            </a>
                         }
                         if operation_status.state.is_terminal() {
                             if operation_status.state == OperationState::Failed && operation_status.pull_request_url.is_some() {

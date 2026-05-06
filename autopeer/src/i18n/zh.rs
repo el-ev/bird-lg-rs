@@ -32,6 +32,7 @@ pub(super) const TABLE: &[(&str, &str)] = &[
     ("action.redeploy", "重新部署"),
     ("action.drop_changes", "放弃更改"),
     ("action.dismiss_operation", "关闭"),
+    ("action.check_bgp_session", "查看 BGP 会话"),
     // Step: LoadingConfig / EnterAsn
     ("step.loading_config.prompt", "加载运行时配置"),
     ("step.loading_config.message", "正在加载运行时配置..."),
@@ -412,6 +413,7 @@ pub(super) const TABLE: &[(&str, &str)] = &[
     ("stage3.review.our_link_local_ipv6", "链路本地 IPv6"),
     ("stage3.review.our_wg_pubkey", "WireGuard 公钥"),
     ("stage3.review.our_node_note", "备注"),
+    ("stage3.review.check_session_label", "BGP 会话"),
     // Draft / node formatting
     ("draft.families.ipv4_ipv6", "IPv4 + IPv6"),
     ("draft.families.ipv4_only", "仅 IPv4"),

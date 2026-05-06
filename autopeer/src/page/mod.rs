@@ -289,6 +289,7 @@ fn render_inventory_peering_review(
     node: Option<&NodeView>,
     active_asn: &str,
     draft: &SessionDraft,
+    looking_glass_site_href: &str,
 ) -> Html {
     let Some(node) = node else {
         return Html::default();
@@ -323,6 +324,23 @@ fn render_inventory_peering_review(
                     draft.peer6_is_active() && detect_peer6_address_kind(&draft.peer6) == Some(Peer6AddressKind::LinkLocal))}
                 {render_peering_field(i18n.t("stage3.review.our_wg_pubkey"), peering.wg_pubkey.as_deref(), true)}
                 {render_peering_field(i18n.t("stage3.review.our_node_note"), peering.comment.as_deref(), false)}
+                if !looking_glass_site_href.is_empty() {
+                    <dt class="peering-label">{i18n.t("stage3.review.check_session_label")}</dt>
+                    <dd class="peering-value">
+                        <a
+                            href={format!(
+                                "{}/node/{}/protocol/dn42_{}",
+                                looking_glass_site_href.trim_end_matches('/'),
+                                node.name,
+                                &active_asn[active_asn.len().saturating_sub(4)..],
+                            )}
+                            target="_blank"
+                            rel="noreferrer"
+                        >
+                            {format!("dn42_{}", &active_asn[active_asn.len().saturating_sub(4)..])}
+                        </a>
+                    </dd>
+                }
             </dl>
         </div>
     }
@@ -913,6 +931,7 @@ pub fn auto_peer_page() -> Html {
                         editing_node={editing_node_value.clone()}
                         selected_node={selected_node.clone()}
                         active_asn={active_asn}
+                        looking_glass_site_href={(*looking_glass_site_href).clone()}
                         draft_is_valid={draft_is_valid}
                         ongoing_tasks={ongoing_tasks.tasks().to_vec()}
                         error={(*error).clone()}
@@ -999,6 +1018,7 @@ pub fn auto_peer_page() -> Html {
                             auth_session={auth_summary}
                             host_session={host_summary}
                             operation={(*operation).clone()}
+                            looking_glass_site_href={(*looking_glass_site_href).clone()}
                             support_error={(*support_error).clone()}
                             impersonate_asn={(*impersonate_asn).clone()}
                             impersonate_mnt={(*impersonate_mnt).clone()}

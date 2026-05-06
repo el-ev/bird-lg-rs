@@ -21,6 +21,7 @@ pub struct ReviewProps {
     pub editing_node: Option<String>,
     pub selected_node: Option<NodeView>,
     pub active_asn: String,
+    pub looking_glass_site_href: String,
     pub draft_is_valid: bool,
     pub ongoing_tasks: Vec<OngoingTask>,
     pub error: Option<UiMessage>,
@@ -125,7 +126,7 @@ pub fn review_panel(props: &ReviewProps) -> Html {
                 {optional_review_item(i18n.t("stage3.review.note"), &draft.comment, changed(|o, d| o.comment != d.comment))}
             </div>
 
-            {render_inventory_peering_review(i18n, props.selected_node.as_ref(), &props.active_asn, draft)}
+            {render_inventory_peering_review(i18n, props.selected_node.as_ref(), &props.active_asn, draft, &props.looking_glass_site_href)}
 
             {render_ongoing_tasks(i18n, &props.ongoing_tasks)}
             {render_error(i18n, &props.error)}

@@ -33,6 +33,7 @@ pub(super) const TABLE: &[(&str, &str)] = &[
     ("action.redeploy", "Re-deploy"),
     ("action.drop_changes", "Drop Changes"),
     ("action.dismiss_operation", "Dismiss"),
+    ("action.check_bgp_session", "Check BGP Session"),
     // Step: LoadingConfig / EnterAsn
     (
         "step.loading_config.prompt",
@@ -449,6 +450,7 @@ pub(super) const TABLE: &[(&str, &str)] = &[
     ("stage3.review.our_link_local_ipv6", "Link-local IPv6"),
     ("stage3.review.our_wg_pubkey", "WireGuard public key"),
     ("stage3.review.our_node_note", "Note"),
+    ("stage3.review.check_session_label", "BGP session"),
     // Draft / node formatting
     ("draft.families.ipv4_ipv6", "IPv4 + IPv6"),
     ("draft.families.ipv4_only", "IPv4 only"),

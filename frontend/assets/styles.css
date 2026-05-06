@@ -1532,6 +1532,14 @@ details[open] .summary-header {
     margin: 0;
 }
 
+.autopeer-review-peering-grid a {
+    text-decoration: underline dotted;
+}
+
+.autopeer-review-peering-grid a:hover {
+    text-decoration: underline;
+}
+
 .peering-label.peering-label--active {
     color: var(--shell-prompt);
 }
