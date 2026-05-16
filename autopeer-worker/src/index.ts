@@ -57,24 +57,28 @@ import {
   verifiedOidcClaimSources,
 } from "./oidc";
 import { NoMaintainerError, RegistryPathNotFoundError, loadMaintainersForAsn, methodsFromMaintainers } from "./registry";
-import { MP_BGP_TRANSPORTS } from "./types";
+import {
+  AuthStartSchema,
+  CreateSessionSchema,
+  HostImpersonationSchema,
+  OidcCompleteSchema,
+  OidcStartSchema,
+  RegistryEmailCompleteSchema,
+  RegistryEmailSendSchema,
+  RegistryEmailVerifySchema,
+  RegistryPgpVerifySchema,
+  RegistrySshVerifySchema,
+  UpdateSessionSchema,
+} from "./schemas";
 import type {
   AuthSessionResponse,
-  AuthStartRequest,
   AuthStartResponse,
   ChallengeRecord,
-  CreateSessionRequest,
-  HostImpersonationRequest,
   MaintainerRecord,
   OperationFailureDetails,
-  RegistryEmailCompleteRequest,
-  RegistryEmailSendRequest,
   RegistryEmailSendResponse,
   RegistryEmailTarget,
-  RegistryEmailVerifyRequest,
-  OidcCompleteRequest,
   OidcProviderConfig,
-  OidcStartRequest,
   OidcStartResponse,
   OperationKind,
   OperationRecord,
@@ -82,11 +86,8 @@ import type {
   OperationStatus,
   PeerSessionSpec,
   PgpKeyLookupResponse,
-  RegistryPgpVerifyRequest,
-  RegistrySshVerifyRequest,
   SessionRecord,
   UiMessage,
-  UpdateSessionRequest,
 } from "./types";
 import {
   addSeconds,
@@ -99,15 +100,10 @@ import {
   jsonWithCors,
   normalizeSupportedAutopeerAsn,
   nowIso,
+  parseBody,
   parseConfiguredAsns,
   parseJsonEnv,
-  readJson,
   readOptionalEnvString,
-  requireBoolean,
-  requireNonEmptyString,
-  requireOptionalInteger,
-  requireOptionalString,
-  requireRecord,
   I18nError,
   isExpired,
   stripOperatorHints,
@@ -202,47 +198,6 @@ async function loadMaintainersForRequestAsn(
   } catch (error) {
     throw classifyMaintainerLookupError(asn, error);
   }
-}
-
-function parseRequestSessionSpec(value: unknown): PeerSessionSpec {
-  const record = requireRecord(value, "session");
-  const peeringStrategy = requireOptionalString(
-    record.peering_strategy,
-    "session.peering_strategy",
-  ) ?? "full_table";
-  const mpBgpTransport = requireOptionalString(
-    record.mp_bgp_transport,
-    "session.mp_bgp_transport",
-  );
-  if (
-    mpBgpTransport !== null &&
-    mpBgpTransport !== undefined &&
-    !(MP_BGP_TRANSPORTS as readonly string[]).includes(mpBgpTransport)
-  ) {
-    throw new HttpError("error.request.session.mp_bgp_transport.invalid", 400);
-  }
-  return {
-    comment: requireOptionalString(record.comment, "session.comment"),
-    endpoint: requireOptionalString(record.endpoint, "session.endpoint"),
-    wg_public_key: requireNonEmptyString(record.wg_public_key, "session.wg_public_key"),
-    port: requireOptionalInteger(record.port, "session.port"),
-    peer4: requireOptionalString(record.peer4, "session.peer4"),
-    peer6: requireOptionalString(record.peer6, "session.peer6"),
-    own6: requireOptionalString(record.own6, "session.own6"),
-    keepalive: requireOptionalInteger(record.keepalive, "session.keepalive"),
-    mtu: requireOptionalInteger(record.mtu, "session.mtu"),
-    ipv4: requireBoolean(record.ipv4, "session.ipv4"),
-    ipv6: requireBoolean(record.ipv6, "session.ipv6"),
-    extended_next_hop: requireBoolean(
-      record.extended_next_hop,
-      "session.extended_next_hop",
-    ),
-    mp_bgp: requireBoolean(record.mp_bgp, "session.mp_bgp"),
-    mp_bgp_transport: mpBgpTransport as PeerSessionSpec["mp_bgp_transport"],
-    peering_strategy: peeringStrategy as PeerSessionSpec["peering_strategy"],
-    psk: record.psk === undefined ? undefined : requireOptionalString(record.psk, "session.psk"),
-    encrypt_endpoint: typeof record.encrypt_endpoint === "boolean" ? record.encrypt_endpoint : undefined,
-  };
 }
 
 function assertValidSessionSpec(
@@ -1134,14 +1089,14 @@ async function handleMutation(
   const sessions = await listSessionsForAsn(authSession.asn, repo.peerFiles, repo.hosts, operations, vaultPassword, github);
 
   let nodeName = nodeFromPath;
-  let sessionPayload: CreateSessionRequest["session"] | UpdateSessionRequest["session"] | undefined;
+  let sessionPayload: PeerSessionSpec | undefined;
   if (kind === "create") {
-    const body = requireRecord(await readJson<CreateSessionRequest>(request), "request body");
-    nodeName = requireNonEmptyString(body.node, "node");
-    sessionPayload = parseRequestSessionSpec(body.session);
+    const body = await parseBody(request, CreateSessionSchema);
+    nodeName = body.node;
+    sessionPayload = body.session;
   } else if (kind === "update") {
-    const body = requireRecord(await readJson<UpdateSessionRequest>(request), "request body");
-    sessionPayload = parseRequestSessionSpec(body.session);
+    const body = await parseBody(request, UpdateSessionSchema);
+    sessionPayload = body.session;
   }
 
   if (!nodeName) {
@@ -1395,8 +1350,8 @@ async function router(request: Request, env: Env): Promise<Response> {
   }
 
   if (request.method === "POST" && url.pathname === "/v1/auth/start") {
-    const body = requireRecord(await readJson<AuthStartRequest>(request), "request body");
-    const asn = normalizeSupportedAutopeerAsn(requireNonEmptyString(body.asn, "asn"));
+    const body = await parseBody(request, AuthStartSchema);
+    const asn = normalizeSupportedAutopeerAsn(body.asn);
     const maintainers = await loadMaintainersForRequestAsn(env, asn);
     const challenge = createChallenge(asn);
     challenge.maintainers = maintainers;
@@ -1431,16 +1386,10 @@ async function router(request: Request, env: Env): Promise<Response> {
       );
     }
 
-    const body = requireRecord(
-      await readJson<HostImpersonationRequest>(request),
-      "request body",
-    );
-    const asn = normalizeSupportedAutopeerAsn(requireNonEmptyString(body.asn, "asn"));
+    const body = await parseBody(request, HostImpersonationSchema);
+    const asn = normalizeSupportedAutopeerAsn(body.asn);
     const maintainers = await loadMaintainersForRequestAsn(env, asn);
-    const effectiveMnt = resolveEffectiveMaintainer(
-      maintainers,
-      requireOptionalString(body.effective_mnt, "effective_mnt"),
-    );
+    const effectiveMnt = resolveEffectiveMaintainer(maintainers, body.effective_mnt);
     const createdAt = nowIso();
     const session: SessionRecord = {
       token: crypto.randomUUID(),
@@ -1463,34 +1412,17 @@ async function router(request: Request, env: Env): Promise<Response> {
   }
 
   if (request.method === "POST" && url.pathname === "/v1/auth/verify/registry-ssh") {
-    const body = requireRecord(
-      await readJson<RegistrySshVerifyRequest>(request),
-      "request body",
-    );
-    const challengeId = requireNonEmptyString(body.challenge_id, "challenge_id");
-    const verifyRequest: RegistrySshVerifyRequest = {
-      challenge_id: challengeId,
-      signature: body.signature as RegistrySshVerifyRequest["signature"],
-    };
-    const challenge = await consumeChallengeOrThrow(env, challengeId);
-    const session = await verifyRegistrySshChallenge(challenge, verifyRequest);
+    const body = await parseBody(request, RegistrySshVerifySchema);
+    const challenge = await consumeChallengeOrThrow(env, body.challenge_id);
+    const session = await verifyRegistrySshChallenge(challenge, body);
     await putAuthSession(env, session);
     return jsonWithCors(request, authSessionResponseForEnv(env, session));
   }
 
   if (request.method === "POST" && url.pathname === "/v1/auth/verify/registry-pgp") {
-    const body = requireRecord(
-      await readJson<RegistryPgpVerifyRequest>(request),
-      "request body",
-    );
-    const challengeId = requireNonEmptyString(body.challenge_id, "challenge_id");
-    const verifyRequest: RegistryPgpVerifyRequest = {
-      challenge_id: challengeId,
-      public_key: body.public_key as RegistryPgpVerifyRequest["public_key"],
-      signed_message: body.signed_message as RegistryPgpVerifyRequest["signed_message"],
-    };
-    const challenge = await consumeChallengeOrThrow(env, challengeId);
-    const session = await verifyRegistryPgpChallenge(challenge, verifyRequest);
+    const body = await parseBody(request, RegistryPgpVerifySchema);
+    const challenge = await consumeChallengeOrThrow(env, body.challenge_id);
+    const session = await verifyRegistryPgpChallenge(challenge, body);
     await putAuthSession(env, session);
     return jsonWithCors(request, authSessionResponseForEnv(env, session));
   }
@@ -1517,22 +1449,15 @@ async function router(request: Request, env: Env): Promise<Response> {
     if (!registryEmailAuthConfigured(env)) {
       throw new HttpError("error.auth.registry_email.unavailable", 503);
     }
-    const body = requireRecord(
-      await readJson<RegistryEmailSendRequest>(request),
-      "request body",
-    );
-    const challengeId = requireNonEmptyString(body.challenge_id, "challenge_id");
-    const challenge = await getChallenge(env, challengeId);
+    const body = await parseBody(request, RegistryEmailSendSchema);
+    const challenge = await getChallenge(env, body.challenge_id);
     if (!challenge) {
       throw new HttpError("error.auth.challenge.unknown_id", 404);
     }
     assertChallengeFresh(challenge);
 
-    const target = resolveRegistryEmailTarget(
-      challenge,
-      requireOptionalString(body.effective_mnt, "effective_mnt"),
-    );
-    const requestedLocale = requireOptionalString(body.locale, "locale");
+    const target = resolveRegistryEmailTarget(challenge, body.effective_mnt);
+    const requestedLocale = body.locale;
     const locale = resolveLocaleCode(requestedLocale) ?? resolveLocale(request);
     const emailAuthRequest = createRegistryEmailAuthRequest(
       challenge,
@@ -1559,12 +1484,9 @@ async function router(request: Request, env: Env): Promise<Response> {
   }
 
   if (request.method === "POST" && url.pathname === "/v1/auth/verify/registry-email") {
-    const body = requireRecord(
-      await readJson<RegistryEmailVerifyRequest>(request),
-      "request body",
-    );
-    const challengeId = requireNonEmptyString(body.challenge_id, "challenge_id");
-    const code = requireNonEmptyString(body.code, "code");
+    const body = await parseBody(request, RegistryEmailVerifySchema);
+    const challengeId = body.challenge_id;
+    const code = body.code;
     const emailAuthRequest = await getRegistryEmailAuthRequest(env, challengeId);
     if (!emailAuthRequest) {
       throw new HttpError("error.auth.registry_email.state.missing", 404);
@@ -1593,11 +1515,8 @@ async function router(request: Request, env: Env): Promise<Response> {
   }
 
   if (request.method === "POST" && url.pathname === "/v1/auth/verify/registry-email/complete") {
-    const body = requireRecord(
-      await readJson<RegistryEmailCompleteRequest>(request),
-      "request body",
-    );
-    const token = requireNonEmptyString(body.token, "token");
+    const body = await parseBody(request, RegistryEmailCompleteSchema);
+    const token = body.token;
     const emailAuthRequest = await consumeCompletedRegistryEmailAuthRequestByToken(env, token);
     if (!emailAuthRequest) {
       const pendingRequest = await getRegistryEmailAuthRequestByToken(env, token);
@@ -1636,8 +1555,8 @@ async function router(request: Request, env: Env): Promise<Response> {
     url.pathname.split("/").length === 6
   ) {
     const providerName = decodeURIComponent(url.pathname.split("/")[4] ?? "");
-    const body = requireRecord(await readJson<OidcStartRequest>(request), "request body");
-    const challengeId = requireOptionalString(body.challenge_id, "challenge_id");
+    const body = await parseBody(request, OidcStartSchema);
+    const challengeId = body.challenge_id;
     if (challengeId) {
       const challenge = await getChallenge(env, challengeId);
       if (!challenge) {
@@ -1889,8 +1808,8 @@ async function router(request: Request, env: Env): Promise<Response> {
   }
 
   if (request.method === "POST" && url.pathname === "/v1/auth/oidc/complete") {
-    const body = requireRecord(await readJson<OidcCompleteRequest>(request), "request body");
-    const authRequest = await getOidcAuthRequest(env, requireNonEmptyString(body.state, "state"));
+    const body = await parseBody(request, OidcCompleteSchema);
+    const authRequest = await getOidcAuthRequest(env, body.state);
     if (!authRequest) {
       throw new HttpError("error.auth.oidc.state.missing", 404);
     }

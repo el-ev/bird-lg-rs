@@ -1,3 +1,4 @@
+import type { ZodType, core } from "zod";
 import type { ApiError, UiMessage } from "./types";
 
 const ASN_PATTERN = /^424242\d+$/;
@@ -87,6 +88,53 @@ export async function readJson<T>(request: Request): Promise<T> {
   }
 }
 
+export async function parseBody<T>(
+  request: Request,
+  schema: ZodType<T, unknown>,
+  rootLabel = "request body",
+): Promise<T> {
+  const raw = await readJson<unknown>(request);
+  const result = schema.safeParse(raw);
+  if (result.success) {
+    return result.data;
+  }
+  throw issueToHttpError(result.error.issues[0]!, rootLabel);
+}
+
+function issueToHttpError(issue: core.$ZodIssue, rootLabel: string): HttpError {
+  const field = issue.path.length === 0
+    ? rootLabel
+    : issue.path.map((segment) => String(segment)).join(".");
+
+  if (issue.code === "custom") {
+    const params = (issue.params ?? {}) as { uiKey?: unknown; literal?: unknown };
+    if (typeof params.uiKey === "string") {
+      if (params.literal === true) {
+        return new HttpError(params.uiKey, 400);
+      }
+      return new HttpError(uiMessage(params.uiKey, { field }), 400);
+    }
+  }
+
+  if (issue.code === "invalid_type") {
+    switch (issue.expected) {
+      case "string":
+        return new HttpError(uiMessage("error.field.must_be_string", { field }), 400);
+      case "boolean":
+        return new HttpError(uiMessage("error.field.must_be_boolean", { field }), 400);
+      case "int":
+      case "number":
+        return new HttpError(uiMessage("error.field.must_be_integer", { field }), 400);
+      case "object":
+        return new HttpError(uiMessage("error.field.must_be_object", { field }), 400);
+      case "array":
+        return new HttpError(uiMessage("error.field.must_be_array", { field }), 400);
+    }
+  }
+
+  return new HttpError(uiMessage("error.field.required", { field }), 400);
+}
+
 export function bearerToken(request: Request): string | null {
   const header = request.headers.get("authorization");
   if (!header) {
@@ -106,41 +154,6 @@ export function requireNonEmptyString(value: unknown, field: string): string {
     throw new HttpError(uiMessage("error.field.required", { field }), 400);
   }
   return value.trim();
-}
-
-export function requireOptionalString(value: unknown, field: string): string | null {
-  if (value === undefined || value === null) {
-    return null;
-  }
-  if (typeof value !== "string") {
-    throw new HttpError(uiMessage("error.field.must_be_string", { field }), 400);
-  }
-  const trimmed = value.trim();
-  return trimmed.length > 0 ? trimmed : null;
-}
-
-export function requireBoolean(value: unknown, field: string): boolean {
-  if (typeof value !== "boolean") {
-    throw new HttpError(uiMessage("error.field.must_be_boolean", { field }), 400);
-  }
-  return value;
-}
-
-export function requireOptionalInteger(value: unknown, field: string): number | null {
-  if (value === undefined || value === null) {
-    return null;
-  }
-  if (typeof value !== "number" || !Number.isInteger(value)) {
-    throw new HttpError(uiMessage("error.field.must_be_integer", { field }), 400);
-  }
-  return value;
-}
-
-export function requireRecord(value: unknown, field: string): Record<string, unknown> {
-  if (!isTruthyRecord(value)) {
-    throw new HttpError(uiMessage("error.field.must_be_object", { field }), 400);
-  }
-  return value;
 }
 
 export function normalizeAsn(

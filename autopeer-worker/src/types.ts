@@ -25,27 +25,12 @@ export interface AuthMethod {
   email_targets?: RegistryEmailTarget[];
 }
 
-export interface AuthStartRequest {
-  asn: string;
-}
-
 export interface AuthStartResponse {
   asn: string;
   challenge_id: string;
   challenge_text: string;
   challenge_ttl_seconds: number;
   methods: AuthMethod[];
-}
-
-export interface RegistrySshVerifyRequest {
-  challenge_id: string;
-  signature: string;
-}
-
-export interface RegistryPgpVerifyRequest {
-  challenge_id: string;
-  public_key: string;
-  signed_message: string;
 }
 
 export interface PgpKeyLookupResponse {
@@ -55,42 +40,14 @@ export interface PgpKeyLookupResponse {
   source?: string;
 }
 
-export interface RegistryEmailSendRequest {
-  challenge_id: string;
-  effective_mnt?: string | null;
-  locale?: string | null;
-}
-
 export interface RegistryEmailSendResponse {
   effective_mnt: string;
   emails: string[];
   expires_at: string;
 }
 
-export interface RegistryEmailVerifyRequest {
-  challenge_id: string;
-  code: string;
-}
-
-export interface RegistryEmailCompleteRequest {
-  token: string;
-}
-
-export interface OidcStartRequest {
-  challenge_id?: string;
-}
-
 export interface OidcStartResponse {
   authorization_url: string;
-}
-
-export interface OidcCompleteRequest {
-  state: string;
-}
-
-export interface HostImpersonationRequest {
-  asn: string;
-  effective_mnt?: string | null;
 }
 
 export interface AuthSessionResponse {
@@ -179,15 +136,6 @@ export interface SessionListResponse {
   asn: string;
   nodes: NodeView[];
   sessions: SessionView[];
-}
-
-export interface CreateSessionRequest {
-  node: string;
-  session: PeerSessionSpec;
-}
-
-export interface UpdateSessionRequest {
-  session: PeerSessionSpec;
 }
 
 export type OperationKind = "create" | "update" | "retire" | "delete" | "migrate";
@@ -340,3 +288,17 @@ export interface InventoryHost {
   peering?: PeeringInfo;
   autopeer?: boolean;
 }
+
+export type {
+  AuthStartRequest,
+  HostImpersonationRequest,
+  RegistrySshVerifyRequest,
+  RegistryPgpVerifyRequest,
+  RegistryEmailSendRequest,
+  RegistryEmailVerifyRequest,
+  RegistryEmailCompleteRequest,
+  OidcStartRequest,
+  OidcCompleteRequest,
+  CreateSessionRequest,
+  UpdateSessionRequest,
+} from "./schemas";

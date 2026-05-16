@@ -17,7 +17,8 @@
     "jose": "^6.1.2",
     "openpgp": "^6.3.0",
     "sshsig": "^0.3.1",
-    "yaml": "^2.8.3"
+    "yaml": "^2.8.3",
+    "zod": "^4.4.3"
   },
   "devDependencies": {
     "@cloudflare/vitest-pool-workers": "^0.10.8",

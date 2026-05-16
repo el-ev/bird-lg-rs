@@ -3,10 +3,6 @@ import { describe, expect, it } from "vitest";
 import {
   normalizeAsn,
   normalizeSupportedAutopeerAsn,
-  requireBoolean,
-  requireOptionalInteger,
-  requireOptionalString,
-  requireRecord,
   stripOperatorHints,
 } from "../src/utils";
 
@@ -45,21 +41,3 @@ describe("ASN normalization", () => {
   });
 });
 
-describe("request value validation", () => {
-  it("treats blank optional strings as absent but rejects non-strings", () => {
-    expect(requireOptionalString("  ", "field")).toBeNull();
-    expect(requireOptionalString(" value ", "field")).toBe("value");
-    expect(() => requireOptionalString(123, "field")).toThrow("error.field.must_be_string");
-  });
-
-  it("requires booleans, integers, and object records", () => {
-    expect(requireBoolean(true, "flag")).toBe(true);
-    expect(requireOptionalInteger(42, "count")).toBe(42);
-    expect(requireOptionalInteger(null, "count")).toBeNull();
-    expect(requireRecord({ ok: true }, "payload")).toEqual({ ok: true });
-
-    expect(() => requireBoolean("true", "flag")).toThrow("error.field.must_be_boolean");
-    expect(() => requireOptionalInteger(1.5, "count")).toThrow("error.field.must_be_integer");
-    expect(() => requireRecord([], "payload")).toThrow("error.field.must_be_object");
-  });
-});
