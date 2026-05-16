@@ -125,6 +125,8 @@ const CHECK_WORKFLOW_ID = "peer-session-check.yml";
 const CHECK_WORKFLOW_GRACE_MS = 5 * 60 * 1000;
 const APPLY_WORKFLOW_ID = "peer-session-apply.yml";
 const APPLY_WORKFLOW_GRACE_MS = 10 * 60 * 1000;
+const WORKFLOW_QUEUED_STALL_MS = 8 * 60 * 1000;
+const WORKFLOW_IN_PROGRESS_STALL_MS = 20 * 60 * 1000;
 const CONFIG_PATH = "/config.json";
 
 function commitMessage(kind: string, asn: string, node: string): string {
@@ -848,6 +850,48 @@ async function claimNodeLockForMerge(
   return false;
 }
 
+function isWorkflowRunStalled(
+  run: GitHubWorkflowRun,
+  now = Date.now(),
+): boolean {
+  const createdAt = Date.parse(run.created_at);
+  if (!Number.isFinite(createdAt)) return false;
+  const age = now - createdAt;
+  if (run.status === "queued") return age > WORKFLOW_QUEUED_STALL_MS;
+  if (run.status === "in_progress") return age > WORKFLOW_IN_PROGRESS_STALL_MS;
+  return false;
+}
+
+async function maybeNotifyStalledRun(
+  env: Env,
+  github: GitHubClient,
+  operation: OperationRecord,
+  run: GitHubWorkflowRun | undefined,
+  stage: "check" | "apply",
+  alreadyNotifiedAt: string | null,
+): Promise<string | null> {
+  if (alreadyNotifiedAt || !operation.pr_number || !run) return alreadyNotifiedAt;
+  if (!isWorkflowRunStalled(run)) return alreadyNotifiedAt;
+  const mention = env.STALL_NOTIFY_MENTION?.trim();
+  if (!mention) return alreadyNotifiedAt;
+
+  const ageMin = Math.max(1, Math.round((Date.now() - Date.parse(run.created_at)) / 60000));
+  const body =
+    `${mention} the ${stage} workflow ` +
+    `([run #${run.id}](${run.html_url})) on this PR has been \`${run.status}\` ` +
+    `for ~${ageMin} min — the self-hosted runner may be stuck.`;
+  try {
+    await github.createIssueComment(operation.pr_number, body);
+    return nowIso();
+  } catch (error) {
+    console.error(
+      `stall notify: failed to comment on PR ${operation.pr_number} for op ${operation.id}`,
+      error,
+    );
+    return alreadyNotifiedAt;
+  }
+}
+
 async function refreshOperation(
   env: Env,
   github: GitHubClient,
@@ -865,6 +909,7 @@ async function refreshOperation(
   let workflowRunUrl = operation.workflow_run_url ?? null;
   let message = operation.message ?? buildOperationMessage(operation.state);
   let failureDetails: OperationFailureDetails | null = operation.failure_details ?? null;
+  let stalledNotifiedAt: string | null = operation.stalled_notified_at ?? null;
 
   if (pr.merged) {
     await github.deleteBranch(operation.branch).catch(() => {});
@@ -882,6 +927,14 @@ async function refreshOperation(
     });
     const validationRun = validationRuns.workflow_runs.find(
       (candidate) => candidate.head_sha === pr.head.sha,
+    );
+    stalledNotifiedAt = await maybeNotifyStalledRun(
+      env,
+      github,
+      operation,
+      validationRun,
+      "check",
+      stalledNotifiedAt,
     );
     const checkGate = decideCheckGate(operation, validationRun);
     nextState = checkGate.state;
@@ -903,6 +956,14 @@ async function refreshOperation(
       });
       const applyRun = applyRuns.workflow_runs.find(
         (candidate) => candidate.head_sha === pr.head.sha,
+      );
+      stalledNotifiedAt = await maybeNotifyStalledRun(
+        env,
+        github,
+        operation,
+        applyRun,
+        "apply",
+        stalledNotifiedAt,
       );
       const applyGate = decideApplyGate(operation, applyRun);
       nextState = applyGate.state;
@@ -1010,6 +1071,7 @@ async function refreshOperation(
     workflow_run_url: workflowRunUrl,
     message,
     failure_details: nextState === "failed" ? failureDetails : null,
+    stalled_notified_at: stalledNotifiedAt,
     updated_at: nowIso(),
   };
   await putOperation(env, updated);

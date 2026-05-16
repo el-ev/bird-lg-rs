@@ -62,6 +62,7 @@ AUTOPEER_API_URL = "https://autopeer.owo.li"
 AUTOPEER_SITE_URL = "https://autopeer.owo.li"
 AUTOPEER_TRUSTED_FORWARDED_HOSTS = "autopeer.iris.dn42"
 LOOKING_GLASS_URL = "https://network.owo.li"
+STALL_NOTIFY_MENTION = "@el-ev"
 
 [[d1_databases]]
 binding = "DB"

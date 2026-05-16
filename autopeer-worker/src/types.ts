@@ -220,6 +220,7 @@ export interface OperationStatus {
   workflow_run_url?: string | null;
   message?: UiMessage | null;
   failure_details?: OperationFailureDetails | null;
+  stalled_notified_at?: string | null;
   created_at: string;
   updated_at: string;
 }

@@ -303,6 +303,16 @@ export class GitHubClient {
     );
   }
 
+  async createIssueComment(number: number, body: string): Promise<void> {
+    await this.request<unknown>(
+      `/repos/${joinPath(this.env.GITHUB_OWNER, this.env.GITHUB_REPO)}/issues/${number}/comments`,
+      {
+        method: "POST",
+        body: JSON.stringify({ body }),
+      },
+    );
+  }
+
   async closePullRequest(number: number): Promise<GitHubPrResponse> {
     return this.request<GitHubPrResponse>(
       `/repos/${joinPath(this.env.GITHUB_OWNER, this.env.GITHUB_REPO)}/pulls/${number}`,
