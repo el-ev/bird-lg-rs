@@ -1,0 +1,2 @@
+[build]
+dist = "../auth-worker/public"

@@ -40,8 +40,8 @@ vi.mock("../src/db", async () => {
   };
 });
 
-vi.mock("../src/mailer", async () => {
-  const actual = await vi.importActual<typeof import("../src/mailer")>("../src/mailer");
+vi.mock("dn42-auth-worker/mailer", async () => {
+  const actual = await vi.importActual<typeof import("dn42-auth-worker/mailer")>("dn42-auth-worker/mailer");
   return {
     ...actual,
     sendRegistryEmailAuthMessage: mailerMocks.sendRegistryEmailAuthMessage,
@@ -207,7 +207,7 @@ describe("registry email worker routes", () => {
     });
     expect(mailerMocks.sendRegistryEmailAuthMessage).toHaveBeenCalledWith(
       expect.anything(),
-      "de",
+      expect.any(Function),
       "4242421024",
       "SECOND-MNT",
       expect.objectContaining({ locale: "de" }),

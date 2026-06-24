@@ -1,0 +1,26 @@
+[package]
+name = "dn42-auth-frontend"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+components = { path = "../components", package = "components" }
+dn42-auth-client = { path = "../dn42-auth-client" }
+gloo-net = "0.6"
+gloo-storage = "0.3"
+js-sys = "0.3"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+wasm-bindgen = "0.2"
+wasm-bindgen-futures = "0.4"
+web-sys = { version = "0.3", features = [
+    "HtmlInputElement",
+    "HtmlSelectElement",
+    "HtmlTextAreaElement",
+    "Navigator",
+    "Storage",
+    "Url",
+    "UrlSearchParams",
+    "Window",
+] }
+yew = { version = "0.21", features = ["csr"] }

@@ -354,7 +354,7 @@ function tokenEndpointAuthMethod(provider: OidcProviderConfig): OidcTokenEndpoin
 }
 
 export async function exchangeAuthorizationCode(
-  env: Env,
+  env: object,
   provider: OidcProviderConfig,
   discovery: OidcProviderDiscovery,
   code: string,

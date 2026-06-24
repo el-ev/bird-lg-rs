@@ -37,9 +37,15 @@ describe("worker api docs", () => {
     expect((body.info as Record<string, unknown>).title).toBe("bird-lg-rs autopeer worker API");
 
     const paths = body.paths as Record<string, unknown>;
-    expect(paths["/v1/auth/start"]).toBeDefined();
+    expect(paths["/v1/auth/start"]).toBeUndefined();
+    expect(paths["/v1/auth/oidc/{provider}/start"]).toBeUndefined();
+    expect(paths["/v1/auth/oidc/complete"]).toBeUndefined();
     expect(paths["/v1/sessions"]).toBeDefined();
     expect(paths["/v1/operations/{id}"]).toBeDefined();
+
+    const components = body.components as Record<string, unknown>;
+    const schemas = (components.schemas ?? {}) as Record<string, unknown>;
+    expect(schemas.AuthStartRequest).toBeUndefined();
 
     const servers = body.servers as Array<Record<string, unknown>>;
     expect(servers[0]?.url).toBe("https://api.autopeer.example");

@@ -40,49 +40,6 @@ const optionalInteger = z.unknown().optional().transform((value, ctx): number | 
   return value;
 });
 
-export const AuthStartSchema = z.object({
-  asn: nonEmptyString,
-});
-
-export const HostImpersonationSchema = z.object({
-  asn: nonEmptyString,
-  effective_mnt: optionalTrimmedString,
-});
-
-export const RegistrySshVerifySchema = z.object({
-  challenge_id: nonEmptyString,
-  signature: nonEmptyString,
-});
-
-export const RegistryPgpVerifySchema = z.object({
-  challenge_id: nonEmptyString,
-  public_key: nonEmptyString,
-  signed_message: nonEmptyString,
-});
-
-export const RegistryEmailSendSchema = z.object({
-  challenge_id: nonEmptyString,
-  effective_mnt: optionalTrimmedString,
-  locale: optionalTrimmedString,
-});
-
-export const RegistryEmailVerifySchema = z.object({
-  challenge_id: nonEmptyString,
-  code: nonEmptyString,
-});
-
-export const RegistryEmailCompleteSchema = z.object({
-  token: nonEmptyString,
-});
-
-export const OidcStartSchema = z.object({
-  challenge_id: optionalTrimmedString,
-});
-
-export const OidcCompleteSchema = z.object({
-  state: nonEmptyString,
-});
-
 const PeerSessionSpecSchema = z.object({
   comment: optionalTrimmedString,
   endpoint: optionalTrimmedString,
@@ -155,14 +112,5 @@ export const UpdateSessionSchema = z.object({
   session: PeerSessionSpecSchema,
 });
 
-export type AuthStartRequest = z.infer<typeof AuthStartSchema>;
-export type HostImpersonationRequest = z.infer<typeof HostImpersonationSchema>;
-export type RegistrySshVerifyRequest = z.infer<typeof RegistrySshVerifySchema>;
-export type RegistryPgpVerifyRequest = z.infer<typeof RegistryPgpVerifySchema>;
-export type RegistryEmailSendRequest = z.infer<typeof RegistryEmailSendSchema>;
-export type RegistryEmailVerifyRequest = z.infer<typeof RegistryEmailVerifySchema>;
-export type RegistryEmailCompleteRequest = z.infer<typeof RegistryEmailCompleteSchema>;
-export type OidcStartRequest = z.infer<typeof OidcStartSchema>;
-export type OidcCompleteRequest = z.infer<typeof OidcCompleteSchema>;
 export type CreateSessionRequest = z.infer<typeof CreateSessionSchema>;
 export type UpdateSessionRequest = z.infer<typeof UpdateSessionSchema>;

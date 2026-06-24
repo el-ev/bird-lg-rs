@@ -25,7 +25,7 @@ pub fn parse_protocols(output: &str) -> Vec<Protocol> {
             parts.next(),
         ) {
             let remaining: Vec<&str> = parts.collect();
-            let (since, info_parts) = if remaining.first().map_or(false, |t| t.contains(':')) {
+            let (since, info_parts) = if remaining.first().is_some_and(|t| t.contains(':')) {
                 (format!("{} {}", since_date, remaining[0]), &remaining[1..])
             } else {
                 (since_date.to_string(), remaining.as_slice())

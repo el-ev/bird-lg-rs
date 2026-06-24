@@ -18,17 +18,6 @@ pub(super) const TABLE: &[(&str, &str)] = &[
     ("action.open_create_pr", "PR Creationis Aperire"),
     ("action.impersonate_this_asn", "Hunc ASN Personare"),
     ("action.return_to_host_asn", "Ad ASN Hospitis Reverti"),
-    (
-        "action.find_registry_auth",
-        "Modos Auctoritatis Registri Invenire",
-    ),
-    ("action.verify", "Verificare"),
-    ("action.verify_code", "Codicem Verificare"),
-    ("action.send_signin_link", "Nexum Subscriptionis Mittere"),
-    (
-        "action.resend_signin_link",
-        "Nexum Subscriptionis Remittere",
-    ),
     ("action.confirm_retirement", "Retractum Confirmare"),
     ("action.retire_session", "Hanc Sessionem Retrahere"),
     ("action.confirm_deletion", "Deletionem Confirmare"),
@@ -40,7 +29,7 @@ pub(super) const TABLE: &[(&str, &str)] = &[
     ("action.drop_changes", "Mutationes Abicere"),
     ("action.dismiss_operation", "Dimittere"),
     ("action.check_bgp_session", "Sessionem BGP Inspicere"),
-    // Step: LoadingConfig / EnterAsn
+    // Step: LoadingConfig / AuthRedirect
     (
         "step.loading_config.prompt",
         "Configurationem temporis exsequendi oneratur",
@@ -50,161 +39,18 @@ pub(super) const TABLE: &[(&str, &str)] = &[
         "Configurationem temporis exsequendi oneratur...",
     ),
     (
-        "step.enter_asn.prompt",
-        "Inscribe ASN tuum dn42 pro auctoritate SSH, PGP, vel electronica.",
+        "step.auth_redirect.prompt",
+        "Authenticare et sessiones peering cum IRIS-AS 4242421023 administrare.",
     ),
-    ("step.enter_asn.placeholder", "424242xxxx"),
-    (
-        "step.enter_asn.oidc_alt",
-        "Vel intra cum provisore identitatis tuae et nos ASN tuum automatice deducemus.",
-    ),
-    ("step.enter_asn.continue_with", "Pergere cum {provider}"),
-    // Step: SelectMethod
-    (
-        "step.select_method.found_for_as",
-        "Modos auctoritatis registri invenimus pro AS{asn}",
-    ),
-    // Backend auth method copy
+    ("step.auth_redirect.link", "Redirectio ad dn42-auth.owo.li"),
+    // Auth method labels returned by auth service sessions
     ("auth_method.registry_ssh.label", "Subscriptio SSH Registri"),
-    (
-        "auth_method.registry_ssh.description",
-        "Signa provocationem nostram cum clave SSH ex obiecto custodis tui dn42.",
-    ),
     ("auth_method.registry_pgp.label", "Subscriptio PGP Registri"),
-    (
-        "auth_method.registry_pgp.description",
-        "Utere una ex vestigiis digitalibus PGP registri tui: {fingerprints}",
-    ),
     ("auth_method.registry_email.label", "Electronica Registri"),
-    (
-        "auth_method.registry_email.description",
-        "Elige custodem et mitte nexum subscriptionis ad inscriptiones electronicas registri eius.",
-    ),
-    (
-        "auth_method.registry_email.description_single",
-        "Mitte nexum subscriptionis et codicem unius usus ad {emails}.",
-    ),
-    (
-        "auth_method.registry_ssh.session_description",
-        "Cum {mnt} auctoritate SSH autenticatus es.",
-    ),
-    (
-        "auth_method.registry_pgp.session_description",
-        "Cum {mnt} auctoritate PGP autenticatus es.",
-    ),
-    (
-        "auth_method.registry_email.session_description",
-        "Cum {mnt} auctoritate electronica autenticatus es.",
-    ),
     (
         "auth_method.host_impersonation.label",
         "Personatio ASN Hospitis",
     ),
-    (
-        "auth_method.host_impersonation.description",
-        "{mnt} per ASN hospitis nostri AS{host_asn} personas.",
-    ),
-    (
-        "auth_method.oidc.description",
-        "Autenticare cum {provider} et unam ex petitionibus custodis tui pro hoc ASN probare.",
-    ),
-    (
-        "auth_method.oidc.session_description",
-        "Cum {provider} ut {mnt} autenticatus es.",
-    ),
-    // Step: VerifyMethod (SSH)
-    (
-        "verify.ssh.no_fingerprints",
-        "Vestigia digitalia clavium SSH pro ASN tuo invenire non potuimus.",
-    ),
-    (
-        "verify.ssh.match_one",
-        "Clavem SSH tuam {fingerprint} conferre",
-    ),
-    (
-        "verify.ssh.match_many",
-        "Unam ex clavibus SSH tuis conferre: {fingerprints}",
-    ),
-    ("verify.ssh.create_signature", "Provocationem signare"),
-    (
-        "verify.ssh.paste_prompt",
-        "Mandatum supra exsequere, deinde subscriptionem SSH seiunctam tuam appone.",
-    ),
-    ("verify.ssh.placeholder", "-----BEGIN SSH SIGNATURE-----"),
-    // Step: VerifyMethod (PGP)
-    (
-        "verify.pgp.no_fingerprints",
-        "Vestigia digitalia PGP pro ASN tuo invenire non potuimus",
-    ),
-    ("verify.pgp.use_key", "Clave tua {fingerprint} utere"),
-    (
-        "verify.pgp.clearsign_intro",
-        "Textum provocationis exactum cum clave tua congruente clare signa, deinde eandem clavem publicam exporta et utrumque exitum infra appone.",
-    ),
-    ("verify.pgp.exact_challenge", "Textus provocationis"),
-    (
-        "verify.pgp.clearsign_label",
-        "Provocationem tuam clare signa",
-    ),
-    (
-        "verify.pgp.signed_paste_prompt",
-        "Provocationem tuam clare signatam ex mandato supra appone",
-    ),
-    (
-        "verify.pgp.signed_placeholder",
-        "-----BEGIN PGP SIGNED MESSAGE-----",
-    ),
-    ("verify.pgp.export_label", "Clavem publicam tuam exporta"),
-    (
-        "verify.pgp.pubkey_paste_prompt",
-        "Clavem publicam tuam loricatam ASCII ex mandato exportationis supra appone",
-    ),
-    (
-        "verify.pgp.pubkey_placeholder",
-        "-----BEGIN PGP PUBLIC KEY BLOCK-----",
-    ),
-    (
-        "verify.pgp.lookup.searching",
-        "Clavem in servitoribus quaerimus\u{2026}",
-    ),
-    ("verify.pgp.lookup.found", "Ex servitore clavium accepta"),
-    ("verify.pgp.lookup.found_from", "Ex {source} accepta"),
-    // Step: VerifyMethod (Email)
-    (
-        "verify.email.intro",
-        "Mitte nexum subscriptionis et codicem unius usus ad inscriptiones electronicas registri unius ex custodibus tuis, deinde nexum preme vel codicem infra appone.",
-    ),
-    (
-        "verify.email.no_contacts",
-        "Inscriptiones electronicas admin-c vel tech-c pro ASN tuo invenire non potuimus.",
-    ),
-    ("verify.email.auth_as", "Autenticare ut {mnt}"),
-    ("verify.email.send_to", "Mittere ad {emails}"),
-    (
-        "verify.email.sent_to_prefix",
-        "Nexum subscriptionis et codicem auctoritatis ad {emails} misimus.",
-    ),
-    (
-        "verify.email.code_prompt",
-        "Codicem auctoritatis ex electronica tua appone",
-    ),
-    ("verify.email.code_placeholder", "12345678"),
-    // Step: VerifyMethod (OIDC / Host)
-    ("verify.oidc.continue_to", "Pergere ad {provider}"),
-    (
-        "verify.oidc.in_browser",
-        "Pergere ad {provider} in navigatro tuo",
-    ),
-    (
-        "verify.oidc.redirect_note",
-        "Te ad provisorem tuum transferemus, deinde huc reducimus postquam ASN et petitiones custodis tui probaverit.",
-    ),
-    (
-        "verify.host.note",
-        "Personatio praesto est postquam unum ex ASN-ibus hospitis configuratis nostris autenticaveris.",
-    ),
-    ("verify.choose_first", "Prius modum autenticationis elige."),
-    ("verify.auth_for_as", "{label} pro AS{asn}"),
     // Manage / dashboard headings
     ("dashboard.flow_kicker", "Fluxus Peering Tuus"),
     (
@@ -574,8 +420,6 @@ pub(super) const TABLE: &[(&str, &str)] = &[
     ("session_state.pending_pr", "PR Expectans"),
     ("session_state.stalled_pr", "PR Impedita"),
     ("session_state.conflict", "Conflictus"),
-    ("session.badge.psk", "PSK"),
-    ("session.badge.encrypted_endpoint", "Terminatio encrypta"),
     ("operation.kind.create", "Creare"),
     ("operation.kind.update", "Renovare"),
     ("operation.kind.retire", "Retrahere"),
@@ -694,19 +538,8 @@ pub(super) const TABLE: &[(&str, &str)] = &[
     ("operation.failure.conclusion", "Eventus"),
     // Prompts (shell-style left labels)
     ("prompt.autopeer", "autopeer"),
-    ("prompt.asn", "ASN"),
-    ("prompt.auth", "auct"),
     ("prompt.login", "ingressus"),
-    ("prompt.key", "clavis"),
-    ("prompt.keys", "claves"),
-    ("prompt.signature", "subscriptio"),
-    ("prompt.signed", "signatum"),
-    ("prompt.pubkey", "clav.pub"),
-    ("prompt.mntner", "mntner"),
-    ("prompt.emails", "electronicae"),
-    ("prompt.code", "codex"),
     // Generic loading / errors
-    ("status.working", "Laboratur..."),
     (
         "error.ui.node.choose",
         "Unum ex nodis nostris elige antequam pergas",
@@ -742,10 +575,6 @@ pub(super) const TABLE: &[(&str, &str)] = &[
     (
         "error.ui.auth.authenticate_first",
         "Autenticare antequam pergas",
-    ),
-    (
-        "error.ui.node.choose_default",
-        "Unum ex nodis nostris elige antequam pergas",
     ),
     ("error.auth.asn.required", "ASN necessarius est"),
     ("error.auth.oidc.provider.missing", "Provisor OIDC deest"),

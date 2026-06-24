@@ -18,11 +18,6 @@ pub(super) const TABLE: &[(&str, &str)] = &[
     ("action.open_create_pr", "Open Create PR"),
     ("action.impersonate_this_asn", "Impersonate This ASN"),
     ("action.return_to_host_asn", "Return To Host ASN"),
-    ("action.find_registry_auth", "Find Registry Auth Methods"),
-    ("action.verify", "Verify"),
-    ("action.verify_code", "Verify Code"),
-    ("action.send_signin_link", "Send Sign-In Link"),
-    ("action.resend_signin_link", "Resend Sign-In Link"),
     ("action.confirm_retirement", "Confirm Retirement"),
     ("action.retire_session", "Retire This Session"),
     ("action.confirm_deletion", "Confirm Deletion"),
@@ -34,7 +29,7 @@ pub(super) const TABLE: &[(&str, &str)] = &[
     ("action.drop_changes", "Drop Changes"),
     ("action.dismiss_operation", "Dismiss"),
     ("action.check_bgp_session", "Check BGP Session"),
-    // Step: LoadingConfig / EnterAsn
+    // Step: LoadingConfig / AuthRedirect
     (
         "step.loading_config.prompt",
         "Loading runtime configuration",
@@ -44,158 +39,18 @@ pub(super) const TABLE: &[(&str, &str)] = &[
         "Loading runtime configuration...",
     ),
     (
-        "step.enter_asn.prompt",
-        "Enter your dn42 ASN for registry SSH, PGP, or email auth.",
+        "step.auth_redirect.prompt",
+        "Authenticate and manage your peering sessions with IRIS-AS 4242421023.",
     ),
-    ("step.enter_asn.placeholder", "424242xxxx"),
-    (
-        "step.enter_asn.oidc_alt",
-        "Or sign in with your identity provider and let us derive your ASN automatically.",
-    ),
-    ("step.enter_asn.continue_with", "Continue with {provider}"),
-    // Step: SelectMethod
-    (
-        "step.select_method.found_for_as",
-        "We found registry auth methods for AS{asn}",
-    ),
-    // Backend auth method copy
+    ("step.auth_redirect.link", "Redirect to dn42-auth.owo.li"),
+    // Auth method labels returned by auth service sessions
     ("auth_method.registry_ssh.label", "Registry SSH Signature"),
-    (
-        "auth_method.registry_ssh.description",
-        "Sign our challenge with an SSH key from your dn42 maintainer object.",
-    ),
     ("auth_method.registry_pgp.label", "Registry PGP Signature"),
-    (
-        "auth_method.registry_pgp.description",
-        "Use one of your registry PGP fingerprints: {fingerprints}",
-    ),
     ("auth_method.registry_email.label", "Registry Email"),
-    (
-        "auth_method.registry_email.description",
-        "Choose a maintainer and send a sign-in link to its registry email contacts.",
-    ),
-    (
-        "auth_method.registry_email.description_single",
-        "Send a sign-in link and one-time code to {emails}.",
-    ),
-    (
-        "auth_method.registry_ssh.session_description",
-        "You authenticated with {mnt} using SSH auth.",
-    ),
-    (
-        "auth_method.registry_pgp.session_description",
-        "You authenticated with {mnt} using PGP auth.",
-    ),
-    (
-        "auth_method.registry_email.session_description",
-        "You authenticated with {mnt} using email auth.",
-    ),
     (
         "auth_method.host_impersonation.label",
         "Host ASN Impersonation",
     ),
-    (
-        "auth_method.host_impersonation.description",
-        "You are impersonating {mnt} through our host ASN AS{host_asn}.",
-    ),
-    (
-        "auth_method.oidc.description",
-        "Authenticate with {provider} and prove one of your maintainer claims for this ASN.",
-    ),
-    (
-        "auth_method.oidc.session_description",
-        "You authenticated with {provider} as {mnt}.",
-    ),
-    // Step: VerifyMethod (SSH)
-    (
-        "verify.ssh.no_fingerprints",
-        "We could not find any SSH key fingerprints for your ASN.",
-    ),
-    ("verify.ssh.match_one", "Match your SSH key {fingerprint}"),
-    (
-        "verify.ssh.match_many",
-        "Match one of your SSH keys: {fingerprints}",
-    ),
-    ("verify.ssh.create_signature", "Sign the challenge"),
-    (
-        "verify.ssh.paste_prompt",
-        "Run the command above, then paste your detached SSH signature.",
-    ),
-    ("verify.ssh.placeholder", "-----BEGIN SSH SIGNATURE-----"),
-    // Step: VerifyMethod (PGP)
-    (
-        "verify.pgp.no_fingerprints",
-        "We could not find any PGP fingerprints for your ASN",
-    ),
-    ("verify.pgp.use_key", "Use your key {fingerprint}"),
-    (
-        "verify.pgp.clearsign_intro",
-        "Clear-sign the exact challenge text with your matching key, then export that same public key and paste both outputs below.",
-    ),
-    ("verify.pgp.exact_challenge", "Challenge text"),
-    ("verify.pgp.clearsign_label", "Clear-sign your challenge"),
-    (
-        "verify.pgp.signed_paste_prompt",
-        "Paste your full clear-signed challenge from the command above",
-    ),
-    (
-        "verify.pgp.signed_placeholder",
-        "-----BEGIN PGP SIGNED MESSAGE-----",
-    ),
-    ("verify.pgp.export_label", "Export your public key"),
-    (
-        "verify.pgp.pubkey_paste_prompt",
-        "Paste your ASCII-armored public key from the export command above",
-    ),
-    (
-        "verify.pgp.pubkey_placeholder",
-        "-----BEGIN PGP PUBLIC KEY BLOCK-----",
-    ),
-    (
-        "verify.pgp.lookup.searching",
-        "Looking up your key on keyservers\u{2026}",
-    ),
-    ("verify.pgp.lookup.found", "Fetched from keyserver"),
-    ("verify.pgp.lookup.found_from", "Fetched from {source}"),
-    // Step: VerifyMethod (Email)
-    (
-        "verify.email.intro",
-        "Send a sign-in link and one-time code to the registry email contacts on one of your maintainers, then click the link or paste the code below.",
-    ),
-    (
-        "verify.email.no_contacts",
-        "We could not find any admin-c or tech-c email contacts for your ASN.",
-    ),
-    ("verify.email.auth_as", "Authenticate as {mnt}"),
-    ("verify.email.send_to", "Send to {emails}"),
-    (
-        "verify.email.sent_to_prefix",
-        "We sent a sign-in link and auth code to {emails}.",
-    ),
-    (
-        "verify.email.code_prompt",
-        "Paste the auth code from your email",
-    ),
-    ("verify.email.code_placeholder", "12345678"),
-    // Step: VerifyMethod (OIDC / Host)
-    ("verify.oidc.continue_to", "Continue to {provider}"),
-    (
-        "verify.oidc.in_browser",
-        "Continue to {provider} in your browser",
-    ),
-    (
-        "verify.oidc.redirect_note",
-        "We will redirect you to your provider, then bring you back here after it proves your ASN and maintainer claims.",
-    ),
-    (
-        "verify.host.note",
-        "Impersonation is available after you authenticate one of our configured host ASNs.",
-    ),
-    (
-        "verify.choose_first",
-        "Choose an authentication method first.",
-    ),
-    ("verify.auth_for_as", "{label} for AS{asn}"),
     // Manage / dashboard headings
     ("dashboard.flow_kicker", "Your Peering Flow"),
     (
@@ -532,8 +387,6 @@ pub(super) const TABLE: &[(&str, &str)] = &[
     ("session_state.pending_pr", "Pending PR"),
     ("session_state.stalled_pr", "Stalled PR"),
     ("session_state.conflict", "Conflict"),
-    ("session.badge.psk", "PSK"),
-    ("session.badge.encrypted_endpoint", "Encrypted endpoint"),
     ("operation.kind.create", "Create"),
     ("operation.kind.update", "Update"),
     ("operation.kind.retire", "Retire"),
@@ -652,19 +505,8 @@ pub(super) const TABLE: &[(&str, &str)] = &[
     ("operation.failure.conclusion", "Result"),
     // Prompts (shell-style left labels)
     ("prompt.autopeer", "autopeer"),
-    ("prompt.asn", "ASN"),
-    ("prompt.auth", "auth"),
     ("prompt.login", "login"),
-    ("prompt.key", "key"),
-    ("prompt.keys", "keys"),
-    ("prompt.signature", "signature"),
-    ("prompt.signed", "signed"),
-    ("prompt.pubkey", "pubkey"),
-    ("prompt.mntner", "mntner"),
-    ("prompt.emails", "emails"),
-    ("prompt.code", "code"),
     // Generic loading / errors
-    ("status.working", "Working..."),
     (
         "error.ui.node.choose",
         "Choose one of our nodes before you continue",
@@ -700,10 +542,6 @@ pub(super) const TABLE: &[(&str, &str)] = &[
     (
         "error.ui.auth.authenticate_first",
         "Authenticate before you continue",
-    ),
-    (
-        "error.ui.node.choose_default",
-        "Choose one of our nodes before you continue",
     ),
     ("error.auth.asn.required", "ASN is required"),
     (

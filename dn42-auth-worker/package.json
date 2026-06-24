@@ -1,0 +1,33 @@
+{
+  "name": "dn42-auth-worker",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./auth": "./src/auth.ts",
+    "./oidc": "./src/oidc.ts",
+    "./registry": "./src/registry.ts",
+    "./mailer": "./src/mailer.ts",
+    "./types": "./src/types.ts",
+    "./schemas": "./src/schemas.ts",
+    "./utils": "./src/utils.ts",
+    "./db": "./src/db.ts"
+  },
+  "scripts": {
+    "test": "vitest run",
+    "check": "tsc --noEmit"
+  },
+  "dependencies": {
+    "jose": "^6.1.2",
+    "openpgp": "^6.3.0",
+    "sshsig": "^0.3.1",
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20260512.0",
+    "@types/node": "^24.6.0",
+    "typescript": "^5.9.3",
+    "vitest": "^3.2.4"
+  }
+}

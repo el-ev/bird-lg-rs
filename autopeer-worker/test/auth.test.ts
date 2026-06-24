@@ -7,7 +7,7 @@ import {
   sign,
 } from "openpgp";
 
-import { verifyRegistryPgpChallenge, verifyRegistrySshChallenge } from "../src/auth";
+import { verifyRegistryPgpChallenge, verifyRegistrySshChallenge } from "dn42-auth-worker/auth";
 import type { ChallengeRecord, MaintainerRecord } from "../src/types";
 
 function challengeRecord(): ChallengeRecord {

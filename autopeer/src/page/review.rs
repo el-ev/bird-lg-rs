@@ -36,7 +36,7 @@ pub fn review_panel(props: &ReviewProps) -> Html {
     let i18n = &props.i18n;
     let draft = &props.draft;
     let orig = props.original_draft.as_ref();
-    let changed = |f: fn(&SessionDraft, &SessionDraft) -> bool| orig.map_or(false, |o| f(o, draft));
+    let changed = |f: fn(&SessionDraft, &SessionDraft) -> bool| orig.is_some_and(|o| f(o, draft));
 
     html! {
         <article class="peering-card autopeer-panel">

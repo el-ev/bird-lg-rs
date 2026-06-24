@@ -251,57 +251,6 @@ pub async fn perform_route_lookup(
     Ok(())
 }
 
-pub async fn perform_peer_routes(
-    state: &UseReducerHandle<crate::store::LgState>,
-    node: String,
-    peer: String,
-) -> Result<(), String> {
-    let request_id = build_request_id("peer-routes");
-    let command = format!(
-        "{}@{}$ birdc show route protocol {}",
-        state.username, node, peer
-    );
-
-    state.dispatch(AppEvent::StartCommandOutput {
-        request_id: request_id.clone(),
-        kind: CommandOutputKind::RouteLookup,
-        command,
-    });
-
-    if ApiGateway::send_ws_request(
-        state,
-        AppRequest::PeerRoutes {
-            request_id: request_id.clone(),
-            node: node.clone(),
-            peer: peer.clone(),
-        },
-    ) {
-        return Ok(());
-    }
-
-    let url = format!(
-        "{}/api/routes/{}/peer/{}?request_id={}",
-        state.backend_url.trim_end_matches('/'),
-        node,
-        peer,
-        request_id
-    );
-
-    if let Err(error) = dispatch_streamed_response(state, url).await {
-        ApiGateway::dispatch_response(
-            state,
-            AppResponse::RouteLookupError {
-                request_id,
-                node,
-                error: error.clone(),
-            },
-        );
-        return Err(error);
-    }
-
-    Ok(())
-}
-
 pub async fn get_protocols(state: &UseReducerHandle<crate::store::LgState>) -> Result<(), String> {
     if ApiGateway::send_ws_request(state, AppRequest::GetProtocols) {
         return Ok(());

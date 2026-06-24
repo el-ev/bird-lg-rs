@@ -14,15 +14,14 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "jose": "^6.1.2",
-    "openpgp": "^6.3.0",
-    "sshsig": "^0.3.1",
+    "dn42-auth-worker": "file:../dn42-auth-worker",
     "yaml": "^2.8.3",
     "zod": "^4.4.3"
   },
   "devDependencies": {
     "@cloudflare/vitest-pool-workers": "^0.10.8",
     "@types/node": "^24.6.0",
+    "openpgp": "^6.3.0",
     "typescript": "^5.9.3",
     "vitest": "^3.2.4",
     "wrangler": "^4.44.0"

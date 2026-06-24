@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { methodsFromMaintainers, sshPublicKeyFingerprint } from "../src/registry";
+import { methodsFromMaintainers, sshPublicKeyFingerprint } from "dn42-auth-worker/registry";
 import { uiMessage } from "../src/utils";
 import type { MaintainerRecord } from "../src/types";
 

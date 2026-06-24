@@ -35,8 +35,8 @@ vi.mock("../src/db", async () => {
   };
 });
 
-vi.mock("../src/oidc", async () => {
-  const actual = await vi.importActual<typeof import("../src/oidc")>("../src/oidc");
+vi.mock("dn42-auth-worker/oidc", async () => {
+  const actual = await vi.importActual<typeof import("dn42-auth-worker/oidc")>("dn42-auth-worker/oidc");
   return {
     ...actual,
     fetchOidcDiscovery: oidcMocks.fetchOidcDiscovery,

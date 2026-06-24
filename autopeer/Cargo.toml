@@ -6,6 +6,7 @@ license = "MIT"
 
 [dependencies]
 common = { path = "../common" }
+dn42-auth-client = { path = "../dn42-auth-client" }
 gloo-net = "0.6"
 gloo-timers = { version = "0.3", features = ["futures"] }
 js-sys = "0.3"

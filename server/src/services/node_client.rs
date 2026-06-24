@@ -200,11 +200,7 @@ impl NodeClient {
             }
             Err(error) => {
                 warn!(node = %node.name, error = ?error, "Failed to contact node");
-                Self::cached_protocol_snapshot(
-                    node,
-                    current,
-                    "Unable to reach node.".to_string(),
-                )
+                Self::cached_protocol_snapshot(node, current, "Unable to reach node.".to_string())
             }
         }
     }

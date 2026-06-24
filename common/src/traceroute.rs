@@ -66,7 +66,8 @@ pub fn parse_traceroute_line(line: &str) -> Option<TracerouteHop> {
     let mut hostname = None;
     let address;
 
-    if let Some(third_part) = parts.clone().next() {
+    {
+        let third_part = parts.clone().next()?;
         if third_part.starts_with('(') && third_part.ends_with(')') {
             hostname = Some(next_part.to_string());
             let addr_str = &third_part[1..third_part.len() - 1];
@@ -75,8 +76,6 @@ pub fn parse_traceroute_line(line: &str) -> Option<TracerouteHop> {
         } else {
             address = Some(parse_ip(next_part));
         }
-    } else {
-        return None;
     }
 
     let mut rtts: Vec<f32> = Vec::new();

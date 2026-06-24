@@ -74,7 +74,11 @@ pub fn clear_hash_route() {
     {
         let pathname = window.location().pathname().unwrap_or_default();
         let search = window.location().search().unwrap_or_default();
-        let _ = history.replace_state_with_url(&JsValue::NULL, "", Some(&format!("{pathname}{search}")));
+        let _ = history.replace_state_with_url(
+            &JsValue::NULL,
+            "",
+            Some(&format!("{pathname}{search}")),
+        );
     }
 }
 

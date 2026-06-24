@@ -1,7 +1,9 @@
 use yew::prelude::*;
 
-use crate::browser::{self, LOCALE_STORAGE_KEY};
-use crate::models::UiMessage;
+use crate::{
+    browser::{self, LOCALE_STORAGE_KEY},
+    models::UiMessage,
+};
 
 mod de;
 mod en;
@@ -273,8 +275,8 @@ mod tests {
         };
 
         assert_eq!(
-            i18n.translate_params("step.enter_asn.continue_with", &[("provider", "GitHub")]),
-            "使用 GitHub 继续"
+            i18n.translate_params("step.auth_redirect.link", &[("provider", "GitHub")]),
+            "跳转到 dn42-auth.owo.li"
         );
     }
 

@@ -32,7 +32,6 @@ pub fn protocols() -> Html {
 
     let on_protocol_click = {
         let open_protocol = open_protocol.clone();
-        let node_route = node_route;
         Callback::from(move |(node, proto): (String, String)| {
             let hash = if node_route {
                 proto.clone()
@@ -90,8 +89,8 @@ pub fn protocols() -> Html {
                 }
             }));
             let win = window().unwrap();
-            let _ = win
-                .add_event_listener_with_callback("popstate", listener.as_ref().unchecked_ref());
+            let _ =
+                win.add_event_listener_with_callback("popstate", listener.as_ref().unchecked_ref());
             move || {
                 let _ = win.remove_event_listener_with_callback(
                     "popstate",

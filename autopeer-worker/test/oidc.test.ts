@@ -8,7 +8,7 @@ import {
   oidcAsnFromClaimSources,
   oidcMaintainerFromClaimSources,
   rewriteIssuerHost,
-} from "../src/oidc";
+} from "dn42-auth-worker/oidc";
 import type { OidcProviderConfig } from "../src/types";
 
 function provider(overrides: Partial<OidcProviderConfig> = {}): OidcProviderConfig {

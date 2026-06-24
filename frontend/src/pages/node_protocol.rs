@@ -29,9 +29,10 @@ pub fn node_protocol_page() -> Html {
     let content = use_state(|| None::<String>);
 
     let protocol_exists = state.data_ready
-        && route_info.node_info.as_ref().is_some_and(|node| {
-            node.protocols.iter().any(|p| p.name == protocol_name)
-        });
+        && route_info
+            .node_info
+            .as_ref()
+            .is_some_and(|node| node.protocols.iter().any(|p| p.name == protocol_name));
 
     {
         let content = content.clone();

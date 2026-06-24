@@ -20,6 +20,13 @@ interface GiteaContentResponse {
   encoding?: string;
 }
 
+export interface RegistryEnv {
+  DN42_REGISTRY_BASE_URL: string;
+  DN42_REGISTRY_OWNER: string;
+  DN42_REGISTRY_REPO: string;
+  DN42_REGISTRY_BRANCH: string;
+}
+
 function parseFieldValues(text: string, field: string): string[] {
   const prefix = `${field.toLowerCase()}:`;
   return text
@@ -66,7 +73,7 @@ function parseMaintainer(name: string, text: string): MaintainerRecord {
   };
 }
 
-async function fetchRegistryContent(env: Env, path: string): Promise<string> {
+async function fetchRegistryContent(env: RegistryEnv, path: string): Promise<string> {
   const url = new URL(
     `/api/v1/repos/${joinPath(env.DN42_REGISTRY_OWNER, env.DN42_REGISTRY_REPO)}/contents/${joinPath(path)}`,
     env.DN42_REGISTRY_BASE_URL,
@@ -101,7 +108,7 @@ async function fetchRegistryContent(env: Env, path: string): Promise<string> {
   return fromBase64(body.content);
 }
 
-async function fetchOptionalRegistryContent(env: Env, path: string): Promise<string | null> {
+async function fetchOptionalRegistryContent(env: RegistryEnv, path: string): Promise<string | null> {
   try {
     return await fetchRegistryContent(env, path);
   } catch (error) {
@@ -112,7 +119,7 @@ async function fetchOptionalRegistryContent(env: Env, path: string): Promise<str
   }
 }
 
-async function loadContactEmailsForHandle(env: Env, handle: string): Promise<string[]> {
+async function loadContactEmailsForHandle(env: RegistryEnv, handle: string): Promise<string[]> {
   const personText = await fetchOptionalRegistryContent(env, `data/person/${handle}`);
   const roleText = personText === null
     ? await fetchOptionalRegistryContent(env, `data/role/${handle}`)
@@ -124,7 +131,7 @@ async function loadContactEmailsForHandle(env: Env, handle: string): Promise<str
   return [...new Set(parseFieldValues(text, "e-mail"))];
 }
 
-export async function loadMaintainersForAsn(env: Env, asn: string): Promise<MaintainerRecord[]> {
+export async function loadMaintainersForAsn(env: RegistryEnv, asn: string): Promise<MaintainerRecord[]> {
   const autNumText = await fetchRegistryContent(env, `data/aut-num/AS${asn}`);
   const maintainerNames = [...new Set(parseFieldValues(autNumText, "mnt-by"))];
 

@@ -17,11 +17,6 @@ pub(super) const TABLE: &[(&str, &str)] = &[
     ("action.open_create_pr", "提交创建拉取请求"),
     ("action.impersonate_this_asn", "冒充此 ASN"),
     ("action.return_to_host_asn", "返回主 ASN"),
-    ("action.find_registry_auth", "在注册库中查找认证方式"),
-    ("action.verify", "验证"),
-    ("action.verify_code", "验证代码"),
-    ("action.send_signin_link", "发送登入链接"),
-    ("action.resend_signin_link", "重新发送登入链接"),
     ("action.confirm_retirement", "确认停用"),
     ("action.retire_session", "停用会话"),
     ("action.confirm_deletion", "确认删除"),
@@ -33,150 +28,19 @@ pub(super) const TABLE: &[(&str, &str)] = &[
     ("action.drop_changes", "放弃更改"),
     ("action.dismiss_operation", "关闭"),
     ("action.check_bgp_session", "查看 BGP 会话"),
-    // Step: LoadingConfig / EnterAsn
+    // Step: LoadingConfig / AuthRedirect
     ("step.loading_config.prompt", "加载运行时配置"),
     ("step.loading_config.message", "正在加载运行时配置..."),
     (
-        "step.enter_asn.prompt",
-        "输入你的 dn42 ASN 以使用注册库 SSH、PGP 或邮件认证。",
+        "step.auth_redirect.prompt",
+        "认证并管理你与 IRIS-AS 4242421023 的 Peering 会话。",
     ),
-    ("step.enter_asn.placeholder", "424242xxxx"),
-    (
-        "step.enter_asn.oidc_alt",
-        "或使用你的身份提供商登入，让我们自动识别你的 ASN。",
-    ),
-    ("step.enter_asn.continue_with", "使用 {provider} 继续"),
-    // Step: SelectMethod
-    (
-        "step.select_method.found_for_as",
-        "我们在注册库中找到了 AS{asn} 的认证方式",
-    ),
-    // Backend auth method copy
+    ("step.auth_redirect.link", "跳转到 dn42-auth.owo.li"),
+    // Auth method labels returned by auth service sessions
     ("auth_method.registry_ssh.label", "注册库 SSH 签名"),
-    (
-        "auth_method.registry_ssh.description",
-        "使用来自你的 dn42 维护者（mntner）对象的 SSH 密钥签名我们的质询。",
-    ),
     ("auth_method.registry_pgp.label", "注册库 PGP 签名"),
-    (
-        "auth_method.registry_pgp.description",
-        "使用你的注册库 PGP 指纹之一：{fingerprints}",
-    ),
     ("auth_method.registry_email.label", "注册库邮件"),
-    (
-        "auth_method.registry_email.description",
-        "选择一个邮件地址，我们会向其发送登入链接和一次性代码。",
-    ),
-    (
-        "auth_method.registry_email.description_single",
-        "向 {emails} 发送登入链接和一次性代码。",
-    ),
-    (
-        "auth_method.registry_ssh.session_description",
-        "你已使用 SSH 认证作为 {mnt} 登入。",
-    ),
-    (
-        "auth_method.registry_pgp.session_description",
-        "你已使用 PGP 认证作为 {mnt} 登入。",
-    ),
-    (
-        "auth_method.registry_email.session_description",
-        "你已使用邮件认证作为 {mnt} 登入。",
-    ),
     ("auth_method.host_impersonation.label", "主 ASN 冒充"),
-    (
-        "auth_method.host_impersonation.description",
-        "你正通过我们的主 ASN AS{host_asn} 冒充 {mnt}。",
-    ),
-    (
-        "auth_method.oidc.description",
-        "使用 {provider} 认证并证明你对此 ASN 的维护者声明之一。",
-    ),
-    (
-        "auth_method.oidc.session_description",
-        "你已通过 {provider} 作为 {mnt} 登入。",
-    ),
-    // Step: VerifyMethod (SSH)
-    (
-        "verify.ssh.no_fingerprints",
-        "我们无法找到用于你的 ASN 的任何 SSH 密钥指纹。",
-    ),
-    ("verify.ssh.match_one", "匹配你的 SSH 密钥 {fingerprint}"),
-    (
-        "verify.ssh.match_many",
-        "匹配你的 SSH 密钥之一： {fingerprints}",
-    ),
-    ("verify.ssh.create_signature", "对质询进行签名"),
-    (
-        "verify.ssh.paste_prompt",
-        "运行上方命令，然后粘贴你的独立 SSH 签名块。",
-    ),
-    ("verify.ssh.placeholder", "-----BEGIN SSH SIGNATURE-----"),
-    // Step: VerifyMethod (PGP)
-    (
-        "verify.pgp.no_fingerprints",
-        "我们无法找到用于你的 ASN 的任何 PGP 指纹",
-    ),
-    ("verify.pgp.use_key", "使用你的密钥 {fingerprint}"),
-    (
-        "verify.pgp.clearsign_intro",
-        "使用匹配的密钥对质询文本进行明文签名，然后导出该公钥并将两者的输出粘贴在下方。",
-    ),
-    ("verify.pgp.exact_challenge", "质询文本"),
-    ("verify.pgp.clearsign_label", "对你的质询进行明文签名"),
-    (
-        "verify.pgp.signed_paste_prompt",
-        "粘贴来自上方命令的完整明文签名质询块",
-    ),
-    (
-        "verify.pgp.signed_placeholder",
-        "-----BEGIN PGP SIGNED MESSAGE-----",
-    ),
-    ("verify.pgp.export_label", "导出你的公钥"),
-    (
-        "verify.pgp.pubkey_paste_prompt",
-        "粘贴来自上方导出命令的 ASCII 保护的公钥",
-    ),
-    (
-        "verify.pgp.pubkey_placeholder",
-        "-----BEGIN PGP PUBLIC KEY BLOCK-----",
-    ),
-    (
-        "verify.pgp.lookup.searching",
-        "正在密钥服务器上查找\u{2026}",
-    ),
-    ("verify.pgp.lookup.found", "已从密钥服务器获取"),
-    ("verify.pgp.lookup.found_from", "已从 {source} 获取"),
-    // Step: VerifyMethod (Email)
-    (
-        "verify.email.intro",
-        "发送登入链接和一次性代码至你其中一个维护者的邮箱，然后点击链接或在下方粘贴代码。",
-    ),
-    (
-        "verify.email.no_contacts",
-        "我们无法为你的 ASN 找到任何 admin-c 或 tech-c 邮箱联系人。",
-    ),
-    ("verify.email.auth_as", "认证身份为 {mnt}"),
-    ("verify.email.send_to", "发送至 {emails}"),
-    (
-        "verify.email.sent_to_prefix",
-        "我们已发送登入链接和认证代码至 {emails}。",
-    ),
-    ("verify.email.code_prompt", "粘贴来自你的邮件的认证代码"),
-    ("verify.email.code_placeholder", "12345678"),
-    // Step: VerifyMethod (OIDC / Host)
-    ("verify.oidc.continue_to", "继续前往 {provider}"),
-    ("verify.oidc.in_browser", "在你的浏览器中前往 {provider}"),
-    (
-        "verify.oidc.redirect_note",
-        "我们将会把你重定向至你的提供商，并在其证明你的 ASN 和维护者声明后带你回到此处。",
-    ),
-    (
-        "verify.host.note",
-        "在认证了我们配置的任一主 ASN 后即可使用冒充功能。",
-    ),
-    ("verify.choose_first", "请先选择一种认证方式。"),
-    ("verify.auth_for_as", "{label} 用于 AS{asn}"),
     // Manage / dashboard headings
     ("dashboard.flow_kicker", "你的对等流程"),
     ("dashboard.host_readonly_title", "我们的主 ASN 在此保持只读"),
@@ -495,8 +359,6 @@ pub(super) const TABLE: &[(&str, &str)] = &[
     ("session_state.pending_pr", "拉取请求待处理"),
     ("session_state.stalled_pr", "部署失败"),
     ("session_state.conflict", "冲突"),
-    ("session.badge.psk", "PSK"),
-    ("session.badge.encrypted_endpoint", "Endpoint 已加密"),
     ("operation.kind.create", "创建"),
     ("operation.kind.update", "更新"),
     ("operation.kind.retire", "停用"),
@@ -609,19 +471,8 @@ pub(super) const TABLE: &[(&str, &str)] = &[
     ("operation.failure.conclusion", "结果"),
     // Prompts (shell-style left labels)
     ("prompt.autopeer", "自助对等"),
-    ("prompt.asn", "ASN"),
-    ("prompt.auth", "认证"),
     ("prompt.login", "登录"),
-    ("prompt.key", "密钥"),
-    ("prompt.keys", "密钥"),
-    ("prompt.signature", "签名"),
-    ("prompt.signed", "签名文本"),
-    ("prompt.pubkey", "公钥"),
-    ("prompt.mntner", "维护者"),
-    ("prompt.emails", "邮箱"),
-    ("prompt.code", "验证码"),
     // Generic loading / errors
-    ("status.working", "处理中..."),
     ("error.ui.node.choose", "请先选择我们的一个节点再继续"),
     (
         "error.ui.node.choose_inline",
@@ -652,10 +503,6 @@ pub(super) const TABLE: &[(&str, &str)] = &[
         "请先选择一个会话再删除",
     ),
     ("error.ui.auth.authenticate_first", "请先完成认证再继续"),
-    (
-        "error.ui.node.choose_default",
-        "请先选择我们的一个节点再继续",
-    ),
     ("error.auth.asn.required", "ASN 为必填项"),
     ("error.auth.oidc.provider.missing", "缺少 OIDC 提供商"),
     ("error.request.challenge_id.missing", "缺少 challenge_id"),

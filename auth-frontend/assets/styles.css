@@ -1,0 +1,522 @@
+/* ==========================================================================
+   Variables
+   ========================================================================== */
+:root {
+    --bg: #f5f5f5;
+    --bg-secondary: #eee;
+    --card: #fff;
+
+    --text: #222;
+    --text-secondary: #666;
+    --text-placeholder: #757575;
+    --text-white: #fff;
+    --muted: #6f6f6f;
+
+    --accent: #111;
+
+    --border: #dcdcdc;
+    --border-light: #e0e0e0;
+    --hr: #bdc3c7;
+
+    --error: #d32f2f;
+    --success: #2e7d32;
+
+    --bg-shell: #f0f0f0;
+    --bg-shell-input: rgba(0, 0, 0, 0.06);
+    --shell-prompt: #8e85d6;
+
+    --spacing-sm: 8px;
+    --spacing-md: 12px;
+    --spacing-lg: 20px;
+    --spacing-xl: 24px;
+
+    --font-mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+    --font-ui: var(--font-mono);
+    --font-size-sm: 0.9rem;
+    --font-size-xl: 2rem;
+
+    --radius-sm: 4px;
+    --radius-md: 8px;
+    --radius-pill: 999px;
+}
+
+/* ==========================================================================
+   Reset & Base
+   ========================================================================== */
+* {
+    box-sizing: border-box;
+}
+
+body {
+    margin: 0;
+    font-family: var(--font-ui);
+    color: var(--text);
+    background: var(--bg);
+    min-height: 100vh;
+    scrollbar-gutter: stable both-edges;
+}
+
+a,
+a:visited,
+a:hover {
+    color: var(--text);
+    text-decoration: none;
+}
+
+hr {
+    border: 0;
+    border-top: 1px solid var(--hr);
+    margin: 5px 0;
+}
+
+/* ==========================================================================
+   Layout
+   ========================================================================== */
+.hero {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start;
+    padding: var(--spacing-xl) 0 48px;
+
+    .container {
+        text-align: left;
+        width: 90%;
+        max-width: 1200px;
+        margin: 0 auto;
+        display: flex;
+        flex-direction: column;
+    }
+
+    .title {
+        text-align: left;
+        margin: 0 0 var(--spacing-md) 0;
+        font-size: var(--font-size-xl);
+        align-self: stretch;
+        position: sticky;
+        top: 0;
+        padding: 16px 0 8px;
+        background: var(--bg);
+        border-bottom: 1px solid var(--border-light);
+        z-index: 10;
+    }
+}
+
+.autopeer-page-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: var(--spacing-md);
+    flex-wrap: nowrap;
+    margin-bottom: var(--spacing-md);
+    position: sticky;
+    top: 0;
+    padding: 16px 0 8px;
+    background: var(--bg);
+    border-bottom: 1px solid var(--border-light);
+    z-index: 10;
+}
+
+.autopeer-page-header .title {
+    margin: 0;
+    padding: 0;
+    position: static;
+    background: transparent;
+    border-bottom: 0;
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+.autopeer-language-control {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    min-height: 32px;
+    color: var(--text-secondary);
+    font-size: 0.85rem;
+    flex: 0 0 auto;
+}
+
+.autopeer-language-label {
+    white-space: nowrap;
+}
+
+.autopeer-language-control .shell-select {
+    min-width: 6.5rem;
+}
+
+.title-flex {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.title-footnote {
+    font-size: 0.8rem;
+    font-weight: normal;
+    color: var(--text-secondary);
+}
+
+.title-link {
+    color: inherit;
+    text-decoration: none;
+}
+
+/* ==========================================================================
+   Components
+   ========================================================================== */
+.dn42-page {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-xl);
+    font-size: var(--font-size-sm);
+}
+
+.dn42-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    padding: var(--spacing-lg);
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+}
+
+/* Status Messages */
+.status-message {
+    margin-bottom: 15px;
+    font-size: 0.9em;
+    color: var(--text-secondary);
+}
+
+.status-message--error {
+    color: var(--error);
+}
+
+.status-message--success {
+    color: var(--success);
+}
+
+.error-message {
+    margin-top: -10px;
+    margin-bottom: 20px;
+    color: var(--error);
+    font-size: 0.9em;
+}
+
+/* Shell Component */
+.shell-line,
+.shell-select,
+.shell-button,
+.shell-text-toggle,
+.shell-toggle {
+    font-family: var(--font-mono);
+}
+
+.shell-line {
+    display: block;
+    background: var(--bg-shell);
+    padding: 10px;
+    border-radius: var(--radius-sm);
+    margin-bottom: 10px;
+    border: 1px solid var(--border);
+    white-space: pre-wrap;
+    word-break: break-all;
+    font-size: 13px;
+    line-height: normal;
+}
+
+.shell-form {
+    display: block;
+    font-size: 13px;
+    line-height: normal;
+}
+
+.shell-form > .shell-input-frame--multiline {
+    flex-basis: 100%;
+}
+
+.shell-prompt {
+    color: var(--shell-prompt);
+    font-weight: bold;
+    white-space: pre-wrap;
+    display: inline-flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+}
+
+:is(.shell-select, .shell-input-frame) {
+    background: var(--bg-shell-input);
+    border: none;
+    border-radius: 3px;
+}
+
+.shell-select {
+    font-size: 1em;
+    color: inherit;
+    font-weight: inherit;
+    padding: 0.02rem 0.12rem;
+    outline: none;
+    cursor: pointer;
+    appearance: none;
+    -webkit-appearance: none;
+    user-select: text;
+    -webkit-user-select: text;
+    line-height: inherit;
+    margin: 0;
+    vertical-align: baseline;
+}
+
+.shell-select:focus-visible {
+    outline: 1px dotted var(--text);
+}
+
+.shell-input-frame {
+    position: relative;
+    display: inline-flex;
+    align-items: baseline;
+    cursor: text;
+    line-height: inherit;
+}
+
+.shell-input-frame--invalid:not(:focus-within) {
+    outline: 1px solid color-mix(in srgb, var(--error) 72%, var(--border));
+    background: color-mix(in srgb, var(--error) 10%, var(--bg-shell-input));
+}
+
+.shell-input-frame--inline {
+    --shell-inline-pad-x: 0.12rem;
+    min-width: max(1ch, calc(var(--shell-input-ch, 1) * 1ch));
+    padding: 0.02rem var(--shell-inline-pad-x);
+}
+
+.shell-input-frame--inline:focus-within::after {
+    content: "";
+    position: absolute;
+    left: calc(var(--shell-inline-pad-x) + var(--shell-caret-col, 0) * 1ch);
+    top: 50%;
+    width: 0.62ch;
+    height: 1.02em;
+    transform: translateY(-50%);
+    background: color-mix(in srgb, var(--shell-prompt) 82%, var(--text));
+    animation: shell-caret-blink 1s step-end infinite;
+    pointer-events: none;
+}
+
+.shell-input-frame--multiline {
+    flex: 1 1 100%;
+    width: 100%;
+}
+
+.shell-input {
+    min-width: max(1ch, calc(var(--shell-input-ch, 1) * 1ch));
+    max-width: 100%;
+    padding: 0;
+    border: none;
+    border-radius: 0;
+    background: transparent;
+    color: var(--text);
+    font: inherit;
+    line-height: inherit;
+    outline: none;
+    box-sizing: border-box;
+    caret-color: color-mix(in srgb, var(--shell-prompt) 82%, var(--text));
+    text-shadow: none;
+    appearance: none;
+    -webkit-appearance: none;
+    margin: 0;
+    min-height: 0;
+    vertical-align: baseline;
+}
+
+.shell-input::placeholder {
+    color: var(--text-placeholder);
+    opacity: 0.8;
+}
+
+.shell-input:focus {
+    text-decoration: none;
+}
+
+.shell-input--inline:focus {
+    caret-color: transparent;
+}
+
+.shell-input--inline {
+    width: calc(var(--shell-input-ch, 1) * 1ch);
+    min-width: 0;
+}
+
+.shell-input:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+.shell-input--multiline {
+    flex: 1 1 100%;
+    width: 100%;
+    min-height: calc(1.25em * 4);
+    padding: 0.32rem 0.42rem;
+    resize: vertical;
+    white-space: pre-wrap;
+    word-break: break-word;
+    background: transparent;
+    border-left: 1px solid color-mix(in srgb, var(--shell-prompt) 35%, transparent);
+    caret-color: color-mix(in srgb, var(--shell-prompt) 82%, var(--text));
+}
+
+.shell-input--multiline:focus {
+    box-shadow: none;
+}
+
+.shell-input-frame--invalid:not(:focus-within) .shell-input--multiline {
+    border-left-color: color-mix(in srgb, var(--error) 72%, transparent);
+}
+
+.shell-input-frame--invalid:not(:focus-within) .shell-input::placeholder {
+    color: color-mix(in srgb, var(--error) 48%, var(--text-placeholder));
+}
+
+.shell-button {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--text);
+    cursor: pointer;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 0.9em;
+
+    &:hover:not(:disabled) {
+        background: var(--bg-secondary);
+        border-color: var(--accent);
+    }
+
+    &:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+    }
+}
+
+.shell-button--submit {
+    float: right;
+    margin-left: 0;
+    border-color: transparent;
+    color: var(--shell-prompt);
+}
+
+.shell-textarea {
+    width: 100%;
+    padding: 6px;
+    border: none;
+    border-radius: var(--radius-sm);
+    background: var(--bg-shell-input);
+    color: var(--text);
+    font: inherit;
+    font-size: 12px;
+    line-height: 1.5;
+    outline: none;
+    resize: vertical;
+    display: block;
+}
+
+.shell-textarea:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+@keyframes shell-caret-blink {
+    0%,
+    45% {
+        opacity: 1;
+    }
+
+    46%,
+    100% {
+        opacity: 0;
+    }
+}
+
+/* ==========================================================================
+   Auth
+   ========================================================================== */
+.auth-section {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-lg);
+    margin-top: var(--spacing-lg);
+}
+
+.auth-methods {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-sm);
+}
+
+.auth-method-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    padding: var(--spacing-md) var(--spacing-lg);
+    cursor: pointer;
+    transition: border-color 0.15s, background 0.15s;
+}
+
+.auth-method-card:hover {
+    border-color: color-mix(in srgb, var(--shell-prompt) 48%, var(--border));
+    background: color-mix(in srgb, var(--shell-prompt) 4%, var(--card));
+}
+
+.auth-method-label {
+    font-weight: 600;
+    margin-bottom: 2px;
+}
+
+.auth-method-desc {
+    color: var(--text-secondary);
+    font-size: 0.85em;
+}
+
+/* Command blocks (copy-pastable readonly textareas) */
+.auth-command-block {
+    margin-bottom: 10px;
+}
+
+.auth-command-textarea {
+    width: 100%;
+    padding: 10px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    background: var(--bg-shell);
+    color: var(--text);
+    font: inherit;
+    font-size: 12px;
+    line-height: 1.5;
+    outline: none;
+    resize: none;
+    cursor: text;
+    white-space: pre-wrap;
+    word-break: break-all;
+    display: block;
+    box-sizing: border-box;
+}
+
+.auth-command-textarea:focus {
+    border-color: color-mix(in srgb, var(--shell-prompt) 48%, var(--border));
+}
+
+.auth-method-inline-desc {
+    color: var(--text-secondary);
+    font-size: 0.9em;
+}
+
+.oidc-quick-login {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-sm);
+    align-items: center;
+    margin-top: var(--spacing-sm);
+}
+
+.oidc-quick-label {
+    color: var(--text-secondary);
+    font-size: 0.9em;
+}

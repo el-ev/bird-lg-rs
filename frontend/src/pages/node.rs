@@ -14,13 +14,11 @@ pub fn node_page() -> Html {
     let state = use_context::<LgStateHandle>().expect("no app state found");
     let route_info = use_context::<RouteInfoHandle>().expect("no route info found");
 
-    if state.data_ready {
-        if let Some(name) = &route_info.node_name {
-            if !state.nodes.iter().any(|n| &n.name == name) {
+    if state.data_ready
+        && let Some(name) = &route_info.node_name
+            && !state.nodes.iter().any(|n| &n.name == name) {
                 return html! { <NotFoundPage/> };
             }
-        }
-    }
 
     html! {
         <>

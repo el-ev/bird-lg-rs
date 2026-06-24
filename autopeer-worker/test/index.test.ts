@@ -1,13 +1,10 @@
 import { describe, expect, it } from "vitest";
 
 import worker, {
-  classifyMaintainerLookupError,
   decideApplyGate,
   decideCheckGate,
   decideNodeLockGate,
-  resolveEffectiveMaintainer,
 } from "../src/index";
-import { NoMaintainerError, RegistryPathNotFoundError } from "../src/registry";
 import { uiMessage } from "../src/utils";
 
 describe("peer-session-check gate", () => {
@@ -152,100 +149,8 @@ describe("node merge lock gate", () => {
   });
 });
 
-describe("ASN lookup error classification", () => {
-  it("marks missing aut-num objects as invalid ASNs", () => {
-    const error = classifyMaintainerLookupError(
-      "4242429999",
-      new RegistryPathNotFoundError("data/aut-num/AS4242429999"),
-    );
-
-    expect(error.status).toBe(400);
-    expect(error.uiMessage).toEqual(uiMessage("error.auth.asn.not_found", { asn: "4242429999" }));
-  });
-
-  it("keeps non-missing registry issues out of the invalid-ASN bucket", () => {
-    const error = classifyMaintainerLookupError(
-      "4242421024",
-      new NoMaintainerError("4242421024"),
-    );
-
-    expect(error.status).toBe(400);
-    expect(error.uiMessage).toEqual(
-      uiMessage("error.auth.asn.no_supported_auth", { asn: "4242421024" }),
-    );
-  });
-});
-
-describe("host impersonation maintainer resolution", () => {
-  const maintainer = (name: string) => ({
-    name,
-    auth_lines: [],
-    ssh_public_keys: [],
-    ssh_fingerprints: [],
-    pgp_fingerprints: [],
-    contact_emails: [],
-  });
-
-  it("lists available mntners when effective_mnt is missing for a multi-mntner ASN", () => {
-    expect(() =>
-      resolveEffectiveMaintainer([maintainer("ROUTEDBITS-MNT"), maintainer("IRIS-MNT")]),
-    ).toThrowError("error.auth.impersonation.maintainer.required");
-  });
-
-  it("lists available mntners when the requested maintainer is not present", () => {
-    expect(() =>
-      resolveEffectiveMaintainer(
-        [maintainer("ROUTEDBITS-MNT"), maintainer("IRIS-MNT")],
-        "OTHER-MNT",
-      ),
-    ).toThrowError("error.auth.impersonation.maintainer.missing");
-  });
-});
-
 describe("API endpoint error i18n", () => {
   const env = {} as Env;
-
-  function jsonRequest(path: string, body: unknown): Request {
-    return new Request(`https://autopeer.example${path}`, {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify(body),
-    });
-  }
-
-  it("returns uiMessage key for a missing required field on /v1/auth/start", async () => {
-    const response = await worker.fetch(jsonRequest("/v1/auth/start", {}) as never, env);
-    expect(response.status).toBe(400);
-    const body = (await response.json()) as { error: { key: string; params?: Record<string, string> } };
-    expect(body.error).toEqual({
-      key: "error.field.required",
-      params: { field: "asn" },
-    });
-  });
-
-  it("returns uiMessage key for a malformed ASN", async () => {
-    const response = await worker.fetch(
-      jsonRequest("/v1/auth/start", { asn: "not-an-asn" }) as never,
-      env,
-    );
-    expect(response.status).toBe(400);
-    const body = (await response.json()) as { error: { key: string } };
-    expect(body.error.key).toBe("error.auth.asn.unsupported");
-  });
-
-  it("returns uiMessage key when request body is not valid JSON", async () => {
-    const response = await worker.fetch(
-      new Request("https://autopeer.example/v1/auth/start", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: "{",
-      }) as never,
-      env,
-    );
-    expect(response.status).toBe(400);
-    const body = (await response.json()) as { error: { key: string } };
-    expect(body.error.key).toBe("error.request.body.invalid_json");
-  });
 
   it("returns uiMessage key with bearer token missing", async () => {
     const response = await worker.fetch(

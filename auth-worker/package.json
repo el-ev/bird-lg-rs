@@ -1,0 +1,19 @@
+{
+  "name": "dn42-auth",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy"
+  },
+  "dependencies": {
+    "dn42-auth-worker": "file:../dn42-auth-worker",
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20250501.0",
+    "@types/node": "^25.9.1",
+    "typescript": "^5.8.0",
+    "wrangler": "^4.14.0"
+  }
+}

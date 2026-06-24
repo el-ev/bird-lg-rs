@@ -1,57 +1,20 @@
 use std::{
-    collections::HashMap,
     rc::Rc,
     sync::atomic::{AtomicU64, Ordering},
 };
 
+use dn42_auth_client::fragment::decode_auth_session;
 use gloo_timers::future::TimeoutFuture;
 use wasm_bindgen_futures::spawn_local;
 use yew::prelude::*;
 
-use crate::browser;
-use crate::models::{
-    AuthMethod, AuthMethodKind, AuthSessionResponse, CreateSessionRequest, NodeView,
-    OperationStatus, RegistryEmailTarget, SessionListResponse, SessionView, UiMessage,
-    UpdateSessionRequest,
-};
-
-#[derive(Clone, PartialEq, Debug)]
-pub enum PgpKeyLookup {
-    Loading,
-    Found {
-        public_key: String,
-        source: Option<String>,
+use crate::{
+    browser,
+    models::{
+        AuthSessionResponse, CreateSessionRequest, NodeView, OperationStatus, SessionListResponse,
+        SessionView, UiMessage, UpdateSessionRequest,
     },
-    NotFound,
-}
-
-#[derive(Clone, PartialEq, Default, Debug)]
-pub struct PgpKeyLookups(HashMap<String, PgpKeyLookup>);
-
-impl PgpKeyLookups {
-    pub fn get(&self, key: &str) -> Option<&PgpKeyLookup> {
-        self.0.get(key)
-    }
-
-    pub fn contains_key(&self, key: &str) -> bool {
-        self.0.contains_key(key)
-    }
-}
-
-pub enum PgpKeyLookupAction {
-    Set(String, PgpKeyLookup),
-}
-
-impl Reducible for PgpKeyLookups {
-    type Action = PgpKeyLookupAction;
-
-    fn reduce(self: Rc<Self>, action: Self::Action) -> Rc<Self> {
-        let PgpKeyLookupAction::Set(key, value) = action;
-        let mut next = self.0.clone();
-        next.insert(key, value);
-        Rc::new(PgpKeyLookups(next))
-    }
-}
+};
 
 static NEXT_ONGOING_TASK_ID: AtomicU64 = AtomicU64::new(1);
 
@@ -126,74 +89,6 @@ struct AuthHandles {
     step: UseStateHandle<AutoPeerStep>,
 }
 
-#[derive(Clone)]
-struct AuthFlowHandles {
-    challenge_id: UseStateHandle<Option<String>>,
-    challenge_text: UseStateHandle<Option<String>>,
-    methods: UseStateHandle<Vec<AuthMethod>>,
-    selected_method: UseStateHandle<Option<AuthMethod>>,
-    selected_pgp_key: UseStateHandle<String>,
-    ssh_signature: UseStateHandle<String>,
-    pgp_public_key: UseStateHandle<String>,
-    pgp_signed_message: UseStateHandle<String>,
-    selected_email_maintainer: UseStateHandle<String>,
-    registry_email_code: UseStateHandle<String>,
-    registry_email_sent_to: UseStateHandle<Vec<String>>,
-}
-
-pub(crate) fn validate_ssh_signature_input(signature: &str) -> Result<(), &'static str> {
-    let trimmed = signature.trim();
-    if trimmed.is_empty() {
-        return Err("error.auth.ssh.empty_or_missing_blocks");
-    }
-    if !trimmed.contains("-----BEGIN SSH SIGNATURE-----")
-        || !trimmed.contains("-----END SSH SIGNATURE-----")
-    {
-        if trimmed.contains("dn42-autopeer challenge") {
-            return Err("error.auth.ssh.unsigned_challenge");
-        }
-        return Err("error.auth.ssh.empty_or_missing_blocks");
-    }
-    Ok(())
-}
-
-pub(crate) fn default_pgp_key(method: &AuthMethod) -> String {
-    method.pgp_fingerprints.first().cloned().unwrap_or_default()
-}
-
-pub(crate) fn default_registry_email_target(method: &AuthMethod) -> String {
-    method
-        .email_targets
-        .first()
-        .map(|target| target.maintainer.clone())
-        .unwrap_or_default()
-}
-
-pub(crate) fn selected_registry_email_target<'a>(
-    method: &'a AuthMethod,
-    selected_maintainer: &str,
-) -> Option<&'a RegistryEmailTarget> {
-    let selected = selected_maintainer.trim();
-    if !selected.is_empty() {
-        method
-            .email_targets
-            .iter()
-            .find(|target| target.maintainer == selected)
-    } else {
-        method.email_targets.first()
-    }
-}
-
-pub(crate) fn filter_supported_methods(
-    methods: Vec<AuthMethod>,
-    oidc_enabled: bool,
-) -> Vec<AuthMethod> {
-    methods
-        .into_iter()
-        .filter(|method| oidc_enabled || method.kind != AuthMethodKind::Oidc)
-        .collect()
-}
-
 pub(crate) fn configured_href(configured: Option<&str>, fallback: &str) -> String {
     configured
         .map(str::trim)
@@ -248,59 +143,6 @@ fn clear_session_state(handles: &SessionHandles) {
     handles.asn.set(String::new());
     clear_loaded_session_data(handles);
     reset_session_selection(handles);
-}
-
-fn clear_auth_inputs(handles: &AuthFlowHandles) {
-    handles.ssh_signature.set(String::new());
-    handles.pgp_public_key.set(String::new());
-    handles.pgp_signed_message.set(String::new());
-    handles.registry_email_code.set(String::new());
-    handles.registry_email_sent_to.set(Vec::new());
-}
-
-fn clear_selected_auth_method(handles: &AuthFlowHandles) {
-    handles.selected_method.set(None);
-    handles.selected_pgp_key.set(String::new());
-    handles.selected_email_maintainer.set(String::new());
-    clear_auth_inputs(handles);
-}
-
-fn set_auth_challenge(
-    handles: &AuthFlowHandles,
-    challenge_id: String,
-    challenge_text: String,
-    methods: Vec<AuthMethod>,
-) {
-    handles.challenge_id.set(Some(challenge_id));
-    handles.challenge_text.set(Some(challenge_text));
-    handles.methods.set(methods);
-    clear_selected_auth_method(handles);
-}
-
-fn clear_auth_challenge(handles: &AuthFlowHandles) {
-    handles.challenge_id.set(None);
-    handles.challenge_text.set(None);
-    handles.methods.set(Vec::new());
-    clear_selected_auth_method(handles);
-}
-
-fn set_selected_auth_method(handles: &AuthFlowHandles, method: AuthMethod) {
-    handles.selected_pgp_key.set(default_pgp_key(&method));
-    handles
-        .selected_email_maintainer
-        .set(default_registry_email_target(&method));
-    handles.selected_method.set(Some(method));
-    clear_auth_inputs(handles);
-}
-
-fn matching_auth_method(
-    available_methods: &[AuthMethod],
-    method: &AuthMethod,
-) -> Option<AuthMethod> {
-    available_methods
-        .iter()
-        .find(|candidate| candidate.kind == method.kind && candidate.provider == method.provider)
-        .cloned()
 }
 
 fn clear_impersonation_inputs(
@@ -526,21 +368,11 @@ fn hash_message_param(name: &str) -> Option<UiMessage> {
 
 fn clear_location_hash() {
     if let Some(window) = web_sys::window() {
-        let _ = window.location().set_hash("");
+        let path = window.location().pathname().unwrap_or_else(|_| "/".into());
+        if let Ok(history) = window.history() {
+            let _ = history.replace_state_with_url(&js_sys::Object::new().into(), "", Some(&path));
+        }
     }
-}
-
-fn redirect_to(url: &str) -> Result<(), UiMessage> {
-    if !url.starts_with("https://") {
-        return Err(UiMessage::key("error.runtime.oidc.redirect_failed"));
-    }
-    let Some(window) = web_sys::window() else {
-        return Err(UiMessage::key("error.runtime.browser.unavailable"));
-    };
-    window
-        .location()
-        .set_href(url)
-        .map_err(|_| UiMessage::key("error.runtime.oidc.redirect_failed"))
 }
 
 fn selected_session_node_name(editing_node: Option<&str>, draft: &SessionDraft) -> Option<String> {
@@ -594,7 +426,7 @@ async fn finish_redirected_auth_session(
         }
         Err(message) => {
             error.set(Some(message));
-            auth_handles.step.set(AutoPeerStep::EnterAsn);
+            auth_handles.step.set(AutoPeerStep::AuthRedirect);
         }
     }
     clear_loading(ongoing_tasks, task_id);
@@ -641,7 +473,7 @@ async fn restore_persisted_state(
             Err(message) if is_stale_session_error(&message) => {}
             Err(message) => {
                 error.set(Some(message));
-                auth_handles.step.set(AutoPeerStep::EnterAsn);
+                auth_handles.step.set(AutoPeerStep::AuthRedirect);
                 return;
             }
         }
@@ -676,7 +508,7 @@ async fn restore_persisted_state(
             Err(message) if is_stale_session_error(&message) => {}
             Err(message) => {
                 error.set(Some(message));
-                auth_handles.step.set(AutoPeerStep::EnterAsn);
+                auth_handles.step.set(AutoPeerStep::AuthRedirect);
                 return;
             }
         }
@@ -708,7 +540,7 @@ async fn restore_persisted_state(
         save_persisted_sessions(&PersistedSessions::default());
         reset_session_selection(session_handles);
         error.set(None);
-        auth_handles.step.set(AutoPeerStep::EnterAsn);
+        auth_handles.step.set(AutoPeerStep::AuthRedirect);
     }
 }
 
@@ -716,12 +548,9 @@ async fn restore_persisted_state(
 pub struct AutoPeerController {
     pub autopeer_site_href: UseStateHandle<String>,
     pub looking_glass_site_href: UseStateHandle<String>,
-    pub oidc_methods: UseStateHandle<Vec<AuthMethod>>,
+    pub auth_url: UseStateHandle<Option<String>>,
     pub step: UseStateHandle<AutoPeerStep>,
     pub asn: UseStateHandle<String>,
-    pub challenge_text: UseStateHandle<Option<String>>,
-    pub methods: UseStateHandle<Vec<AuthMethod>>,
-    pub selected_method: UseStateHandle<Option<AuthMethod>>,
     pub auth_session: UseStateHandle<Option<AuthSessionResponse>>,
     pub host_session: UseStateHandle<Option<AuthSessionResponse>>,
     pub nodes: UseStateHandle<Vec<NodeView>>,
@@ -738,25 +567,6 @@ pub struct AutoPeerController {
     pub ongoing_tasks: UseReducerHandle<OngoingTasks>,
     pub impersonate_asn: UseStateHandle<String>,
     pub impersonate_mnt: UseStateHandle<String>,
-    pub ssh_signature: UseStateHandle<String>,
-    pub selected_pgp_key: UseStateHandle<String>,
-    pub pgp_public_key: UseStateHandle<String>,
-    pub pgp_signed_message: UseStateHandle<String>,
-    pub pgp_key_lookups: UseReducerHandle<PgpKeyLookups>,
-    pub selected_email_maintainer: UseStateHandle<String>,
-    pub registry_email_code: UseStateHandle<String>,
-    pub registry_email_sent_to: UseStateHandle<Vec<String>>,
-    pub on_asn_change: Callback<String>,
-    pub on_submit_asn: Callback<MouseEvent>,
-    pub on_asn_keydown: Callback<KeyboardEvent>,
-    pub on_enter_oidc: Callback<AuthMethod>,
-    pub on_select_method: Callback<AuthMethod>,
-    pub on_select_method_back: Callback<MouseEvent>,
-    pub on_verify_back: Callback<MouseEvent>,
-    pub on_verify: Callback<MouseEvent>,
-    pub on_selected_email_maintainer_change: Callback<String>,
-    pub on_registry_email_code_change: Callback<String>,
-    pub on_send_registry_email: Callback<MouseEvent>,
     pub on_refresh: Callback<MouseEvent>,
     pub on_logout: Callback<MouseEvent>,
     pub on_impersonate_asn_change: Callback<String>,
@@ -778,6 +588,7 @@ pub fn use_autopeer_controller(
 ) -> AutoPeerController {
     let persisted_sessions = load_persisted_sessions().unwrap_or_default();
     let api_base = use_state(|| None::<String>);
+    let auth_url = use_state(|| None::<String>);
     let autopeer_site_href = {
         let initial = default_autopeer_home_href;
         use_state(move || initial)
@@ -786,13 +597,8 @@ pub fn use_autopeer_controller(
         let initial = default_looking_glass_href;
         use_state(move || initial)
     };
-    let oidc_methods = use_state(Vec::<AuthMethod>::new);
     let step = use_state(|| AutoPeerStep::LoadingConfig);
     let asn = use_state(String::new);
-    let challenge_id = use_state(|| None::<String>);
-    let challenge_text = use_state(|| None::<String>);
-    let methods = use_state(Vec::<AuthMethod>::new);
-    let selected_method = use_state(|| None::<AuthMethod>);
     let auth_session = {
         let initial = persisted_sessions.auth_session.clone();
         use_state(move || initial)
@@ -816,15 +622,6 @@ pub fn use_autopeer_controller(
 
     let impersonate_asn = use_state(String::new);
     let impersonate_mnt = use_state(String::new);
-    let ssh_signature = use_state(String::new);
-    let selected_pgp_key = use_state(String::new);
-    let pgp_public_key = use_state(String::new);
-    let pgp_signed_message = use_state(String::new);
-    let pgp_key_lookups = use_reducer(PgpKeyLookups::default);
-    let selected_email_maintainer = use_state(String::new);
-    let registry_email_code = use_state(String::new);
-    let registry_email_sent_to = use_state(Vec::<String>::new);
-
     let session_handles = SessionHandles {
         asn: asn.clone(),
         nodes: nodes.clone(),
@@ -838,20 +635,6 @@ pub fn use_autopeer_controller(
         host_session: host_session.clone(),
         step: step.clone(),
     };
-    let auth_flow_handles = AuthFlowHandles {
-        challenge_id: challenge_id.clone(),
-        challenge_text: challenge_text.clone(),
-        methods: methods.clone(),
-        selected_method: selected_method.clone(),
-        selected_pgp_key: selected_pgp_key.clone(),
-        ssh_signature: ssh_signature.clone(),
-        pgp_public_key: pgp_public_key.clone(),
-        pgp_signed_message: pgp_signed_message.clone(),
-        selected_email_maintainer: selected_email_maintainer.clone(),
-        registry_email_code: registry_email_code.clone(),
-        registry_email_sent_to: registry_email_sent_to.clone(),
-    };
-
     let refresh_sessions = {
         let api_base = api_base.clone();
         let auth_session = auth_session.clone();
@@ -960,9 +743,9 @@ pub fn use_autopeer_controller(
 
     {
         let api_base = api_base.clone();
+        let auth_url = auth_url.clone();
         let autopeer_site_href = autopeer_site_href.clone();
         let looking_glass_site_href = looking_glass_site_href.clone();
-        let oidc_methods = oidc_methods.clone();
         let error = error.clone();
         let ongoing_tasks = ongoing_tasks.clone();
         let session_handles = session_handles.clone();
@@ -983,20 +766,45 @@ pub fn use_autopeer_controller(
                             config.looking_glass_url.as_deref(),
                             (*looking_glass_site_href).as_str(),
                         ));
-                        oidc_methods.set(config.oidc_methods);
                         api_base.set(Some(api_url.clone()));
+                        auth_url.set(config.auth_url.clone());
 
                         if let Some(message) = hash_message_param("oidc_error") {
                             clear_location_hash();
                             error.set(Some(message));
-                            auth_handles.step.set(AutoPeerStep::EnterAsn);
+                            auth_handles.step.set(AutoPeerStep::AuthRedirect);
                             return;
                         }
 
                         if let Some(message) = hash_message_param("email_error") {
                             clear_location_hash();
                             error.set(Some(message));
-                            auth_handles.step.set(AutoPeerStep::EnterAsn);
+                            auth_handles.step.set(AutoPeerStep::AuthRedirect);
+                            return;
+                        }
+
+                        if let Some(encoded) = browser::hash_param("auth_session") {
+                            clear_location_hash();
+                            if let Some(session) = decode_auth_session(&encoded) {
+                                let task_id = start_loading(
+                                    &ongoing_tasks,
+                                    UiMessage::key("loading.oidc_login"),
+                                );
+                                activate_authenticated_session(
+                                    &api_url,
+                                    session,
+                                    &session_handles,
+                                    &auth_handles,
+                                    &error,
+                                )
+                                .await;
+                                clear_loading(&ongoing_tasks, task_id);
+                            } else {
+                                error.set(Some(UiMessage::key(
+                                    "error.runtime.oidc.redirect_failed",
+                                )));
+                                auth_handles.step.set(AutoPeerStep::AuthRedirect);
+                            }
                             return;
                         }
 
@@ -1048,7 +856,7 @@ pub fn use_autopeer_controller(
                     }
                     Err(message) => {
                         error.set(Some(message));
-                        auth_handles.step.set(AutoPeerStep::EnterAsn);
+                        auth_handles.step.set(AutoPeerStep::AuthRedirect);
                     }
                 }
             });
@@ -1112,63 +920,6 @@ pub fn use_autopeer_controller(
         );
     }
 
-    {
-        let api_base = api_base.clone();
-        let selected_method = selected_method.clone();
-        let selected_pgp_key = selected_pgp_key.clone();
-        let pgp_key_lookups = pgp_key_lookups.clone();
-        use_effect_with(
-            (
-                (*api_base).clone(),
-                (*selected_method).clone(),
-                (*selected_pgp_key).clone(),
-            ),
-            move |(api_base, method, fingerprint)| {
-                let cleanup = || ();
-                let Some(method) = method else { return cleanup };
-                if method.kind != AuthMethodKind::RegistryPgp {
-                    return cleanup;
-                }
-                let trimmed = fingerprint.trim();
-                if trimmed.is_empty() {
-                    return cleanup;
-                }
-                let Some(api_base) = api_base.clone() else {
-                    return cleanup;
-                };
-                if pgp_key_lookups.contains_key(trimmed) {
-                    return cleanup;
-                }
-
-                let fingerprint_value = trimmed.to_string();
-                pgp_key_lookups.dispatch(PgpKeyLookupAction::Set(
-                    fingerprint_value.clone(),
-                    PgpKeyLookup::Loading,
-                ));
-
-                let pgp_key_lookups_for_task = pgp_key_lookups.clone();
-                spawn_local(async move {
-                    let result = service::lookup_pgp_key(&api_base, &fingerprint_value).await;
-                    let value = match result {
-                        Ok(response) if response.found => PgpKeyLookup::Found {
-                            public_key: response.public_key.unwrap_or_default(),
-                            source: response.source,
-                        },
-                        _ => PgpKeyLookup::NotFound,
-                    };
-                    pgp_key_lookups_for_task
-                        .dispatch(PgpKeyLookupAction::Set(fingerprint_value, value));
-                });
-                cleanup
-            },
-        );
-    }
-
-    let on_asn_change = {
-        let asn = asn.clone();
-        Callback::from(move |value: String| asn.set(value))
-    };
-
     let on_impersonate_asn_change = {
         let impersonate_asn = impersonate_asn.clone();
         let support_error = support_error.clone();
@@ -1187,408 +938,12 @@ pub fn use_autopeer_controller(
         })
     };
 
-    let on_selected_email_maintainer_change = {
-        let selected_email_maintainer = selected_email_maintainer.clone();
-        Callback::from(move |value: String| selected_email_maintainer.set(value))
-    };
-
-    let on_registry_email_code_change = {
-        let registry_email_code = registry_email_code.clone();
-        Callback::from(move |value: String| registry_email_code.set(value))
-    };
-
-    let submit_asn = {
-        let api_base = api_base.clone();
-        let asn = asn.clone();
-        let auth_flow_handles = auth_flow_handles.clone();
-        let oidc_methods = oidc_methods.clone();
-        let auth_handles = auth_handles.clone();
-        let operation = operation.clone();
-        let error = error.clone();
-        let ongoing_tasks = ongoing_tasks.clone();
-        let session_handles = session_handles.clone();
-
-        Callback::from(move |_| {
-            let Some(api_base) = require_api_base(&api_base, &error) else {
-                return;
-            };
-
-            let asn_value = asn.trim().to_string();
-            if asn_value.is_empty() {
-                error.set(Some(UiMessage::key("error.auth.asn.required")));
-                return;
-            }
-
-            let task_id = start_loading(&ongoing_tasks, UiMessage::key("loading.fetch_methods"));
-            error.set(None);
-            operation.set(None);
-            save_pending_operation_id(None);
-
-            let auth_flow_handles = auth_flow_handles.clone();
-            let oidc_methods = oidc_methods.clone();
-            let auth_handles = auth_handles.clone();
-            let error = error.clone();
-            let ongoing_tasks = ongoing_tasks.clone();
-            let session_handles = session_handles.clone();
-
-            spawn_local(async move {
-                match service::start_auth(&api_base, &asn_value).await {
-                    Ok(response) => {
-                        set_auth_challenge(
-                            &auth_flow_handles,
-                            response.challenge_id,
-                            response.challenge_text,
-                            filter_supported_methods(response.methods, !oidc_methods.is_empty()),
-                        );
-                        auth_handles.auth_session.set(None);
-                        auth_handles.host_session.set(None);
-                        reset_loaded_sessions(&session_handles);
-                        auth_handles.step.set(AutoPeerStep::SelectMethod);
-                    }
-                    Err(message) => error.set(Some(message)),
-                }
-                clear_loading(&ongoing_tasks, task_id);
-            });
-        })
-    };
-
-    let on_submit_asn = {
-        let submit_asn = submit_asn.clone();
-        Callback::from(move |_| submit_asn.emit(()))
-    };
-
-    let on_asn_keydown = {
-        let submit_asn = submit_asn.clone();
-        let ongoing_tasks = ongoing_tasks.clone();
-        let asn = asn.clone();
-        Callback::from(move |event: KeyboardEvent| {
-            if event.key() == "Enter" && ongoing_tasks.is_empty() && !asn.trim().is_empty() {
-                event.prevent_default();
-                submit_asn.emit(());
-            }
-        })
-    };
-
-    let on_enter_oidc = {
-        let api_base = api_base.clone();
-        let error = error.clone();
-        let ongoing_tasks = ongoing_tasks.clone();
-
-        Callback::from(move |method: AuthMethod| {
-            let Some(api_base) = require_api_base(&api_base, &error) else {
-                return;
-            };
-            let Some(provider) = method.provider.clone() else {
-                error.set(Some(UiMessage::key("error.auth.oidc.provider.missing")));
-                return;
-            };
-
-            let task_id = start_loading(&ongoing_tasks, UiMessage::key("loading.redirect_oidc"));
-            error.set(None);
-
-            let ongoing_tasks = ongoing_tasks.clone();
-            let error = error.clone();
-
-            spawn_local(async move {
-                match service::start_oidc(&api_base, &provider, None).await {
-                    Ok(response) => {
-                        if let Err(message) = redirect_to(&response.authorization_url) {
-                            clear_loading(&ongoing_tasks, task_id);
-                            error.set(Some(message));
-                        }
-                    }
-                    Err(message) => {
-                        clear_loading(&ongoing_tasks, task_id);
-                        error.set(Some(message));
-                    }
-                }
-            });
-        })
-    };
-
-    let on_select_method_back = {
-        let auth_flow_handles = auth_flow_handles.clone();
-        let auth_handles = auth_handles.clone();
-        Callback::from(move |_| {
-            clear_auth_challenge(&auth_flow_handles);
-            auth_handles.step.set(AutoPeerStep::EnterAsn);
-        })
-    };
-
-    let on_select_method = {
-        let api_base = api_base.clone();
-        let asn = asn.clone();
-        let auth_flow_handles = auth_flow_handles.clone();
-        let oidc_methods = oidc_methods.clone();
-        let auth_handles = auth_handles.clone();
-        let error = error.clone();
-        let ongoing_tasks = ongoing_tasks.clone();
-
-        Callback::from(move |method_value: AuthMethod| {
-            let Some(api_base) = require_api_base(&api_base, &error) else {
-                return;
-            };
-
-            let asn_value = asn.trim().to_string();
-            if asn_value.is_empty() {
-                error.set(Some(UiMessage::key("error.auth.asn.required")));
-                return;
-            }
-
-            let task_id = start_loading(&ongoing_tasks, UiMessage::key("loading.fetch_challenge"));
-            error.set(None);
-
-            let auth_flow_handles = auth_flow_handles.clone();
-            let auth_handles = auth_handles.clone();
-            let error = error.clone();
-            let ongoing_tasks = ongoing_tasks.clone();
-            let oidc_methods = oidc_methods.clone();
-
-            spawn_local(async move {
-                match service::start_auth(&api_base, &asn_value).await {
-                    Ok(response) => {
-                        let available_methods =
-                            filter_supported_methods(response.methods, !oidc_methods.is_empty());
-                        let matched_method =
-                            matching_auth_method(&available_methods, &method_value);
-
-                        match matched_method {
-                            Some(method) => {
-                                set_auth_challenge(
-                                    &auth_flow_handles,
-                                    response.challenge_id,
-                                    response.challenge_text,
-                                    available_methods,
-                                );
-                                set_selected_auth_method(&auth_flow_handles, method);
-                                auth_handles.step.set(AutoPeerStep::VerifyMethod);
-                            }
-                            None => {
-                                error.set(Some(UiMessage::key("error.auth.method.unavailable")))
-                            }
-                        }
-                    }
-                    Err(message) => error.set(Some(message)),
-                }
-                clear_loading(&ongoing_tasks, task_id);
-            });
-        })
-    };
-
-    let on_verify_back = {
-        let step = step.clone();
-        let error = error.clone();
-        Callback::from(move |_| {
-            error.set(None);
-            step.set(AutoPeerStep::SelectMethod);
-        })
-    };
-
-    let on_send_registry_email = {
-        let api_base = api_base.clone();
-        let challenge_id = challenge_id.clone();
-        let selected_method = selected_method.clone();
-        let selected_email_maintainer = selected_email_maintainer.clone();
-        let registry_email_sent_to = registry_email_sent_to.clone();
-        let error = error.clone();
-        let ongoing_tasks = ongoing_tasks.clone();
-
-        Callback::from(move |_| {
-            let Some(api_base) = require_api_base(&api_base, &error) else {
-                return;
-            };
-            let Some(challenge_id) = (*challenge_id).clone() else {
-                error.set(Some(UiMessage::key("error.request.challenge_id.missing")));
-                return;
-            };
-            let Some(method) = (*selected_method).clone() else {
-                error.set(Some(UiMessage::key("error.ui.auth.method.choose_first")));
-                return;
-            };
-            if method.kind != AuthMethodKind::RegistryEmail {
-                error.set(Some(UiMessage::key(
-                    "error.ui.auth.registry_email.inactive",
-                )));
-                return;
-            }
-
-            let selected_target =
-                selected_registry_email_target(&method, selected_email_maintainer.as_str());
-            let Some(target) = selected_target else {
-                error.set(Some(UiMessage::key(
-                    "error.ui.auth.registry_email.choose_maintainer",
-                )));
-                return;
-            };
-
-            let task_id = start_loading(&ongoing_tasks, UiMessage::key("loading.send_email"));
-            error.set(None);
-
-            let effective_mnt = target.maintainer.clone();
-            let registry_email_sent_to = registry_email_sent_to.clone();
-            let error = error.clone();
-            let ongoing_tasks = ongoing_tasks.clone();
-
-            spawn_local(async move {
-                match service::send_registry_email(&api_base, &challenge_id, Some(&effective_mnt))
-                    .await
-                {
-                    Ok(response) => {
-                        registry_email_sent_to.set(response.emails);
-                        error.set(None);
-                    }
-                    Err(message) => error.set(Some(message)),
-                }
-
-                clear_loading(&ongoing_tasks, task_id);
-            });
-        })
-    };
-
-    let on_verify = {
-        let api_base = api_base.clone();
-        let challenge_id = challenge_id.clone();
-        let selected_method = selected_method.clone();
-        let error = error.clone();
-        let ongoing_tasks = ongoing_tasks.clone();
-        let ssh_signature = ssh_signature.clone();
-        let selected_pgp_key = selected_pgp_key.clone();
-        let pgp_public_key = pgp_public_key.clone();
-        let pgp_signed_message = pgp_signed_message.clone();
-        let pgp_key_lookups = pgp_key_lookups.clone();
-        let registry_email_code = registry_email_code.clone();
-        let session_handles = session_handles.clone();
-        let auth_handles = auth_handles.clone();
-
-        Callback::from(move |_| {
-            let Some(api_base) = require_api_base(&api_base, &error) else {
-                return;
-            };
-            let Some(challenge_id) = (*challenge_id).clone() else {
-                error.set(Some(UiMessage::key("error.request.challenge_id.missing")));
-                return;
-            };
-            let Some(method) = (*selected_method).clone() else {
-                error.set(Some(UiMessage::key("error.ui.auth.method.choose_first")));
-                return;
-            };
-            if method.kind == AuthMethodKind::RegistrySsh
-                && let Err(message) = validate_ssh_signature_input(ssh_signature.as_str())
-            {
-                error.set(Some(UiMessage::key(message)));
-                return;
-            }
-            if method.kind == AuthMethodKind::RegistryEmail && registry_email_code.trim().is_empty()
-            {
-                error.set(Some(UiMessage::key(
-                    "error.ui.auth.registry_email.code.required",
-                )));
-                return;
-            }
-
-            let loading_text = match method.kind {
-                AuthMethodKind::RegistrySsh => "loading.check_ssh",
-                AuthMethodKind::RegistryPgp => "loading.check_pgp",
-                AuthMethodKind::RegistryEmail => "loading.check_email",
-                AuthMethodKind::Oidc => "loading.redirect_oidc",
-                AuthMethodKind::HostImpersonation => "loading.host_session_prep",
-            };
-            let task_id = start_loading(&ongoing_tasks, UiMessage::key(loading_text));
-            error.set(None);
-
-            let error = error.clone();
-            let ongoing_tasks = ongoing_tasks.clone();
-            let ssh_signature_value = (*ssh_signature).clone();
-            let pgp_public_key_value = match pgp_key_lookups.get(selected_pgp_key.trim()) {
-                Some(PgpKeyLookup::Found { public_key, .. }) => public_key.clone(),
-                _ => (*pgp_public_key).clone(),
-            };
-            let pgp_signed_message_value = (*pgp_signed_message).clone();
-            let registry_email_code_value = (*registry_email_code).clone();
-            let session_handles = session_handles.clone();
-            let auth_handles = auth_handles.clone();
-
-            spawn_local(async move {
-                if method.kind == AuthMethodKind::Oidc {
-                    let Some(provider) = method.provider.clone() else {
-                        clear_loading(&ongoing_tasks, task_id);
-                        error.set(Some(UiMessage::key("error.auth.oidc.provider.missing")));
-                        return;
-                    };
-
-                    match service::start_oidc(&api_base, &provider, Some(&challenge_id)).await {
-                        Ok(response) => {
-                            if let Err(message) = redirect_to(&response.authorization_url) {
-                                clear_loading(&ongoing_tasks, task_id);
-                                error.set(Some(message));
-                            }
-                        }
-                        Err(message) => {
-                            clear_loading(&ongoing_tasks, task_id);
-                            error.set(Some(message));
-                        }
-                    }
-                    return;
-                }
-
-                let result = match method.kind {
-                    AuthMethodKind::RegistrySsh => {
-                        service::verify_registry_ssh(&api_base, &challenge_id, &ssh_signature_value)
-                            .await
-                    }
-                    AuthMethodKind::RegistryPgp => {
-                        service::verify_registry_pgp(
-                            &api_base,
-                            &challenge_id,
-                            &pgp_public_key_value,
-                            &pgp_signed_message_value,
-                        )
-                        .await
-                    }
-                    AuthMethodKind::RegistryEmail => {
-                        service::verify_registry_email(
-                            &api_base,
-                            &challenge_id,
-                            &registry_email_code_value,
-                        )
-                        .await
-                    }
-                    AuthMethodKind::Oidc => unreachable!(),
-                    AuthMethodKind::HostImpersonation => {
-                        clear_loading(&ongoing_tasks, task_id);
-                        error.set(Some(UiMessage::key(
-                            "error.ui.auth.impersonation.host_required",
-                        )));
-                        return;
-                    }
-                };
-
-                match result {
-                    Ok(session) => {
-                        activate_authenticated_session(
-                            &api_base,
-                            session,
-                            &session_handles,
-                            &auth_handles,
-                            &error,
-                        )
-                        .await;
-                    }
-                    Err(message) => error.set(Some(message)),
-                }
-
-                clear_loading(&ongoing_tasks, task_id);
-            });
-        })
-    };
-
     let on_refresh = {
         let refresh_sessions = refresh_sessions.clone();
         Callback::from(move |_| refresh_sessions.emit(()))
     };
 
     let on_logout = {
-        let auth_flow_handles = auth_flow_handles.clone();
         let auth_handles = auth_handles.clone();
         let session_handles = session_handles.clone();
         let operation = operation.clone();
@@ -1600,7 +955,6 @@ pub fn use_autopeer_controller(
 
         Callback::from(move |_| {
             save_persisted_sessions(&PersistedSessions::default());
-            clear_auth_challenge(&auth_flow_handles);
             auth_handles.auth_session.set(None);
             auth_handles.host_session.set(None);
             clear_session_state(&session_handles);
@@ -1609,13 +963,14 @@ pub fn use_autopeer_controller(
             error.set(None);
             support_error.set(None);
             clear_all_loading(&ongoing_tasks);
-            auth_handles.step.set(AutoPeerStep::EnterAsn);
+            auth_handles.step.set(AutoPeerStep::AuthRedirect);
             clear_impersonation_inputs(&impersonate_asn, &impersonate_mnt);
         })
     };
 
     let on_impersonate = {
         let api_base = api_base.clone();
+        let auth_url = auth_url.clone();
         let auth_session = auth_session.clone();
         let host_session = host_session.clone();
         let impersonate_asn = impersonate_asn.clone();
@@ -1629,6 +984,12 @@ pub fn use_autopeer_controller(
 
         Callback::from(move |_| {
             let Some(api_base) = require_api_base(&api_base, &error) else {
+                return;
+            };
+            let Some(auth_api) = (*auth_url).clone() else {
+                support_error.set(Some(UiMessage::key(
+                    "error.runtime.config.autopeer_api_url.missing",
+                )));
                 return;
             };
             let Some(base_session) = (*host_session).clone().or_else(|| {
@@ -1666,7 +1027,7 @@ pub fn use_autopeer_controller(
 
             spawn_local(async move {
                 match service::impersonate_asn(
-                    &api_base,
+                    &auth_api,
                     &base_session.session_token,
                     &target_asn,
                     Some(impersonate_mnt_value.trim()),
@@ -1951,12 +1312,9 @@ pub fn use_autopeer_controller(
     AutoPeerController {
         autopeer_site_href,
         looking_glass_site_href,
-        oidc_methods,
+        auth_url,
         step,
         asn,
-        challenge_text,
-        methods,
-        selected_method,
         auth_session,
         host_session,
         nodes,
@@ -1973,25 +1331,6 @@ pub fn use_autopeer_controller(
         ongoing_tasks,
         impersonate_asn,
         impersonate_mnt,
-        ssh_signature,
-        selected_pgp_key,
-        pgp_public_key,
-        pgp_signed_message,
-        pgp_key_lookups,
-        selected_email_maintainer,
-        registry_email_code,
-        registry_email_sent_to,
-        on_asn_change,
-        on_submit_asn,
-        on_asn_keydown,
-        on_enter_oidc,
-        on_select_method,
-        on_select_method_back,
-        on_verify_back,
-        on_verify,
-        on_selected_email_maintainer_change,
-        on_registry_email_code_change,
-        on_send_registry_email,
         on_refresh,
         on_logout,
         on_impersonate_asn_change,
@@ -2009,108 +1348,13 @@ pub fn use_autopeer_controller(
 
 #[cfg(test)]
 mod tests {
-    use crate::{
-        controller::{
-            configured_href, filter_supported_methods, matching_auth_method,
-            validate_ssh_signature_input,
-        },
-        models::{AuthMethod, AuthMethodKind, UiMessage},
-    };
+    use crate::controller::configured_href;
 
     #[test]
     fn prefers_runtime_configured_link_over_fallback() {
         assert_eq!(
             configured_href(Some("https://network.owo.li"), "https://lg.owo.li/"),
             "https://network.owo.li"
-        );
-    }
-
-    #[test]
-    fn hides_oidc_methods_when_runtime_config_disables_them() {
-        let methods = vec![
-            AuthMethod {
-                kind: AuthMethodKind::RegistrySsh,
-                label: UiMessage::raw("Registry SSH"),
-                description: UiMessage::raw("SSH"),
-                ..AuthMethod::default()
-            },
-            AuthMethod {
-                kind: AuthMethodKind::Oidc,
-                label: UiMessage::raw("Kioubit"),
-                description: UiMessage::raw("OIDC"),
-                provider: Some("kioubit".into()),
-                ..AuthMethod::default()
-            },
-        ];
-
-        let filtered = filter_supported_methods(methods, false);
-
-        assert_eq!(filtered.len(), 1);
-        assert_eq!(filtered[0].kind, AuthMethodKind::RegistrySsh);
-    }
-
-    #[test]
-    fn rejects_raw_challenge_text_in_ssh_signature_field() {
-        assert_eq!(
-            validate_ssh_signature_input(
-                "dn42-autopeer challenge\nasn: 4242421024\nchallenge_id: example\nissued_at: 2026-04-18T12:42:04.075Z"
-            ),
-            Err("error.auth.ssh.unsigned_challenge"),
-        );
-    }
-
-    #[test]
-    fn accepts_armored_ssh_signature_blocks() {
-        assert_eq!(
-            validate_ssh_signature_input(
-                "-----BEGIN SSH SIGNATURE-----\nZm9v\n-----END SSH SIGNATURE-----"
-            ),
-            Ok(()),
-        );
-    }
-
-    #[test]
-    fn matches_auth_method_by_kind_and_provider() {
-        let registry = AuthMethod {
-            kind: AuthMethodKind::RegistrySsh,
-            label: UiMessage::raw("Registry SSH"),
-            description: UiMessage::raw("SSH"),
-            ..AuthMethod::default()
-        };
-        let kioubit = AuthMethod {
-            kind: AuthMethodKind::Oidc,
-            label: UiMessage::raw("Kioubit"),
-            description: UiMessage::raw("OIDC"),
-            provider: Some("kioubit".into()),
-            ..AuthMethod::default()
-        };
-        let lwm = AuthMethod {
-            kind: AuthMethodKind::Oidc,
-            label: UiMessage::raw("LWM"),
-            description: UiMessage::raw("OIDC"),
-            provider: Some("lwm".into()),
-            ..AuthMethod::default()
-        };
-        let available_methods = vec![registry.clone(), kioubit.clone(), lwm];
-
-        assert_eq!(
-            matching_auth_method(&available_methods, &kioubit),
-            Some(kioubit),
-        );
-        assert_eq!(
-            matching_auth_method(
-                &available_methods,
-                &AuthMethod {
-                    kind: AuthMethodKind::Oidc,
-                    provider: Some("missing".into()),
-                    ..AuthMethod::default()
-                }
-            ),
-            None,
-        );
-        assert_eq!(
-            matching_auth_method(&available_methods, &registry),
-            Some(registry),
         );
     }
 }

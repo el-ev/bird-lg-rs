@@ -67,7 +67,7 @@ function armorToBytes(signature: string): Uint8Array {
     invalidSignature("error.auth.ssh.empty_or_missing_blocks");
   }
   if (!trimmed.includes("-----BEGIN SSH SIGNATURE-----") || !trimmed.includes("-----END SSH SIGNATURE-----")) {
-    if (trimmed.includes("dn42-autopeer challenge")) {
+    if (trimmed.includes("dn42-auth challenge")) {
       invalidSignature("error.auth.ssh.unsigned_challenge");
     }
     invalidSignature("error.auth.ssh.empty_or_missing_blocks");
@@ -120,7 +120,7 @@ function parseSshSignature(signature: string): { publicKey: string } {
 
 function challengePayload(asn: string, challengeId: string, issuedAt: string): string {
   return [
-    "dn42-autopeer challenge",
+    "dn42-auth challenge",
     `asn: ${asn}`,
     `challenge_id: ${challengeId}`,
     `issued_at: ${issuedAt}`,

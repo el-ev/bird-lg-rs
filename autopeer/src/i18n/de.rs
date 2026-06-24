@@ -18,11 +18,6 @@ pub(super) const TABLE: &[(&str, &str)] = &[
     ("action.open_create_pr", "Create-PR öffnen"),
     ("action.impersonate_this_asn", "Diese ASN impersonieren"),
     ("action.return_to_host_asn", "Zur Host-ASN zurückkehren"),
-    ("action.find_registry_auth", "Registry-Auth-Methoden suchen"),
-    ("action.verify", "Verifizieren"),
-    ("action.verify_code", "Code verifizieren"),
-    ("action.send_signin_link", "Anmeldelink senden"),
-    ("action.resend_signin_link", "Anmeldelink erneut senden"),
     ("action.confirm_retirement", "Stilllegung bestätigen"),
     ("action.retire_session", "Diese Session stilllegen"),
     ("action.confirm_deletion", "Löschung bestätigen"),
@@ -34,7 +29,7 @@ pub(super) const TABLE: &[(&str, &str)] = &[
     ("action.drop_changes", "Änderungen verwerfen"),
     ("action.dismiss_operation", "Ausblenden"),
     ("action.check_bgp_session", "BGP-Sitzung prüfen"),
-    // Step: LoadingConfig / EnterAsn
+    // Step: LoadingConfig / AuthRedirect
     (
         "step.loading_config.prompt",
         "Laufzeitkonfiguration wird geladen",
@@ -44,173 +39,27 @@ pub(super) const TABLE: &[(&str, &str)] = &[
         "Laufzeitkonfiguration wird geladen...",
     ),
     (
-        "step.enter_asn.prompt",
-        "Geben Sie Ihre dn42 ASN für die Registrierung SSH, PGP oder E-Mail-Authentifizierung ein.",
+        "step.auth_redirect.prompt",
+        "Authentifizieren Sie sich und verwalten Sie Ihre Peering-Sitzungen mit IRIS-AS 4242421023.",
     ),
-    ("step.enter_asn.placeholder", "424242xxxx"),
     (
-        "step.enter_asn.oidc_alt",
-        "Oder melden Sie sich bei Ihrem Identitätsanbieter an und lassen Sie uns Ihre ASN automatisch ableiten.",
+        "step.auth_redirect.link",
+        "Weiterleitung zu dn42-auth.owo.li",
     ),
-    ("step.enter_asn.continue_with", "Weiter mit {provider}"),
-    // Step: SelectMethod
-    (
-        "step.select_method.found_for_as",
-        "Wir haben Registrierungsauthentifizierungsmethoden für AS{asn} gefunden",
-    ),
-    // Backend auth method copy
+    // Auth method labels returned by auth service sessions
     (
         "auth_method.registry_ssh.label",
         "Registrierung SSH Signatur",
     ),
     (
-        "auth_method.registry_ssh.description",
-        "Signieren Sie unsere Challenge mit einem SSH-Schlüssel aus Ihrem dn42-Maintainer-Objekt.",
-    ),
-    (
         "auth_method.registry_pgp.label",
         "Registrierung PGP Signatur",
     ),
-    (
-        "auth_method.registry_pgp.description",
-        "Verwenden Sie einen Ihrer Registry-PGP-Fingerprints: {fingerprints}",
-    ),
     ("auth_method.registry_email.label", "Registrierungs-E-Mail"),
-    (
-        "auth_method.registry_email.description",
-        "Wählen Sie einen Maintainer aus und senden Sie einen Anmeldelink an dessen Registry-E-Mail-Kontakte.",
-    ),
-    (
-        "auth_method.registry_email.description_single",
-        "Senden Sie einen Anmeldelink und einen Einmalcode an {emails}.",
-    ),
-    (
-        "auth_method.registry_ssh.session_description",
-        "Sie haben sich mit {mnt} per SSH-Auth authentifiziert.",
-    ),
-    (
-        "auth_method.registry_pgp.session_description",
-        "Sie haben sich mit {mnt} per PGP-Auth authentifiziert.",
-    ),
-    (
-        "auth_method.registry_email.session_description",
-        "Sie haben sich mit {mnt} per E-Mail-Auth authentifiziert.",
-    ),
     (
         "auth_method.host_impersonation.label",
         "Host-ASN-Impersonation",
     ),
-    (
-        "auth_method.host_impersonation.description",
-        "Sie impersonieren {mnt} über unsere Host-ASN AS{host_asn}.",
-    ),
-    (
-        "auth_method.oidc.description",
-        "Authentifizieren Sie sich mit {provider} und weisen Sie einen Ihrer Maintainer-Claims für diese ASN nach.",
-    ),
-    (
-        "auth_method.oidc.session_description",
-        "Sie haben sich mit {provider} als {mnt} authentifiziert.",
-    ),
-    // Step: VerifyMethod (SSH)
-    (
-        "verify.ssh.no_fingerprints",
-        "Wir konnten keine SSH-Schlüsselfingerabdrücke für Ihren ASN finden.",
-    ),
-    (
-        "verify.ssh.match_one",
-        "Passen Sie Ihren SSH-Schlüssel {fingerprint} an",
-    ),
-    (
-        "verify.ssh.match_many",
-        "Entspricht einem Ihrer SSH-Schlüssel: {fingerprints}",
-    ),
-    ("verify.ssh.create_signature", "Challenge signieren"),
-    (
-        "verify.ssh.paste_prompt",
-        "Führen Sie den obigen Befehl aus und fügen Sie dann Ihre abgetrennte SSH-Signatur ein.",
-    ),
-    ("verify.ssh.placeholder", "-----BEGIN SSH SIGNATURE-----"),
-    // Step: VerifyMethod (PGP)
-    (
-        "verify.pgp.no_fingerprints",
-        "Wir konnten keine PGP-Fingerabdrücke für Ihr ASN finden",
-    ),
-    (
-        "verify.pgp.use_key",
-        "Verwenden Sie Ihren Schlüssel {fingerprint}",
-    ),
-    (
-        "verify.pgp.clearsign_intro",
-        "Clear-signieren Sie den exakten Challenge-Text mit Ihrem passenden Schlüssel, exportieren Sie danach denselben öffentlichen Schlüssel und fügen Sie beide Ausgaben unten ein.",
-    ),
-    ("verify.pgp.exact_challenge", "Challenge-Text"),
-    ("verify.pgp.clearsign_label", "Challenge clear-signieren"),
-    (
-        "verify.pgp.signed_paste_prompt",
-        "Fügen Sie die vollständige clear-signierte Challenge aus dem obigen Befehl ein",
-    ),
-    (
-        "verify.pgp.signed_placeholder",
-        "-----BEGIN PGP SIGNED MESSAGE-----",
-    ),
-    (
-        "verify.pgp.export_label",
-        "Exportieren Sie Ihren öffentlichen Schlüssel",
-    ),
-    (
-        "verify.pgp.pubkey_paste_prompt",
-        "Fügen Sie Ihren ASCII-gepanzerten öffentlichen Schlüssel aus dem obigen Exportbefehl ein",
-    ),
-    (
-        "verify.pgp.pubkey_placeholder",
-        "-----BEGIN PGP PUBLIC KEY BLOCK-----",
-    ),
-    (
-        "verify.pgp.lookup.searching",
-        "Suche Schlüssel auf Keyservern\u{2026}",
-    ),
-    ("verify.pgp.lookup.found", "Vom Keyserver abgerufen"),
-    ("verify.pgp.lookup.found_from", "Von {source} abgerufen"),
-    // Step: VerifyMethod (Email)
-    (
-        "verify.email.intro",
-        "Senden Sie einen Anmeldelink und einen Einmalcode an die Registrierungs-E-Mail-Kontakte eines Ihrer Betreuer und klicken Sie dann auf den Link oder fügen Sie den Code unten ein.",
-    ),
-    (
-        "verify.email.no_contacts",
-        "Wir konnten keine admin-c- oder tech-c-E-Mail-Kontakte für Ihre ASN finden.",
-    ),
-    ("verify.email.auth_as", "Authentifizieren als {mnt}"),
-    ("verify.email.send_to", "Senden an {emails}"),
-    (
-        "verify.email.sent_to_prefix",
-        "Wir haben einen Anmeldelink und einen Authentifizierungscode an {emails} gesendet.",
-    ),
-    (
-        "verify.email.code_prompt",
-        "Fügen Sie den Authentifizierungscode aus Ihrer E-Mail ein",
-    ),
-    ("verify.email.code_placeholder", "12345678"),
-    // Step: VerifyMethod (OIDC / Host)
-    ("verify.oidc.continue_to", "Weiter zu {provider}"),
-    (
-        "verify.oidc.in_browser",
-        "Fahren Sie mit {provider} in Ihrem Browser fort",
-    ),
-    (
-        "verify.oidc.redirect_note",
-        "Wir leiten Sie zu Ihrem Provider weiter und bringen Sie anschließend hierher zurück, nachdem er Ihre ASN- und Maintainer-Claims bestätigt hat.",
-    ),
-    (
-        "verify.host.note",
-        "Der Identitätswechsel ist verfügbar, nachdem Sie eine unserer konfigurierten Host-ASNs authentifiziert haben.",
-    ),
-    (
-        "verify.choose_first",
-        "Wählen Sie zunächst eine Authentifizierungsmethode.",
-    ),
-    ("verify.auth_for_as", "{label} für AS{asn}"),
     // Manage / dashboard headings
     ("dashboard.flow_kicker", "Ihr Peering-Flow"),
     (
@@ -550,11 +399,6 @@ pub(super) const TABLE: &[(&str, &str)] = &[
     ("session_state.pending_pr", "Ausstehender PR"),
     ("session_state.stalled_pr", "Steckengebliebener PR"),
     ("session_state.conflict", "Konflikt"),
-    ("session.badge.psk", "PSK"),
-    (
-        "session.badge.encrypted_endpoint",
-        "Verschlüsselter Endpunkt",
-    ),
     ("operation.kind.create", "Erstellen"),
     ("operation.kind.update", "Aktualisieren"),
     ("operation.kind.retire", "Stilllegen"),
@@ -679,19 +523,8 @@ pub(super) const TABLE: &[(&str, &str)] = &[
     ("operation.failure.conclusion", "Ergebnis"),
     // Prompts (shell-style left labels)
     ("prompt.autopeer", "autopeer"),
-    ("prompt.asn", "ASN"),
-    ("prompt.auth", "auth"),
     ("prompt.login", "login"),
-    ("prompt.key", "key"),
-    ("prompt.keys", "keys"),
-    ("prompt.signature", "signature"),
-    ("prompt.signed", "signed"),
-    ("prompt.pubkey", "pubkey"),
-    ("prompt.mntner", "mntner"),
-    ("prompt.emails", "emails"),
-    ("prompt.code", "code"),
     // Generic loading / errors
-    ("status.working", "Wird bearbeitet..."),
     (
         "error.ui.node.choose",
         "Wählen Sie einen unserer Nodes, bevor Sie fortfahren",
@@ -727,10 +560,6 @@ pub(super) const TABLE: &[(&str, &str)] = &[
     (
         "error.ui.auth.authenticate_first",
         "Authentifizieren Sie sich, bevor Sie fortfahren",
-    ),
-    (
-        "error.ui.node.choose_default",
-        "Wählen Sie einen unserer Nodes, bevor Sie fortfahren",
     ),
     ("error.auth.asn.required", "ASN ist erforderlich"),
     (

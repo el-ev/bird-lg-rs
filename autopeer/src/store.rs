@@ -2,17 +2,15 @@ use std::net::{Ipv4Addr, Ipv6Addr};
 
 use serde::{Deserialize, Serialize};
 
-use crate::browser::local_storage;
-use crate::models::{
-    AuthSessionResponse, MpBgpTransport, PeerSessionSpec, PeeringStrategy, PskField,
+use crate::{
+    browser::local_storage,
+    models::{AuthSessionResponse, MpBgpTransport, PeerSessionSpec, PeeringStrategy, PskField},
 };
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum AutoPeerStep {
     LoadingConfig,
-    EnterAsn,
-    SelectMethod,
-    VerifyMethod,
+    AuthRedirect,
     ManageSessions,
 }
 
@@ -754,10 +752,11 @@ fn optional_u16(value: &str, error_key: &str) -> Result<Option<u16>, String> {
 
 #[cfg(test)]
 mod tests {
+    use dn42_auth_client::models::{AuthMethod, AuthMethodKind};
+
     use super::{PersistedSessions, SessionDraft, SessionDraftField};
     use crate::models::{
-        AuthMethod, AuthMethodKind, AuthSessionResponse, MpBgpTransport, PeerSessionSpec,
-        PeeringStrategy, PskField, UiMessage,
+        AuthSessionResponse, MpBgpTransport, PeerSessionSpec, PeeringStrategy, PskField, UiMessage,
     };
 
     const VALID_WG_KEY: &str = "sLbzTRr2gfLFb24NPzDOpy8j09Y6zI+a7NkeVMdVSR8=";

@@ -10,12 +10,8 @@ declare namespace Cloudflare {
 		GITHUB_OWNER: "OwO-Intranet-Services";
 		GITHUB_REPO: "dn42-network";
 		GITHUB_BASE_BRANCH: "main";
-		DN42_REGISTRY_OWNER: "dn42";
-		DN42_REGISTRY_REPO: "registry";
-		DN42_REGISTRY_BRANCH: "master";
-		DN42_REGISTRY_BASE_URL: "https://git.dn42.dev";
-		OIDC_PROVIDERS: "[\n  {\n    \"name\": \"kioubit\",\n    \"label\": \"Kioubit\",\n    \"issuer\": \"https://dn42.g-load.eu\",\n    \"client_id\": \"5b6a7a8b-9783-4f9d-9484-091f235ef8dd\",\n    \"client_secret_env\": \"KIOUBIT_OIDC_CLIENT_SECRET\",\n    \"token_endpoint_auth_method\": \"client_secret_post\",\n    \"audience\": \"5b6a7a8b-9783-4f9d-9484-091f235ef8dd\",\n    \"scopes\": [\"openid\", \"profile\", \"email\", \"dn42\"],\n    \"asn_claim\": \"dn42.asn\",\n    \"mntner_claim\": \"dn42.mnt\",\n    \"description\": \"Authenticate with Kioubit.\"\n  },\n  {\n    \"name\": \"iedon\",\n    \"label\": \"iEdon\",\n    \"issuer\": \"https://auth.iedon.net\",\n    \"dn42_issuer\": \"https://oauth.dn42\",\n    \"client_id\": \"5fd911be16a3859f0f6603f0cd9e5181\",\n    \"client_secret_env\": \"IEDON_OIDC_CLIENT_SECRET\",\n    \"token_endpoint_auth_method\": \"client_secret_post\",\n    \"audience\": \"5fd911be16a3859f0f6603f0cd9e5181\",\n    \"scopes\": [\"openid\", \"profile\", \"email\", \"dn42\"],\n    \"asn_claim\": [\"dn42.asn\", \"profile.asn\"],\n    \"mntner_claim\": [\"profile.active_mnt\", \"profile.mnt_by\", \"dn42.mnt\"],\n    \"description\": \"Authenticate with iEdon.\"\n  }\n]";
 		HOST_ASNS: "4242421023";
+		AUTH_WORKER_URL: "https://dn42-auth.owo.li";
 		AUTOPEER_API_URL: "https://autopeer.owo.li";
 		AUTOPEER_SITE_URL: "https://autopeer.owo.li";
 		AUTOPEER_TRUSTED_FORWARDED_HOSTS: "autopeer.iris.dn42";
@@ -28,7 +24,7 @@ type StringifyValues<EnvType extends Record<string, unknown>> = {
 	[Binding in keyof EnvType]: EnvType[Binding] extends string ? EnvType[Binding] : string;
 };
 declare namespace NodeJS {
-	interface ProcessEnv extends StringifyValues<Pick<Cloudflare.Env, "GITHUB_OWNER" | "GITHUB_REPO" | "GITHUB_BASE_BRANCH" | "DN42_REGISTRY_OWNER" | "DN42_REGISTRY_REPO" | "DN42_REGISTRY_BRANCH" | "DN42_REGISTRY_BASE_URL" | "OIDC_PROVIDERS" | "HOST_ASNS" | "AUTOPEER_API_URL" | "AUTOPEER_SITE_URL" | "AUTOPEER_TRUSTED_FORWARDED_HOSTS" | "LOOKING_GLASS_URL" | "STALL_NOTIFY_MENTION">> {}
+	interface ProcessEnv extends StringifyValues<Pick<Cloudflare.Env, "GITHUB_OWNER" | "GITHUB_REPO" | "GITHUB_BASE_BRANCH" | "HOST_ASNS" | "AUTH_WORKER_URL" | "AUTOPEER_API_URL" | "AUTOPEER_SITE_URL" | "AUTOPEER_TRUSTED_FORWARDED_HOSTS" | "LOOKING_GLASS_URL" | "STALL_NOTIFY_MENTION">> {}
 }
 
 // Begin runtime types

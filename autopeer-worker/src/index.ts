@@ -1,42 +1,17 @@
 import {
-  SESSION_TTL_SECONDS,
-  assertChallengeFresh,
-  createChallenge,
-  createRegistryEmailAuthRequest,
-  createRegistryEmailSession,
-  lookupPgpKeyOnKeyservers,
-  normalizePgpFingerprint,
-  verifyRegistryPgpChallenge,
-  verifyRegistrySshChallenge,
-} from "./auth";
-import {
   claimNodeOperationLock,
-  consumeFreshChallenge,
-  consumeCompletedRegistryEmailAuthRequestByToken,
-  deleteChallenge,
   deleteOperation,
-  deleteRegistryEmailAuthRequest,
   getAuthSession,
-  getChallenge,
-  getOidcAuthRequest,
-  getRegistryEmailAuthRequest,
-  getRegistryEmailAuthRequestByToken,
   getOperation,
   insertOperation,
   listActiveOperations,
   listOperationsForAsn,
-  deleteOidcAuthRequest,
-  putAuthSession,
-  putChallenge,
-  putOidcAuthRequest,
-  putRegistryEmailAuthRequest,
   putOperation,
   releaseNodeOperationLock,
 } from "./db";
 import { branchName, GitHubClient } from "./github";
 import type { GitHubWorkflowJob, GitHubWorkflowRun } from "./github";
-import { resolveLocale, resolveLocaleCode, t } from "./i18n";
-import { sendRegistryEmailAuthMessage } from "./mailer";
+import { resolveLocale, t } from "./i18n";
 import {
   buildNodeViews,
   listSessionsForAsn,
@@ -45,52 +20,20 @@ import {
   validateSessionSpec,
 } from "./network";
 import {
-  createOidcAuthorizationRequest,
-  exchangeAuthorizationCode,
-  fetchOidcDiscovery,
-  oidcAsnFromClaimSources,
-  oidcMaintainerFromClaimSources,
-  oidcMethodsFromProviders,
-  oidcProviderByName,
-  rewriteIssuerHost,
-  sessionFromOidcIdentity,
-  verifiedOidcClaimSources,
-} from "./oidc";
-import { NoMaintainerError, RegistryPathNotFoundError, loadMaintainersForAsn, methodsFromMaintainers } from "./registry";
-import {
-  AuthStartSchema,
   CreateSessionSchema,
-  HostImpersonationSchema,
-  OidcCompleteSchema,
-  OidcStartSchema,
-  RegistryEmailCompleteSchema,
-  RegistryEmailSendSchema,
-  RegistryEmailVerifySchema,
-  RegistryPgpVerifySchema,
-  RegistrySshVerifySchema,
   UpdateSessionSchema,
 } from "./schemas";
 import type {
-  AuthSessionResponse,
-  AuthStartResponse,
-  ChallengeRecord,
-  MaintainerRecord,
   OperationFailureDetails,
-  RegistryEmailSendResponse,
-  RegistryEmailTarget,
-  OidcProviderConfig,
-  OidcStartResponse,
   OperationKind,
   OperationRecord,
   OperationState,
   OperationStatus,
   PeerSessionSpec,
-  PgpKeyLookupResponse,
   SessionRecord,
   UiMessage,
 } from "./types";
 import {
-  addSeconds,
   bearerToken,
   buildCorsHeaders,
   errorWithCors,
@@ -102,14 +45,10 @@ import {
   nowIso,
   parseBody,
   parseConfiguredAsns,
-  parseJsonEnv,
-  readOptionalEnvString,
   I18nError,
   isExpired,
   stripOperatorHints,
   readOptionalSecret,
-  timingSafeEqual,
-  toUiMessage,
   uiMessage,
 } from "./utils";
 import { OPENAPI_PATH, SWAGGER_PATH, openApiSpec, swaggerUiHtml } from "./docs";
@@ -141,9 +80,6 @@ async function requireOwnedOperation(
   }
   return { authSession, operation };
 }
-const OIDC_CALLBACK_PREFIX = "/oidc/callback/";
-const REGISTRY_EMAIL_CALLBACK_PATH = "/auth/email/callback";
-
 type ValidationWorkflowRun = {
   status: string;
   conclusion: string | null;
@@ -165,41 +101,6 @@ function errorMessage(error: unknown, fallbackKey: string): UiMessage {
   return uiMessage(fallbackKey);
 }
 
-function fragmentMessage(name: string, message: string | UiMessage): string {
-  return `${name}=${encodeURIComponent(JSON.stringify(toUiMessage(message)))}`;
-}
-
-function withLangFragment(fragment: string, locale?: string | null): string {
-  return locale ? `${fragment}&lang=${encodeURIComponent(locale)}` : fragment;
-}
-
-
-export function classifyMaintainerLookupError(asn: string, error: unknown): HttpError {
-  if (error instanceof RegistryPathNotFoundError) {
-    return new HttpError(uiMessage("error.auth.asn.not_found", { asn }), 400);
-  }
-
-  if (error instanceof NoMaintainerError) {
-    return new HttpError(uiMessage("error.auth.asn.no_supported_auth", { asn }), 400);
-  }
-
-  if (error instanceof HttpError) {
-    return error;
-  }
-  return new HttpError(uiMessage("error.registry.lookup_failed", { asn }), 502);
-}
-
-async function loadMaintainersForRequestAsn(
-  env: Env,
-  asn: string,
-): Promise<MaintainerRecord[]> {
-  try {
-    return await loadMaintainersForAsn(env, asn);
-  } catch (error) {
-    throw classifyMaintainerLookupError(asn, error);
-  }
-}
-
 function assertValidSessionSpec(
   node: Parameters<typeof validateSessionSpec>[0],
   asn: string,
@@ -217,182 +118,15 @@ function configuredUrl(value: string | undefined): string | undefined {
   return trimmed ? trimmed : undefined;
 }
 
-function forwardedHeaderValue(request: Request, name: string): string | undefined {
-  const value = request.headers
-    .get(name)
-    ?.split(",")
-    .map((entry) => entry.trim())
-    .find(Boolean);
-  return value || undefined;
-}
-
-function trustedForwardedHosts(env: Env): Set<string> {
-  const hosts = new Set<string>();
-  const configured = configuredUrl(env.AUTOPEER_SITE_URL);
-  if (configured) {
-    try {
-      hosts.add(new URL(configured).host.toLowerCase());
-    } catch {
-      // ignore malformed configuration
-    }
-  }
-  const list = readOptionalEnvString(env, "AUTOPEER_TRUSTED_FORWARDED_HOSTS");
-  if (list) {
-    for (const entry of list.split(",")) {
-      const trimmed = entry.trim().toLowerCase();
-      if (trimmed) hosts.add(trimmed);
-    }
-  }
-  return hosts;
-}
-
-function trustedForwardedHost(env: Env, request: Request): string | undefined {
-  const forwarded = forwardedHeaderValue(request, "x-forwarded-host")?.toLowerCase();
-  if (!forwarded) return undefined;
-  return trustedForwardedHosts(env).has(forwarded) ? forwarded : undefined;
-}
-
-function externalSiteBaseUrl(env: Env, request: Request): URL {
-  const base = new URL(configuredUrl(env.AUTOPEER_SITE_URL) ?? request.url);
-  const forwardedHost = trustedForwardedHost(env, request);
-  if (!forwardedHost) {
-    return base;
-  }
-
-  const forwardedProto = forwardedHeaderValue(request, "x-forwarded-proto");
-  const external = new URL(base.toString());
-  external.host = forwardedHost;
-  if (forwardedProto === "http" || forwardedProto === "https") {
-    external.protocol = `${forwardedProto}:`;
-  }
-  return external;
-}
-
-function isDn42Request(env: Env, request: Request): boolean {
-  const host = trustedForwardedHost(env, request) ?? new URL(request.url).host.toLowerCase();
-  return host.endsWith(".dn42");
-}
-
 function runtimeConfigResponse(request: Request, env: Env) {
   const origin = new URL(request.url).origin;
   return {
     autopeer_api_url: configuredUrl(env.AUTOPEER_API_URL) ?? origin,
     autopeer_site_url: configuredUrl(env.AUTOPEER_SITE_URL) ?? origin,
     looking_glass_url: configuredUrl(env.LOOKING_GLASS_URL),
-    oidc_methods: oidcMethodsFromProviders(configuredOidcProviders(env)),
+    auth_url: env.AUTH_WORKER_URL,
+    oidc_methods: [],
   };
-}
-
-function configuredOidcProviders(env: Env): OidcProviderConfig[] {
-  return parseJsonEnv(env.OIDC_PROVIDERS, "OIDC_PROVIDERS");
-}
-
-function registryEmailAuthConfigured(env: Env): boolean {
-  return readOptionalEnvString(env, "RESEND_API_KEY") !== null;
-}
-
-async function consumeChallengeOrThrow(env: Env, challengeId: string): Promise<ChallengeRecord> {
-  const result = await consumeFreshChallenge(env, challengeId);
-  switch (result.kind) {
-    case "available":
-      return result.challenge;
-    case "missing":
-      throw new HttpError("error.auth.challenge.unknown_id", 404);
-    case "expired":
-      throw new HttpError("error.auth.challenge.expired", 400);
-    case "consumed":
-      throw new HttpError("error.auth.challenge.used", 400);
-  }
-}
-
-function oidcCallbackUrl(env: Env, request: Request, providerName: string): string {
-  const base = externalSiteBaseUrl(env, request);
-  return new URL(
-    `${OIDC_CALLBACK_PREFIX}${encodeURIComponent(providerName)}`,
-    base.pathname.endsWith("/") ? base.toString() : `${base.toString()}/`,
-  ).toString();
-}
-
-function siteRedirectResponse(env: Env, request: Request, fragment: string): Response {
-  const target = externalSiteBaseUrl(env, request);
-  target.hash = fragment;
-  return Response.redirect(target.toString(), 302);
-}
-
-function registryEmailTargetsForChallenge(challenge: ChallengeRecord): RegistryEmailTarget[] {
-  const methodTargets = challenge.methods.find((method) => method.kind === "registry_email")
-    ?.email_targets ?? [];
-  if (methodTargets.length > 0) {
-    return methodTargets.filter((target) => target.emails.length > 0);
-  }
-
-  return challenge.maintainers
-    .map((maintainer) => ({
-      maintainer: maintainer.name,
-      emails: maintainer.contact_emails ?? [],
-    }))
-    .filter((target) => target.emails.length > 0);
-}
-
-function resolveRegistryEmailTarget(
-  challenge: ChallengeRecord,
-  requestedMaintainer?: string | null,
-): RegistryEmailTarget {
-  const targets = registryEmailTargetsForChallenge(challenge);
-  if (targets.length === 0) {
-    throw new HttpError(
-      uiMessage("error.auth.registry_email.contacts.missing", { asn: challenge.asn }),
-      400,
-    );
-  }
-
-  if (requestedMaintainer) {
-    const requested = requestedMaintainer.trim().toUpperCase();
-    const matched = targets.find((target) => target.maintainer.toUpperCase() === requested);
-    if (!matched) {
-      throw new HttpError(
-        uiMessage("error.auth.registry_email.target.missing", { requested }),
-        400,
-      );
-    }
-    return matched;
-  }
-
-  if (targets.length === 1) {
-    return targets[0];
-  }
-
-  throw new HttpError(
-    uiMessage("error.auth.registry_email.target.required"),
-    400,
-  );
-}
-
-function registryEmailCallbackUrl(
-  env: Env,
-  request: Request,
-  challengeId: string,
-  token: string,
-): string {
-  const base = externalSiteBaseUrl(env, request);
-  const callback = new URL(
-    REGISTRY_EMAIL_CALLBACK_PATH,
-    base.pathname.endsWith("/") ? base.toString() : `${base.toString()}/`,
-  );
-  callback.searchParams.set("challenge_id", challengeId);
-  callback.searchParams.set("token", token);
-  return callback.toString();
-}
-
-async function createCompletedRegistryEmailSession(
-  env: Env,
-  challengeId: string,
-  effectiveMnt: string,
-): Promise<SessionRecord> {
-  const challenge = await consumeChallengeOrThrow(env, challengeId);
-  const session = createRegistryEmailSession(challenge, effectiveMnt);
-  await putAuthSession(env, session);
-  return session;
 }
 
 function sessionCanImpersonate(env: Env, session: SessionRecord): boolean {
@@ -401,56 +135,6 @@ function sessionCanImpersonate(env: Env, session: SessionRecord): boolean {
 
 function sessionCanMutate(env: Env, session: SessionRecord): boolean {
   return !sessionCanImpersonate(env, session) || session.auth_method.kind === "host_impersonation";
-}
-
-function authSessionResponseForEnv(env: Env, session: SessionRecord): AuthSessionResponse {
-  return {
-    session_token: session.token,
-    asn: session.asn,
-    effective_mnt: session.effective_mnt,
-    auth_method: session.auth_method,
-    can_impersonate: sessionCanImpersonate(env, session),
-    expires_at: session.expires_at,
-  };
-}
-
-function availableMaintainerNames(maintainers: MaintainerRecord[]): string[] {
-  return [...new Set(maintainers.map((maintainer) => maintainer.name))];
-}
-
-export function resolveEffectiveMaintainer(
-  maintainers: MaintainerRecord[],
-  requestedMaintainer?: string | null,
-): string {
-  if (maintainers.length === 0) {
-    throw new HttpError("error.auth.impersonation.no_maintainers", 400);
-  }
-
-  const available = availableMaintainerNames(maintainers).join(", ");
-
-  if (requestedMaintainer) {
-    const requested = requestedMaintainer.trim().toUpperCase();
-    const matched = maintainers.find((maintainer) => maintainer.name.toUpperCase() === requested);
-    if (!matched) {
-      throw new HttpError(
-        uiMessage("error.auth.impersonation.maintainer.missing", {
-          requested,
-          available,
-        }),
-        400,
-      );
-    }
-    return matched.name;
-  }
-
-  if (maintainers.length === 1) {
-    return maintainers[0].name;
-  }
-
-  throw new HttpError(
-    uiMessage("error.auth.impersonation.maintainer.required", { available }),
-    400,
-  );
 }
 
 async function requireSession(env: Env, request: Request): Promise<SessionRecord> {
@@ -1347,490 +1031,6 @@ async function router(request: Request, env: Env): Promise<Response> {
 
   if (request.method === "GET" && url.pathname === "/health") {
     return jsonWithCors(request, { ok: true, now: nowIso() });
-  }
-
-  if (request.method === "POST" && url.pathname === "/v1/auth/start") {
-    const body = await parseBody(request, AuthStartSchema);
-    const asn = normalizeSupportedAutopeerAsn(body.asn);
-    const maintainers = await loadMaintainersForRequestAsn(env, asn);
-    const challenge = createChallenge(asn);
-    challenge.maintainers = maintainers;
-    challenge.methods = methodsFromMaintainers(maintainers, [], {
-      registryEmailEnabled: registryEmailAuthConfigured(env),
-    });
-
-    if (challenge.methods.length === 0) {
-      const key = configuredOidcProviders(env).length > 0
-        ? "error.auth.asn.no_registry_auth.oidc_hint"
-        : "error.auth.asn.no_supported_auth";
-      throw new HttpError(uiMessage(key, { asn }), 400);
-    }
-
-    await putChallenge(env, challenge);
-    const response: AuthStartResponse = {
-      asn,
-      challenge_id: challenge.id,
-      challenge_text: challenge.challenge_text,
-      challenge_ttl_seconds: 15 * 60,
-      methods: challenge.methods,
-    };
-    return jsonWithCors(request, response);
-  }
-
-  if (request.method === "POST" && url.pathname === "/v1/auth/impersonate") {
-    const impersonatorSession = await requireSession(env, request);
-    if (!sessionCanImpersonate(env, impersonatorSession)) {
-      throw new HttpError(
-        uiMessage("error.auth.impersonation.asn.not_host", { asn: impersonatorSession.asn }),
-        403,
-      );
-    }
-
-    const body = await parseBody(request, HostImpersonationSchema);
-    const asn = normalizeSupportedAutopeerAsn(body.asn);
-    const maintainers = await loadMaintainersForRequestAsn(env, asn);
-    const effectiveMnt = resolveEffectiveMaintainer(maintainers, body.effective_mnt);
-    const createdAt = nowIso();
-    const session: SessionRecord = {
-      token: crypto.randomUUID(),
-      asn,
-      effective_mnt: effectiveMnt,
-      auth_method: {
-        kind: "host_impersonation",
-        label: uiMessage("auth_method.host_impersonation.label"),
-        description: uiMessage("auth_method.host_impersonation.description", {
-          mnt: effectiveMnt,
-          host_asn: impersonatorSession.asn,
-        }),
-        provider: `AS${impersonatorSession.asn}`,
-      },
-      created_at: createdAt,
-      expires_at: addSeconds(createdAt, SESSION_TTL_SECONDS),
-    };
-    await putAuthSession(env, session);
-    return jsonWithCors(request, authSessionResponseForEnv(env, session));
-  }
-
-  if (request.method === "POST" && url.pathname === "/v1/auth/verify/registry-ssh") {
-    const body = await parseBody(request, RegistrySshVerifySchema);
-    const challenge = await consumeChallengeOrThrow(env, body.challenge_id);
-    const session = await verifyRegistrySshChallenge(challenge, body);
-    await putAuthSession(env, session);
-    return jsonWithCors(request, authSessionResponseForEnv(env, session));
-  }
-
-  if (request.method === "POST" && url.pathname === "/v1/auth/verify/registry-pgp") {
-    const body = await parseBody(request, RegistryPgpVerifySchema);
-    const challenge = await consumeChallengeOrThrow(env, body.challenge_id);
-    const session = await verifyRegistryPgpChallenge(challenge, body);
-    await putAuthSession(env, session);
-    return jsonWithCors(request, authSessionResponseForEnv(env, session));
-  }
-
-  if (request.method === "GET" && url.pathname === "/v1/auth/lookup/pgp-key") {
-    const rawFingerprint = url.searchParams.get("fingerprint") ?? "";
-    const normalized = normalizePgpFingerprint(rawFingerprint);
-    if (!normalized) {
-      throw new HttpError("error.auth.pgp.invalid_fingerprint", 400);
-    }
-    const result = await lookupPgpKeyOnKeyservers(normalized);
-    const response: PgpKeyLookupResponse = result.publicKey
-      ? {
-          fingerprint: result.fingerprint,
-          found: true,
-          public_key: result.publicKey,
-          source: result.source ?? undefined,
-        }
-      : { fingerprint: result.fingerprint, found: false };
-    return jsonWithCors(request, response);
-  }
-
-  if (request.method === "POST" && url.pathname === "/v1/auth/verify/registry-email/send") {
-    if (!registryEmailAuthConfigured(env)) {
-      throw new HttpError("error.auth.registry_email.unavailable", 503);
-    }
-    const body = await parseBody(request, RegistryEmailSendSchema);
-    const challenge = await getChallenge(env, body.challenge_id);
-    if (!challenge) {
-      throw new HttpError("error.auth.challenge.unknown_id", 404);
-    }
-    assertChallengeFresh(challenge);
-
-    const target = resolveRegistryEmailTarget(challenge, body.effective_mnt);
-    const requestedLocale = body.locale;
-    const locale = resolveLocaleCode(requestedLocale) ?? resolveLocale(request);
-    const emailAuthRequest = createRegistryEmailAuthRequest(
-      challenge,
-      target.maintainer,
-      target.emails,
-      locale,
-    );
-    await sendRegistryEmailAuthMessage(
-      env,
-      locale,
-      challenge.asn,
-      target.maintainer,
-      emailAuthRequest,
-      registryEmailCallbackUrl(env, request, challenge.id, emailAuthRequest.token),
-    );
-    await putRegistryEmailAuthRequest(env, emailAuthRequest);
-
-    const response: RegistryEmailSendResponse = {
-      effective_mnt: target.maintainer,
-      emails: target.emails,
-      expires_at: emailAuthRequest.expires_at,
-    };
-    return jsonWithCors(request, response);
-  }
-
-  if (request.method === "POST" && url.pathname === "/v1/auth/verify/registry-email") {
-    const body = await parseBody(request, RegistryEmailVerifySchema);
-    const challengeId = body.challenge_id;
-    const code = body.code;
-    const emailAuthRequest = await getRegistryEmailAuthRequest(env, challengeId);
-    if (!emailAuthRequest) {
-      throw new HttpError("error.auth.registry_email.state.missing", 404);
-    }
-
-    if (emailAuthRequest.session_token) {
-      throw new HttpError("error.auth.registry_email.already_completed", 409);
-    }
-
-    if (isExpired(emailAuthRequest.expires_at)) {
-      await deleteRegistryEmailAuthRequest(env, challengeId);
-      throw new HttpError("error.auth.registry_email.state.expired", 400);
-    }
-
-    if (!timingSafeEqual(code, emailAuthRequest.code)) {
-      throw new HttpError("error.auth.registry_email.code.invalid", 400);
-    }
-
-    const session = await createCompletedRegistryEmailSession(
-      env,
-      challengeId,
-      emailAuthRequest.effective_mnt,
-    );
-    await deleteRegistryEmailAuthRequest(env, challengeId);
-    return jsonWithCors(request, authSessionResponseForEnv(env, session));
-  }
-
-  if (request.method === "POST" && url.pathname === "/v1/auth/verify/registry-email/complete") {
-    const body = await parseBody(request, RegistryEmailCompleteSchema);
-    const token = body.token;
-    const emailAuthRequest = await consumeCompletedRegistryEmailAuthRequestByToken(env, token);
-    if (!emailAuthRequest) {
-      const pendingRequest = await getRegistryEmailAuthRequestByToken(env, token);
-      if (!pendingRequest) {
-        throw new HttpError("error.auth.registry_email.state.missing", 404);
-      }
-      if (isExpired(pendingRequest.expires_at)) {
-        await deleteRegistryEmailAuthRequest(env, pendingRequest.challenge_id);
-        throw new HttpError("error.auth.registry_email.state.expired", 400);
-      }
-      if (!pendingRequest.session_token) {
-        throw new HttpError("error.auth.registry_email.state.pending", 409);
-      }
-      throw new HttpError("error.auth.registry_email.state.missing", 404);
-    }
-
-    const sessionToken = emailAuthRequest.session_token;
-    if (!sessionToken) {
-      throw new HttpError("error.auth.registry_email.state.missing", 404);
-    }
-
-    const session = await getAuthSession(env, sessionToken);
-    if (!session) {
-      throw new HttpError("error.auth.registry_email.session.missing", 404);
-    }
-    if (isExpired(session.expires_at)) {
-      throw new HttpError("error.auth.registry_email.session.expired", 401);
-    }
-    return jsonWithCors(request, authSessionResponseForEnv(env, session));
-  }
-
-  if (
-    request.method === "POST" &&
-    url.pathname.startsWith("/v1/auth/oidc/") &&
-    url.pathname.endsWith("/start") &&
-    url.pathname.split("/").length === 6
-  ) {
-    const providerName = decodeURIComponent(url.pathname.split("/")[4] ?? "");
-    const body = await parseBody(request, OidcStartSchema);
-    const challengeId = body.challenge_id;
-    if (challengeId) {
-      const challenge = await getChallenge(env, challengeId);
-      if (!challenge) {
-        throw new HttpError("error.auth.challenge.unknown_id", 404);
-      }
-      assertChallengeFresh(challenge);
-    }
-
-    const provider = oidcProviderByName(configuredOidcProviders(env), providerName);
-    if (!provider) {
-      throw new HttpError(uiMessage("error.auth.oidc.provider.unknown", { provider: providerName }), 404);
-    }
-
-    const discovery = await fetchOidcDiscovery(provider);
-    if (isDn42Request(env, request) && provider.dn42_issuer) {
-      discovery.authorization_endpoint = rewriteIssuerHost(
-        discovery.authorization_endpoint,
-        provider,
-      );
-    }
-    const redirectUri = oidcCallbackUrl(env, request, providerName);
-    const authorization = await createOidcAuthorizationRequest(
-      provider,
-      discovery,
-      challengeId ?? "",
-      redirectUri,
-    );
-
-    await putOidcAuthRequest(env, authorization.record);
-    const response: OidcStartResponse = {
-      authorization_url: authorization.authorizationUrl,
-    };
-    return jsonWithCors(request, response);
-  }
-
-  if (request.method === "GET" && url.pathname.startsWith(OIDC_CALLBACK_PREFIX)) {
-    const providerName = decodeURIComponent(url.pathname.slice(OIDC_CALLBACK_PREFIX.length));
-    if (!providerName) {
-      throw new HttpError("error.auth.oidc.callback.provider.missing", 400);
-    }
-
-    const error = url.searchParams.get("error");
-    if (error) {
-      const description = url.searchParams.get("error_description");
-      const message = uiMessage("error.auth.oidc.provider.rejected", {
-        error,
-        description: description ?? "",
-      });
-      return siteRedirectResponse(
-        env,
-        request,
-        fragmentMessage("oidc_error", message),
-      );
-    }
-
-    const state = url.searchParams.get("state");
-    const code = url.searchParams.get("code");
-    if (!state || !code) {
-      return siteRedirectResponse(
-        env,
-        request,
-        fragmentMessage("oidc_error", uiMessage("error.auth.oidc.callback.params.missing")),
-      );
-    }
-
-    const provider = oidcProviderByName(configuredOidcProviders(env), providerName);
-    if (!provider) {
-      return siteRedirectResponse(
-        env,
-        request,
-        fragmentMessage("oidc_error", uiMessage("error.auth.oidc.provider.unknown", { provider: providerName })),
-      );
-    }
-
-    const authRequest = await getOidcAuthRequest(env, state);
-    if (!authRequest || authRequest.provider !== providerName) {
-      return siteRedirectResponse(
-        env,
-        request,
-        fragmentMessage("oidc_error", uiMessage("error.auth.oidc.state.missing")),
-      );
-    }
-
-    if (authRequest.session_token) {
-      return siteRedirectResponse(
-        env,
-        request,
-        `oidc_state=${encodeURIComponent(authRequest.state)}`,
-      );
-    }
-
-    if (isExpired(authRequest.expires_at)) {
-      await deleteOidcAuthRequest(env, authRequest.state);
-      return siteRedirectResponse(
-        env,
-        request,
-        fragmentMessage("oidc_error", uiMessage("error.auth.oidc.state.expired")),
-      );
-    }
-
-    let challenge = null;
-    if (authRequest.challenge_id) {
-      challenge = await getChallenge(env, authRequest.challenge_id);
-      if (!challenge) {
-        await deleteOidcAuthRequest(env, authRequest.state);
-        return siteRedirectResponse(
-          env,
-          request,
-          fragmentMessage("oidc_error", uiMessage("error.auth.challenge.expired")),
-        );
-      }
-    }
-
-    try {
-      if (challenge) {
-        assertChallengeFresh(challenge);
-      }
-      const discovery = await fetchOidcDiscovery(provider);
-      const tokenResponse = await exchangeAuthorizationCode(
-        env,
-        provider,
-        discovery,
-        code,
-        authRequest.redirect_uri,
-        authRequest.code_verifier,
-      );
-      const claimSources = await verifiedOidcClaimSources(
-        tokenResponse,
-        provider,
-        discovery,
-        authRequest.nonce,
-      );
-      const tokenAsn = normalizeSupportedAutopeerAsn(
-        oidcAsnFromClaimSources(claimSources, provider),
-      );
-      let session: SessionRecord;
-
-      if (challenge) {
-        if (tokenAsn !== challenge.asn) {
-          throw new HttpError(
-            uiMessage("error.auth.oidc.identity.asn_mismatch", {
-              token_asn: tokenAsn,
-              requested_asn: challenge.asn,
-            }),
-            400,
-          );
-        }
-        const effectiveMnt = oidcMaintainerFromClaimSources(
-          claimSources,
-          provider,
-          challenge.maintainers,
-        );
-        session = sessionFromOidcIdentity(provider, challenge.asn, effectiveMnt);
-      } else {
-        const maintainers = await loadMaintainersForRequestAsn(env, tokenAsn);
-        const effectiveMnt = oidcMaintainerFromClaimSources(
-          claimSources,
-          provider,
-          maintainers,
-        );
-        session = sessionFromOidcIdentity(provider, tokenAsn, effectiveMnt);
-      }
-
-      await putAuthSession(env, session);
-      await putOidcAuthRequest(env, {
-        ...authRequest,
-        session_token: session.token,
-      });
-      if (challenge) {
-        await deleteChallenge(env, challenge.id);
-      }
-      return siteRedirectResponse(
-        env,
-        request,
-        `oidc_state=${encodeURIComponent(authRequest.state)}`,
-      );
-    } catch (callbackError) {
-      await deleteOidcAuthRequest(env, authRequest.state);
-      const message = errorMessage(callbackError, "error.auth.oidc.callback.failed");
-      return siteRedirectResponse(
-        env,
-        request,
-        fragmentMessage("oidc_error", message),
-      );
-    }
-  }
-
-  if (request.method === "GET" && url.pathname === REGISTRY_EMAIL_CALLBACK_PATH) {
-    const challengeId = url.searchParams.get("challenge_id");
-    const token = url.searchParams.get("token");
-    if (!challengeId || !token) {
-      return siteRedirectResponse(
-        env,
-        request,
-        fragmentMessage("email_error", uiMessage("error.auth.registry_email.callback.params.missing")),
-      );
-    }
-
-    const emailAuthRequest = await getRegistryEmailAuthRequestByToken(env, token);
-    if (!emailAuthRequest || emailAuthRequest.challenge_id !== challengeId) {
-      return siteRedirectResponse(
-        env,
-        request,
-        fragmentMessage("email_error", uiMessage("error.auth.registry_email.state.missing")),
-      );
-    }
-
-    if (emailAuthRequest.session_token) {
-      return siteRedirectResponse(
-        env,
-        request,
-        withLangFragment(`email_token=${encodeURIComponent(emailAuthRequest.token)}`, emailAuthRequest.locale),
-      );
-    }
-
-    if (isExpired(emailAuthRequest.expires_at)) {
-      await deleteRegistryEmailAuthRequest(env, emailAuthRequest.challenge_id);
-      return siteRedirectResponse(
-        env,
-        request,
-        fragmentMessage("email_error", uiMessage("error.auth.registry_email.state.expired")),
-      );
-    }
-
-    try {
-      const session = await createCompletedRegistryEmailSession(
-        env,
-        challengeId,
-        emailAuthRequest.effective_mnt,
-      );
-      await putRegistryEmailAuthRequest(env, {
-        ...emailAuthRequest,
-        session_token: session.token,
-      });
-      return siteRedirectResponse(
-        env,
-        request,
-        withLangFragment(`email_token=${encodeURIComponent(emailAuthRequest.token)}`, emailAuthRequest.locale),
-      );
-    } catch (callbackError) {
-      await deleteRegistryEmailAuthRequest(env, emailAuthRequest.challenge_id);
-      const message = errorMessage(callbackError, "error.auth.registry_email.callback.failed");
-      return siteRedirectResponse(
-        env,
-        request,
-        fragmentMessage("email_error", message),
-      );
-    }
-  }
-
-  if (request.method === "POST" && url.pathname === "/v1/auth/oidc/complete") {
-    const body = await parseBody(request, OidcCompleteSchema);
-    const authRequest = await getOidcAuthRequest(env, body.state);
-    if (!authRequest) {
-      throw new HttpError("error.auth.oidc.state.missing", 404);
-    }
-    if (!authRequest.session_token && isExpired(authRequest.expires_at)) {
-      await deleteOidcAuthRequest(env, authRequest.state);
-      throw new HttpError("error.auth.oidc.state.expired", 400);
-    }
-    if (!authRequest.session_token) {
-      throw new HttpError("error.auth.oidc.state.pending", 409);
-    }
-
-    const session = await getAuthSession(env, authRequest.session_token);
-    await deleteOidcAuthRequest(env, authRequest.state);
-    if (!session) {
-      throw new HttpError("error.auth.oidc.session.missing", 404);
-    }
-    if (isExpired(session.expires_at)) {
-      throw new HttpError("error.auth.oidc.session.expired", 401);
-    }
-
-    return jsonWithCors(request, authSessionResponseForEnv(env, session));
   }
 
   if (request.method === "GET" && url.pathname === "/v1/sessions") {

@@ -1,6 +1,5 @@
+pub use dn42_auth_client::service::LOCALE_STORAGE_KEY;
 use web_sys::UrlSearchParams;
-
-pub const LOCALE_STORAGE_KEY: &str = "bird-lg-rs.autopeer.locale";
 
 pub fn local_storage() -> Option<web_sys::Storage> {
     web_sys::window()?.local_storage().ok().flatten()

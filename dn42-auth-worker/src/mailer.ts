@@ -1,9 +1,10 @@
-import { type WorkerLocale, t } from "./i18n";
 import type { RegistryEmailAuthRequestRecord } from "./types";
 import { HttpError, readSecret, uiMessage } from "./utils";
 
 const RESEND_EMAILS_ENDPOINT = "https://api.resend.com/emails";
 const AUTOPEER_FROM = "IRIS-AS Autopeer <autopeer@owo.li>";
+
+export type TranslatorFn = (key: string, params?: Record<string, string>) => string;
 
 function escapeHtml(value: string): string {
   return value
@@ -15,7 +16,7 @@ function escapeHtml(value: string): string {
 }
 
 function emailHtml(
-  locale: WorkerLocale,
+  t: TranslatorFn,
   asn: string,
   effectiveMnt: string,
   request: RegistryEmailAuthRequestRecord,
@@ -31,18 +32,18 @@ function emailHtml(
 
   return [
     "<div style=\"font-family:system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;line-height:1.5;color:#111827\">",
-    `<p>${t(locale, "email.intro_html", params)}</p>`,
-    `<p><a href="${escapedLink}">${escapeHtml(t(locale, "email.link_label"))}</a></p>`,
-    `<p>${escapeHtml(t(locale, "email.code_intro"))}</p>`,
+    `<p>${t("email.intro_html", params)}</p>`,
+    `<p><a href="${escapedLink}">${escapeHtml(t("email.link_label"))}</a></p>`,
+    `<p>${escapeHtml(t("email.code_intro"))}</p>`,
     `<p style="font-size:1.5rem;font-weight:700;letter-spacing:0.18em">${escapedCode}</p>`,
-    `<p>${t(locale, "email.expires", { expires_at: escapeHtml(request.expires_at) })}</p>`,
-    `<p>${escapeHtml(t(locale, "email.ignore"))}</p>`,
+    `<p>${t("email.expires", { expires_at: escapeHtml(request.expires_at) })}</p>`,
+    `<p>${escapeHtml(t("email.ignore"))}</p>`,
     "</div>",
   ].join("");
 }
 
 function emailText(
-  locale: WorkerLocale,
+  t: TranslatorFn,
   asn: string,
   effectiveMnt: string,
   request: RegistryEmailAuthRequestRecord,
@@ -50,20 +51,20 @@ function emailText(
 ): string {
   const params = { asn, mnt: effectiveMnt };
   return [
-    t(locale, "email.intro_text", params),
+    t("email.intro_text", params),
     "",
-    `${t(locale, "email.link_label")}: ${magicLinkUrl}`,
+    `${t("email.link_label")}: ${magicLinkUrl}`,
     "",
-    `${t(locale, "email.code_intro")} ${request.code}`,
-    t(locale, "email.expires", { expires_at: request.expires_at }),
+    `${t("email.code_intro")} ${request.code}`,
+    t("email.expires", { expires_at: request.expires_at }),
     "",
-    t(locale, "email.ignore"),
+    t("email.ignore"),
   ].join("\n");
 }
 
 export async function sendRegistryEmailAuthMessage(
-  env: Env,
-  locale: WorkerLocale,
+  env: object,
+  t: TranslatorFn,
   asn: string,
   effectiveMnt: string,
   request: RegistryEmailAuthRequestRecord,
@@ -79,9 +80,9 @@ export async function sendRegistryEmailAuthMessage(
     body: JSON.stringify({
       from: AUTOPEER_FROM,
       to: request.email_snapshot,
-      subject: t(locale, "email.subject", { asn }),
-      html: emailHtml(locale, asn, effectiveMnt, request, magicLinkUrl),
-      text: emailText(locale, asn, effectiveMnt, request, magicLinkUrl),
+      subject: t("email.subject", { asn }),
+      html: emailHtml(t, asn, effectiveMnt, request, magicLinkUrl),
+      text: emailText(t, asn, effectiveMnt, request, magicLinkUrl),
     }),
   });
 

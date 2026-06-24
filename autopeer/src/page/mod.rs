@@ -3,16 +3,13 @@ mod review;
 mod select_node;
 mod session_details;
 mod sidebar;
-mod verify_method;
 
 use manage_callbacks::build_manage_callbacks;
 use review::ReviewPanel;
 use select_node::SelectNodePanel;
 use session_details::SessionDetailsPanel;
 use sidebar::DashboardSidebar;
-use ui_components::shell::{ShellButton, ShellInput, ShellLine, ShellPrompt, ShellSelect};
-use verify_method::VerifyMethodPanel;
-use web_sys::HtmlTextAreaElement;
+use ui_components::shell::{ShellButton, ShellLine, ShellPrompt, ShellSelect};
 use yew::prelude::*;
 
 use crate::{
@@ -28,51 +25,12 @@ use crate::{
     },
 };
 
-// ---------------------------------------------------------------------------
-// Helper functions
-// ---------------------------------------------------------------------------
-
-fn render_readonly_block(label: &str, content: String) -> Html {
-    let rows = content.lines().count().max(1);
-    let on_select_all = Callback::from(move |event: MouseEvent| {
-        let target: HtmlTextAreaElement = event.target_unchecked_into();
-        target.select();
-    });
-    let on_focus = Callback::from(move |event: FocusEvent| {
-        let target: HtmlTextAreaElement = event.target_unchecked_into();
-        target.select();
-    });
-
-    html! {
-        <div class="autopeer-command-group">
-            <div class="autopeer-command-label">{label}</div>
-            <div class="autopeer-command-block">
-                <textarea
-                    class="autopeer-command-textarea"
-                    readonly=true
-                    spellcheck="false"
-                    rows={rows.to_string()}
-                    value={content}
-                    onclick={on_select_all}
-                    onfocus={on_focus}
-                />
-            </div>
-        </div>
-    }
-}
-
 fn live_validation_message(i18n: &I18n, message: Option<&str>) -> Html {
     match message {
         Some(message) => html! {
             <p class="autopeer-live-validation" aria-live="polite">{i18n.translate_owned(message)}</p>
         },
         None => Html::default(),
-    }
-}
-
-fn help_hint(i18n: &I18n, key: &'static str) -> Html {
-    html! {
-        <span class="shell-help-hint" data-hint={i18n.t(key)}>{"[?]"}</span>
     }
 }
 
@@ -92,25 +50,25 @@ fn live_validation_messages(i18n: &I18n, messages: &[String]) -> Html {
 
 fn live_validation_block(i18n: &I18n, message: Option<&str>, content: Html) -> Html {
     html! {
-        <div class={classes!(
-            "autopeer-validation-block",
-            message.is_some().then_some("autopeer-validation-block--invalid")
-        )}>
+        <>
             {content}
             {live_validation_message(i18n, message)}
-        </div>
+        </>
     }
 }
 
 fn live_validation_block_multi(i18n: &I18n, messages: &[String], content: Html) -> Html {
     html! {
-        <div class={classes!(
-            "autopeer-validation-block",
-            (!messages.is_empty()).then_some("autopeer-validation-block--invalid")
-        )}>
+        <>
             {content}
             {live_validation_messages(i18n, messages)}
-        </div>
+        </>
+    }
+}
+
+fn help_hint(i18n: &I18n, key: &'static str) -> Html {
+    html! {
+        <span class="shell-help-hint" data-hint={i18n.t(key)}>{"[?]"}</span>
     }
 }
 
@@ -122,26 +80,6 @@ fn generate_wg_psk() -> Option<String> {
     let bytes: Vec<u8> = buf.to_vec();
     let binary: String = bytes.iter().map(|&b| char::from(b)).collect();
     window.btoa(&binary).ok()
-}
-
-fn ssh_sign_command(challenge_text: &str) -> String {
-    format!("ssh-keygen -Y sign -f <PRIVATE_KEY_PATH> -n file <<'EOF'\n{challenge_text}\nEOF")
-}
-
-fn pgp_export_command(key_id: &str) -> String {
-    if key_id.trim().is_empty() {
-        "gpg --armor --export <KEYID_OR_FINGERPRINT>".to_string()
-    } else {
-        format!("gpg --armor --export {key_id}")
-    }
-}
-
-fn pgp_sign_command(challenge_text: &str, key_id: &str) -> String {
-    if key_id.trim().is_empty() {
-        format!("gpg --armor --clearsign <<'EOF'\n{challenge_text}\nEOF")
-    } else {
-        format!("gpg --armor --local-user {key_id} --clearsign <<'EOF'\n{challenge_text}\nEOF")
-    }
 }
 
 fn render_error(i18n: &I18n, error: &Option<UiMessage>) -> Html {
@@ -451,12 +389,9 @@ pub fn auto_peer_page() -> Html {
     let AutoPeerController {
         autopeer_site_href,
         looking_glass_site_href,
-        oidc_methods,
+        auth_url,
         step,
         asn,
-        challenge_text,
-        methods,
-        selected_method,
         auth_session,
         host_session,
         nodes,
@@ -473,25 +408,6 @@ pub fn auto_peer_page() -> Html {
         ongoing_tasks,
         impersonate_asn,
         impersonate_mnt,
-        ssh_signature,
-        selected_pgp_key,
-        pgp_public_key,
-        pgp_signed_message,
-        pgp_key_lookups,
-        selected_email_maintainer,
-        registry_email_code,
-        registry_email_sent_to,
-        on_asn_change,
-        on_submit_asn,
-        on_asn_keydown,
-        on_enter_oidc,
-        on_select_method,
-        on_select_method_back,
-        on_verify_back,
-        on_verify,
-        on_selected_email_maintainer_change,
-        on_registry_email_code_change,
-        on_send_registry_email,
         on_refresh,
         on_logout,
         on_impersonate_asn_change,
@@ -570,154 +486,26 @@ pub fn auto_peer_page() -> Html {
                 {render_error(&i18n, &error)}
             </div>
         },
-        AutoPeerStep::EnterAsn => html! {
-            <div class="autopeer-step">
-                <ShellLine>
-                    <ShellPrompt>{i18n.t("prompt.autopeer")}</ShellPrompt>
-                    {" "}{i18n.t("step.enter_asn.prompt")}
-                </ShellLine>
-                <ShellLine>
-                    <ShellPrompt>{i18n.t("prompt.asn")}</ShellPrompt>
-                    {" "}
-                    <ShellInput
-                        value={(*asn).clone()}
-                        on_change={on_asn_change}
-                        placeholder={i18n.t("step.enter_asn.placeholder")}
-                        disabled={loading}
-                        on_keydown={on_asn_keydown}
-                    />
-                </ShellLine>
-                {render_ongoing_tasks(&i18n, ongoing_tasks.tasks())}
-                {render_error(&i18n, &error)}
-                <ShellLine>
-                    <ShellButton
-                        text={i18n.t("action.find_registry_auth")}
-                        onclick={on_submit_asn}
-                        disabled={loading || asn.trim().is_empty()}
-                    />
-                </ShellLine>
-                if !oidc_methods.is_empty() {
-                    <div class="autopeer-entry-alt">
-                        <div class="autopeer-entry-alt-copy">
-                            {i18n.t("step.enter_asn.oidc_alt")}
-                        </div>
-                        <div class="autopeer-challenge-list">
-                            {for oidc_methods.iter().map(|method| {
-                                let on_enter_oidc = on_enter_oidc.clone();
-                                let method = method.clone();
-                                let method_copy = method.clone();
-                                let method_label = i18n.translate_message(&method.label);
-                                let method_description = i18n.translate_message(&method.description);
-                                let onclick = Callback::from(move |_| {
-                                    on_enter_oidc.emit(method_copy.clone());
-                                });
-
-                                html! {
-                                    <ShellLine>
-                                        <ShellButton
-                                            text={i18n.translate_params(
-                                                "step.enter_asn.continue_with",
-                                                &[("provider", method_label.as_str())],
-                                            )}
-                                            onclick={onclick}
-                                            disabled={loading}
-                                        />
-                                        <span class="autopeer-method-desc">
-                                            {" - "}{method_description}
-                                        </span>
-                                    </ShellLine>
-                                }
-                            })}
-                        </div>
-                    </div>
-                }
-            </div>
-        },
-        AutoPeerStep::SelectMethod => {
+        AutoPeerStep::AuthRedirect => {
+            let login_url = auth_url.as_deref().map(|auth| {
+                let return_to = js_sys::encode_uri_component(autopeer_site_href.as_str());
+                format!("{auth}/?return_to={return_to}")
+            });
             html! {
                 <div class="autopeer-step">
                     <ShellLine>
                         <ShellPrompt>{i18n.t("prompt.autopeer")}</ShellPrompt>
-                        {" "}{i18n.translate_params(
-                            "step.select_method.found_for_as",
-                            &[("asn", asn.as_str())],
-                        )}
+                        {" "}{i18n.t("step.auth_redirect.prompt")}
                     </ShellLine>
-                    <div class="autopeer-challenge-list">
-                        {for methods.iter().map(|method| {
-                            let on_select_method = on_select_method.clone();
-                            let method_value = method.clone();
-                            let method_description = i18n.translate_message(&method.description);
-                            let onclick = Callback::from(move |_| {
-                                on_select_method.emit(method_value.clone());
-                            });
-
-                            html! {
-                                <ShellLine>
-                                    <ShellButton
-                                        text={i18n.translate_message(&method.label)}
-                                        onclick={onclick}
-                                        disabled={loading}
-                                    />
-                                    <span class="autopeer-method-desc">
-                                        {" - "}{method_description}
-                                    </span>
-                                </ShellLine>
-                            }
-                        })}
-                    </div>
-                    {render_ongoing_tasks(&i18n, ongoing_tasks.tasks())}
                     {render_error(&i18n, &error)}
-                    <ShellLine>
-                        <ShellButton
-                            text={i18n.t("action.back")}
-                            onclick={on_select_method_back.clone()}
-                            disabled={loading}
-                        />
-                    </ShellLine>
+                    if let Some(url) = login_url {
+                        <ShellLine>
+                            <a href={url} class="shell-button">
+                                {i18n.t("step.auth_redirect.link")}
+                            </a>
+                        </ShellLine>
+                    }
                 </div>
-            }
-        }
-        AutoPeerStep::VerifyMethod => {
-            html! {
-                <VerifyMethodPanel
-                    i18n={i18n.clone()}
-                    loading={loading}
-                    asn={(*asn).clone()}
-                    selected_method={(*selected_method).clone()}
-                    challenge_text={(*challenge_text).clone()}
-                    ssh_signature={(*ssh_signature).clone()}
-                    on_ssh_signature_change={Callback::from({
-                        let ssh_signature = ssh_signature.clone();
-                        move |v| ssh_signature.set(v)
-                    })}
-                    selected_pgp_key={(*selected_pgp_key).clone()}
-                    pgp_public_key={(*pgp_public_key).clone()}
-                    pgp_signed_message={(*pgp_signed_message).clone()}
-                    pgp_key_lookups={(*pgp_key_lookups).clone()}
-                    on_pgp_key_change={Callback::from({
-                        let selected_pgp_key = selected_pgp_key.clone();
-                        move |v| selected_pgp_key.set(v)
-                    })}
-                    on_pgp_public_key_change={Callback::from({
-                        let pgp_public_key = pgp_public_key.clone();
-                        move |v| pgp_public_key.set(v)
-                    })}
-                    on_pgp_signed_message_change={Callback::from({
-                        let pgp_signed_message = pgp_signed_message.clone();
-                        move |v| pgp_signed_message.set(v)
-                    })}
-                    selected_email_maintainer={(*selected_email_maintainer).clone()}
-                    registry_email_code={(*registry_email_code).clone()}
-                    registry_email_sent_to={(*registry_email_sent_to).clone()}
-                    on_email_maintainer_change={on_selected_email_maintainer_change}
-                    on_registry_email_code_change={on_registry_email_code_change}
-                    on_send_registry_email={on_send_registry_email}
-                    ongoing_tasks={ongoing_tasks.tasks().to_vec()}
-                    error={(*error).clone()}
-                    on_verify={on_verify}
-                    on_verify_back={on_verify_back}
-                />
             }
         }
         AutoPeerStep::ManageSessions => {

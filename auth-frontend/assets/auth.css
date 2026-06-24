@@ -1,0 +1,75 @@
+/* Auth-specific styles (extends shared frontend/assets/styles.css) */
+
+.auth-page {
+    font-size: var(--font-size-sm);
+    text-align: left;
+}
+
+.auth-section {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-sm);
+    margin-top: var(--spacing-lg);
+}
+
+.auth-methods {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-sm);
+}
+
+.auth-method-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    padding: var(--spacing-md) var(--spacing-lg);
+    cursor: pointer;
+    transition: border-color 0.15s, background 0.15s;
+}
+
+.auth-method-card:hover {
+    border-color: color-mix(in srgb, var(--shell-prompt) 48%, var(--border));
+    background: color-mix(in srgb, var(--shell-prompt) 4%, var(--card));
+}
+
+.auth-method-label {
+    font-weight: 600;
+    margin-bottom: 2px;
+}
+
+.auth-method-desc {
+    color: var(--text-secondary);
+    font-size: 0.85em;
+}
+
+.auth-method-inline-desc {
+    color: var(--text-secondary);
+    font-size: 0.9em;
+}
+
+.auth-command-block {
+    margin-bottom: 10px;
+}
+
+.auth-command-textarea {
+    width: 100%;
+    padding: 10px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    background: var(--bg-shell);
+    color: var(--text);
+    font: inherit;
+    font-size: 12px;
+    line-height: 1.5;
+    outline: none;
+    resize: none;
+    cursor: text;
+    white-space: pre-wrap;
+    word-break: break-all;
+    display: block;
+    box-sizing: border-box;
+}
+
+.auth-command-textarea:focus {
+    border-color: color-mix(in srgb, var(--shell-prompt) 48%, var(--border));
+}

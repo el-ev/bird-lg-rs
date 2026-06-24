@@ -40,18 +40,6 @@ function errorResponse(description: string): JsonObject {
   return jsonResponse(description, ref("ApiError"));
 }
 
-function redirectResponse(description: string): JsonObject {
-  return {
-    description,
-    headers: {
-      Location: {
-        description: "Redirect target URL",
-        schema: { type: "string", format: "uri" },
-      },
-    },
-  };
-}
-
 function pathParam(name: string, description: string): JsonObject {
   return {
     name,
@@ -76,7 +64,7 @@ const components = {
       type: "http",
       scheme: "bearer",
       bearerFormat: "session_token",
-      description: "Use the session_token returned by an auth endpoint.",
+      description: "Use the session_token returned by the configured auth_url.",
     },
   },
   schemas: {
@@ -98,58 +86,23 @@ const components = {
         error: ref("UiMessage"),
       },
     },
-    RegistryEmailTarget: {
-      type: "object",
-      required: ["maintainer", "emails"],
-      properties: {
-        maintainer: { type: "string" },
-        emails: {
-          type: "array",
-          items: { type: "string", format: "email" },
-        },
-      },
-    },
-    AuthMethod: {
-      type: "object",
-      required: ["kind", "label", "description"],
-      properties: {
-        kind: {
-          type: "string",
-          enum: [
-            "registry_ssh",
-            "registry_pgp",
-            "registry_email",
-            "oidc",
-            "host_impersonation",
-          ],
-        },
-        label: ref("UiMessage"),
-        description: ref("UiMessage"),
-        provider: { type: "string" },
-        ssh_fingerprints: {
-          type: "array",
-          items: { type: "string" },
-        },
-        pgp_fingerprints: {
-          type: "array",
-          items: { type: "string" },
-        },
-        email_targets: {
-          type: "array",
-          items: ref("RegistryEmailTarget"),
-        },
-      },
-    },
     RuntimeConfigResponse: {
       type: "object",
-      required: ["autopeer_api_url", "autopeer_site_url", "oidc_methods"],
+      required: ["autopeer_api_url", "autopeer_site_url", "auth_url", "oidc_methods"],
       properties: {
         autopeer_api_url: { type: "string", format: "uri" },
         autopeer_site_url: { type: "string", format: "uri" },
         looking_glass_url: { type: "string", format: "uri" },
+        auth_url: {
+          type: "string",
+          format: "uri",
+          description: "Central auth site used to obtain bearer session tokens.",
+        },
         oidc_methods: {
           type: "array",
-          items: ref("AuthMethod"),
+          items: { type: "object" },
+          deprecated: true,
+          description: "Kept for frontend compatibility; OIDC options are now loaded from auth_url.",
         },
       },
     },
@@ -159,127 +112,6 @@ const components = {
       properties: {
         ok: { type: "boolean" },
         now: { type: "string", format: "date-time" },
-      },
-    },
-    AuthStartRequest: {
-      type: "object",
-      required: ["asn"],
-      properties: {
-        asn: { type: "string" },
-      },
-    },
-    AuthStartResponse: {
-      type: "object",
-      required: ["asn", "challenge_id", "challenge_text", "challenge_ttl_seconds", "methods"],
-      properties: {
-        asn: { type: "string" },
-        challenge_id: { type: "string" },
-        challenge_text: { type: "string" },
-        challenge_ttl_seconds: { type: "integer" },
-        methods: {
-          type: "array",
-          items: ref("AuthMethod"),
-        },
-      },
-    },
-    RegistrySshVerifyRequest: {
-      type: "object",
-      required: ["challenge_id", "signature"],
-      properties: {
-        challenge_id: { type: "string" },
-        signature: { type: "string" },
-      },
-    },
-    RegistryPgpVerifyRequest: {
-      type: "object",
-      required: ["challenge_id", "public_key", "signed_message"],
-      properties: {
-        challenge_id: { type: "string" },
-        public_key: { type: "string" },
-        signed_message: { type: "string" },
-      },
-    },
-    RegistryEmailSendRequest: {
-      type: "object",
-      required: ["challenge_id"],
-      properties: {
-        challenge_id: { type: "string" },
-        effective_mnt: { type: "string" },
-        locale: { type: "string", description: "Preferred locale for the verification email (e.g. \"de\" or \"zh\")" },
-      },
-    },
-    RegistryEmailSendResponse: {
-      type: "object",
-      required: ["effective_mnt", "emails", "expires_at"],
-      properties: {
-        effective_mnt: { type: "string" },
-        emails: {
-          type: "array",
-          items: { type: "string", format: "email" },
-        },
-        expires_at: { type: "string", format: "date-time" },
-      },
-    },
-    RegistryEmailVerifyRequest: {
-      type: "object",
-      required: ["challenge_id", "code"],
-      properties: {
-        challenge_id: { type: "string" },
-        code: { type: "string" },
-      },
-    },
-    RegistryEmailCompleteRequest: {
-      type: "object",
-      required: ["token"],
-      properties: {
-        token: { type: "string" },
-      },
-    },
-    OidcStartRequest: {
-      type: "object",
-      properties: {
-        challenge_id: { type: "string" },
-      },
-    },
-    OidcStartResponse: {
-      type: "object",
-      required: ["authorization_url"],
-      properties: {
-        authorization_url: { type: "string", format: "uri" },
-      },
-    },
-    OidcCompleteRequest: {
-      type: "object",
-      required: ["state"],
-      properties: {
-        state: { type: "string" },
-      },
-    },
-    HostImpersonationRequest: {
-      type: "object",
-      required: ["asn"],
-      properties: {
-        asn: { type: "string" },
-        effective_mnt: { type: "string" },
-      },
-    },
-    AuthSessionResponse: {
-      type: "object",
-      required: [
-        "session_token",
-        "asn",
-        "effective_mnt",
-        "auth_method",
-        "can_impersonate",
-        "expires_at",
-      ],
-      properties: {
-        session_token: { type: "string" },
-        asn: { type: "string" },
-        effective_mnt: { type: "string" },
-        auth_method: ref("AuthMethod"),
-        can_impersonate: { type: "boolean" },
-        expires_at: { type: "string", format: "date-time" },
       },
     },
     PeeringInfo: {
@@ -493,150 +325,6 @@ const paths = {
       },
     },
   },
-  "/v1/auth/start": {
-    post: {
-      tags: ["auth"],
-      summary: "Start a registry-based auth challenge",
-      requestBody: jsonRequestBody(ref("AuthStartRequest")),
-      responses: {
-        "200": jsonResponse("Challenge created", ref("AuthStartResponse")),
-        "400": errorResponse("Invalid ASN or no supported auth methods"),
-        "502": errorResponse("Registry lookup failed"),
-      },
-    },
-  },
-  "/v1/auth/impersonate": {
-    post: {
-      tags: ["auth"],
-      summary: "Open a host-ASN impersonation session",
-      security: bearerSecurity(),
-      requestBody: jsonRequestBody(ref("HostImpersonationRequest")),
-      responses: {
-        "200": jsonResponse("Impersonation session created", ref("AuthSessionResponse")),
-        "400": errorResponse("Invalid target ASN or maintainer"),
-        "403": errorResponse("Caller cannot impersonate other ASNs"),
-        "502": errorResponse("Registry lookup failed"),
-      },
-    },
-  },
-  "/v1/auth/verify/registry-ssh": {
-    post: {
-      tags: ["auth"],
-      summary: "Redeem a challenge with a registry SSH signature",
-      requestBody: jsonRequestBody(ref("RegistrySshVerifyRequest")),
-      responses: {
-        "200": jsonResponse("Session created", ref("AuthSessionResponse")),
-        "400": errorResponse("Challenge expired or signature is invalid"),
-        "404": errorResponse("Challenge was not found"),
-      },
-    },
-  },
-  "/v1/auth/verify/registry-pgp": {
-    post: {
-      tags: ["auth"],
-      summary: "Redeem a challenge with a registry OpenPGP signature",
-      requestBody: jsonRequestBody(ref("RegistryPgpVerifyRequest")),
-      responses: {
-        "200": jsonResponse("Session created", ref("AuthSessionResponse")),
-        "400": errorResponse("Challenge expired or signed message is invalid"),
-        "404": errorResponse("Challenge was not found"),
-      },
-    },
-  },
-  "/v1/auth/verify/registry-email/send": {
-    post: {
-      tags: ["auth"],
-      summary: "Send a registry email auth link and code",
-      requestBody: jsonRequestBody(ref("RegistryEmailSendRequest")),
-      responses: {
-        "200": jsonResponse("Email challenge sent", ref("RegistryEmailSendResponse")),
-        "400": errorResponse("Request is invalid or challenge has expired"),
-        "404": errorResponse("Challenge was not found"),
-        "503": errorResponse("Registry email auth is not configured"),
-      },
-    },
-  },
-  "/v1/auth/verify/registry-email": {
-    post: {
-      tags: ["auth"],
-      summary: "Redeem a registry email code",
-      requestBody: jsonRequestBody(ref("RegistryEmailVerifyRequest")),
-      responses: {
-        "200": jsonResponse("Session created", ref("AuthSessionResponse")),
-        "400": errorResponse("Code is invalid or the challenge has expired"),
-        "404": errorResponse("Email auth state was not found"),
-        "409": errorResponse("Email login already completed or still pending"),
-      },
-    },
-  },
-  "/v1/auth/verify/registry-email/complete": {
-    post: {
-      tags: ["auth"],
-      summary: "Redeem a completed registry email login token",
-      requestBody: jsonRequestBody(ref("RegistryEmailCompleteRequest")),
-      responses: {
-        "200": jsonResponse("Session created", ref("AuthSessionResponse")),
-        "400": errorResponse("Email auth request expired"),
-        "401": errorResponse("Completed session has expired"),
-        "404": errorResponse("Token or session was not found"),
-        "409": errorResponse("Email auth is still pending"),
-      },
-    },
-  },
-  "/v1/auth/oidc/{provider}/start": {
-    post: {
-      tags: ["auth"],
-      summary: "Start an OIDC login flow",
-      parameters: [
-        pathParam("provider", "Configured OIDC provider name"),
-      ],
-      requestBody: jsonRequestBody(ref("OidcStartRequest")),
-      responses: {
-        "200": jsonResponse("Authorization URL created", ref("OidcStartResponse")),
-        "400": errorResponse("Challenge is invalid or expired"),
-        "404": errorResponse("Challenge or provider was not found"),
-      },
-    },
-  },
-  "/oidc/callback/{provider}": {
-    get: {
-      tags: ["callbacks"],
-      summary: "Handle the OIDC provider callback",
-      parameters: [
-        pathParam("provider", "Configured OIDC provider name"),
-      ],
-      responses: {
-        "302": redirectResponse(
-          "Redirects back to the AutoPeer UI with oidc_state or oidc_error in the fragment",
-        ),
-      },
-    },
-  },
-  "/auth/email/callback": {
-    get: {
-      tags: ["callbacks"],
-      summary: "Handle the emailed registry auth callback",
-      responses: {
-        "302": redirectResponse(
-          "Redirects back to the AutoPeer UI with email_token or email_error in the fragment",
-        ),
-      },
-    },
-  },
-  "/v1/auth/oidc/complete": {
-    post: {
-      tags: ["auth"],
-      summary: "Redeem a completed OIDC login state",
-      requestBody: jsonRequestBody(ref("OidcCompleteRequest")),
-      responses: {
-        "200": jsonResponse("Session created", ref("AuthSessionResponse")),
-        "400": errorResponse("OIDC state expired"),
-        "401": errorResponse("Session expired"),
-        "404": errorResponse("OIDC state or session was not found"),
-        "409": errorResponse("OIDC login is still pending"),
-      },
-    },
-  },
   "/v1/sessions": {
     get: {
       tags: ["sessions"],
@@ -796,7 +484,7 @@ export function openApiSpec(request: Request, env: Env): JsonObject {
       title: "bird-lg-rs autopeer worker API",
       version: "0.1.0",
       description:
-        "HTTP API for AutoPeer session auth, session management, and operation tracking. Protected endpoints use a bearer session_token returned by the auth flows.",
+        "HTTP API for AutoPeer session management and operation tracking. Authentication is handled by the configured auth_url; protected endpoints use the returned bearer session_token.",
     },
     servers: [
       {
@@ -806,8 +494,6 @@ export function openApiSpec(request: Request, env: Env): JsonObject {
     ],
     tags: [
       { name: "meta", description: "Runtime config and health endpoints" },
-      { name: "auth", description: "Authentication and session redemption flows" },
-      { name: "callbacks", description: "Browser callback routes that redirect back to the UI" },
       { name: "sessions", description: "Session inventory and mutation endpoints" },
       { name: "operations", description: "Long-running operation status endpoints" },
     ],

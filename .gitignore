@@ -12,6 +12,8 @@ output/
 AGENTS.md
 autopeer/dist/
 autopeer-worker/public/
+auth-worker/public/
 .secret/
 package-lock.json
 target-sandbox/
+*.tsbuildinfo
