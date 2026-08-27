@@ -32,11 +32,7 @@ pub(super) const TABLE: &[(&str, &str)] = &[
     // Step: LoadingConfig / AuthRedirect
     (
         "step.loading_config.prompt",
-        "Configurationem temporis exsequendi oneratur",
-    ),
-    (
-        "step.loading_config.message",
-        "Configurationem temporis exsequendi oneratur...",
+        "Configurationem temporis exsequendi oneratur\u{2026}",
     ),
     (
         "step.auth_redirect.prompt",
@@ -278,6 +274,10 @@ pub(super) const TABLE: &[(&str, &str)] = &[
     (
         "stage2.field.encrypt_endpoint.help",
         "Encrypta inscriptionem terminationis in repositorio git ne in textu aperto appareat.",
+    ),
+    (
+        "stage2.field.encrypt_endpoint.requires_endpoint",
+        "valet cum terminatio posita est",
     ),
     // Stage 3: Review
     ("stage3.kicker", "Gradus III"),

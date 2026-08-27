@@ -63,7 +63,7 @@ pub fn review_panel(props: &ReviewProps) -> Html {
                 )}
                 {review_item(
                     i18n.t("stage3.review.endpoint"),
-                    if draft.encrypt_endpoint {
+                    if draft.encrypt_endpoint && !draft.endpoint.trim().is_empty() {
                         format!("{} ({})", draft.endpoint, i18n.t("stage3.review.encrypt_endpoint.enabled"))
                     } else {
                         draft.endpoint.clone()

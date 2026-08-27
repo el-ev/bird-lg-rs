@@ -29,8 +29,7 @@ pub(super) const TABLE: &[(&str, &str)] = &[
     ("action.dismiss_operation", "关闭"),
     ("action.check_bgp_session", "查看 BGP 会话"),
     // Step: LoadingConfig / AuthRedirect
-    ("step.loading_config.prompt", "加载运行时配置"),
-    ("step.loading_config.message", "正在加载运行时配置..."),
+    ("step.loading_config.prompt", "正在加载运行时配置\u{2026}"),
     (
         "step.auth_redirect.prompt",
         "认证并管理你与 IRIS-AS 4242421023 的 Peering 会话。",
@@ -244,6 +243,10 @@ pub(super) const TABLE: &[(&str, &str)] = &[
     (
         "stage2.field.encrypt_endpoint.help",
         "在 Git 仓库中加密你的 Endpoint 地址，使其不以明文形式出现。",
+    ),
+    (
+        "stage2.field.encrypt_endpoint.requires_endpoint",
+        "设置 Endpoint 后生效",
     ),
     // Stage 3: Review
     ("stage3.kicker", "阶段 3"),

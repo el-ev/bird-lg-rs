@@ -312,9 +312,12 @@ export function methodsFromMaintainers(
     methods.push({
       kind: "registry_pgp",
       label: uiMessage("auth_method.registry_pgp.label"),
-      description: uiMessage("auth_method.registry_pgp.description", {
-        fingerprints: pgpFingerprints.join(", "),
-      }),
+      description:
+        pgpFingerprints.length === 1
+          ? uiMessage("auth_method.registry_pgp.description_single", {
+              fingerprint: pgpFingerprints[0] ?? "",
+            })
+          : uiMessage("auth_method.registry_pgp.description"),
       ssh_fingerprints: [],
       pgp_fingerprints: pgpFingerprints,
       email_targets: [],

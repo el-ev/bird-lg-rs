@@ -12,7 +12,15 @@ pub(super) const TABLE: &[(&str, &str)] = &[
     ("auth.email_verify", "Verificatio electronica pro AS{asn}"),
     ("auth.authenticated", "Authenticatus ut AS{asn} ({mnt})"),
     ("auth.redirecting", "Redirectio\u{2026}"),
+    (
+        "auth.complete_close",
+        "Hanc paginam nunc claudere potes.",
+    ),
     ("auth.loading", "Onerans\u{2026}"),
+    (
+        "auth.finding_methods",
+        "Methodos auctoritatis pro ASN tuo quaerimus\u{2026}",
+    ),
     (
         "auth.oidc_alt",
         "Vel intra per provisorem identitatis et ASN tuum automatice deducemus.",
@@ -60,6 +68,12 @@ pub(super) const TABLE: &[(&str, &str)] = &[
         "pgp.paste_pubkey",
         "Adglutina clavem publicam tuam ASCII-armatam.",
     ),
+    ("block.challenge", "provocatio"),
+    ("block.sign_command", "mandatum subscribendi"),
+    (
+        "block.export_command",
+        "mandatum clavis publicae exportandae",
+    ),
     ("nav.language", "Lingua"),
     (
         "auth.oidc_redirecting",
@@ -74,9 +88,9 @@ pub(super) const TABLE: &[(&str, &str)] = &[
         "error.registry.unavailable",
         "Registrum dn42 legi non potuit (causa: {reason}). Vitium apud ministerium authenticationis est, non apud AS{asn} — postea iterum conare aut operatorem appella.",
     ),
-    ("auth_method.registry_ssh.label", "Subscriptio SSH Registri"),
-    ("auth_method.registry_pgp.label", "Subscriptio PGP Registri"),
-    ("auth_method.registry_email.label", "Electronica Registri"),
+    ("auth_method.registry_ssh.label", "Subscriptio SSH"),
+    ("auth_method.registry_pgp.label", "Subscriptio PGP"),
+    ("auth_method.registry_email.label", "Electronica"),
 ];
 
 pub(super) fn lookup(key: &str) -> Option<&'static str> {

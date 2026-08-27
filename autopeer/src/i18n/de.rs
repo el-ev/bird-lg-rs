@@ -32,11 +32,7 @@ pub(super) const TABLE: &[(&str, &str)] = &[
     // Step: LoadingConfig / AuthRedirect
     (
         "step.loading_config.prompt",
-        "Laufzeitkonfiguration wird geladen",
-    ),
-    (
-        "step.loading_config.message",
-        "Laufzeitkonfiguration wird geladen...",
+        "Laufzeitkonfiguration wird geladen\u{2026}",
     ),
     (
         "step.auth_redirect.prompt",
@@ -281,6 +277,10 @@ pub(super) const TABLE: &[(&str, &str)] = &[
     (
         "stage2.field.encrypt_endpoint.help",
         "Verschlüsseln Sie Ihre Endpunktadresse im Git-Repo, sodass sie nicht im Klartext sichtbar ist.",
+    ),
+    (
+        "stage2.field.encrypt_endpoint.requires_endpoint",
+        "wird wirksam, sobald ein Endpoint gesetzt ist",
     ),
     // Stage 3: Review
     ("stage3.kicker", "Stufe 3"),

@@ -478,11 +478,6 @@ pub fn auto_peer_page() -> Html {
                     <ShellPrompt>{i18n.t("prompt.autopeer")}</ShellPrompt>
                     {" "}{i18n.t("step.loading_config.prompt")}
                 </ShellLine>
-                <div class="autopeer-ongoing-task">
-                    <ShellLine>
-                        <span class="text-secondary">{i18n.t("step.loading_config.message")}</span>
-                    </ShellLine>
-                </div>
                 {render_error(&i18n, &error)}
             </div>
         },

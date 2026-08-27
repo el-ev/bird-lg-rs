@@ -12,7 +12,15 @@ pub(super) const TABLE: &[(&str, &str)] = &[
     ("auth.email_verify", "Email verification for AS{asn}"),
     ("auth.authenticated", "Authenticated as AS{asn} ({mnt})"),
     ("auth.redirecting", "Redirecting\u{2026}"),
+    (
+        "auth.complete_close",
+        "You can close this page now.",
+    ),
     ("auth.loading", "Loading\u{2026}"),
+    (
+        "auth.finding_methods",
+        "Looking up auth methods for your ASN\u{2026}",
+    ),
     (
         "auth.oidc_alt",
         "Or sign in with your identity provider and let us derive your ASN automatically.",
@@ -57,6 +65,9 @@ pub(super) const TABLE: &[(&str, &str)] = &[
         "Paste your full clear-signed challenge.",
     ),
     ("pgp.paste_pubkey", "Paste your ASCII-armored public key."),
+    ("block.challenge", "challenge"),
+    ("block.sign_command", "signing command"),
+    ("block.export_command", "public key export command"),
     ("nav.language", "Language"),
     (
         "auth.oidc_redirecting",
@@ -139,17 +150,21 @@ pub(super) const TABLE: &[(&str, &str)] = &[
         "We could not read the dn42 registry (reason: {reason}). This is a problem on the auth service side, not with AS{asn} — please try again later or contact the operator.",
     ),
     // Backend auth method copy (same keys the worker sends in UiMessage)
-    ("auth_method.registry_ssh.label", "Registry SSH Signature"),
+    ("auth_method.registry_ssh.label", "SSH Signature"),
     (
         "auth_method.registry_ssh.description",
         "Sign our challenge with an SSH key from your dn42 maintainer object.",
     ),
-    ("auth_method.registry_pgp.label", "Registry PGP Signature"),
+    ("auth_method.registry_pgp.label", "PGP Signature"),
     (
         "auth_method.registry_pgp.description",
-        "Use one of your registry PGP fingerprints: {fingerprints}",
+        "Use one of your PGP fingerprints.",
     ),
-    ("auth_method.registry_email.label", "Registry Email"),
+    (
+        "auth_method.registry_pgp.description_single",
+        "Use your PGP fingerprint: {fingerprint}",
+    ),
+    ("auth_method.registry_email.label", "Email"),
     (
         "auth_method.registry_email.description",
         "Choose a maintainer and send a sign-in link to its registry email contacts.",

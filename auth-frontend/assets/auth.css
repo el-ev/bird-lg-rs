@@ -51,6 +51,14 @@
     margin-bottom: 10px;
 }
 
+.auth-command-label {
+    color: var(--text-secondary);
+    font-size: 11px;
+    line-height: 1.5;
+    margin-bottom: 4px;
+    user-select: none;
+}
+
 .auth-command-textarea {
     width: 100%;
     padding: 10px;

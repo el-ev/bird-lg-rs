@@ -194,12 +194,12 @@ mod tests {
     #[test]
     fn translates_backend_auth_method_messages_with_params() {
         let i18n = test_i18n(Locale::En);
-        let message = UiMessage::key("auth_method.registry_pgp.description")
-            .with_param("fingerprints", "0123456789ABCDEF");
+        let single = UiMessage::key("auth_method.registry_pgp.description_single")
+            .with_param("fingerprint", "0123456789ABCDEF");
 
         assert_eq!(
-            i18n.translate_message(&message),
-            "Use one of your registry PGP fingerprints: 0123456789ABCDEF"
+            i18n.translate_message(&single),
+            "Use your PGP fingerprint: 0123456789ABCDEF"
         );
     }
 

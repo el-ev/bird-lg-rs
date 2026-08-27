@@ -1224,6 +1224,19 @@ details[open] .summary-header {
     background: color-mix(in srgb, var(--accent) 6%, transparent);
 }
 
+/* The tinted task box is the only chrome; flatten the shell-line inside it. */
+.autopeer-ongoing-task .shell-line {
+    margin-bottom: 0;
+    border: none;
+    background: transparent;
+    padding: 0;
+}
+
+.autopeer-inline-note {
+    color: var(--text-secondary);
+    font-size: 0.85em;
+}
+
 .autopeer-panel-header {
     display: flex;
     flex-direction: column;

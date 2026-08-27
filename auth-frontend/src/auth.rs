@@ -23,11 +23,10 @@ fn get_return_to() -> String {
         .unwrap_or_default()
 }
 
-fn is_allowed_return_to(return_to: &str, config: &RuntimeConfig) -> bool {
-    config
-        .allowed_return_urls
-        .iter()
-        .any(|allowed| allowed == return_to)
+fn is_self_return(return_to: &str) -> bool {
+    web_sys::window()
+        .and_then(|w| w.location().origin().ok())
+        .is_some_and(|origin| origin == return_to)
 }
 
 fn get_hash_param(name: &str) -> Option<String> {
@@ -62,6 +61,30 @@ fn show_invalid_return_to(error: &UseStateHandle<Option<String>>) {
     error.set(Some("error.auth.return_to.invalid".to_string()));
 }
 
+fn finish_auth(
+    step: &UseStateHandle<Step>,
+    error: &UseStateHandle<Option<String>>,
+    allowed_return_urls: &[String],
+    return_to: &str,
+    session: AuthSessionResponse,
+) {
+    if is_self_return(return_to) {
+        step.set(Step::Success {
+            session,
+            redirected: false,
+        });
+    } else if allowed_return_urls.iter().any(|allowed| allowed == return_to) {
+        redirect_with_session(return_to, &session);
+        step.set(Step::Success {
+            session,
+            redirected: true,
+        });
+    } else {
+        show_invalid_return_to(error);
+        step.set(Step::EnterAsn);
+    }
+}
+
 fn redirect_to(url: &str) {
     if let Some(window) = web_sys::window() {
         let _ = window.location().set_href(url);
@@ -80,7 +103,7 @@ fn format_error(msg: &dn42_auth_client::models::UiMessage) -> String {
     }
 }
 
-fn render_readonly_block(content: &str) -> Html {
+fn render_readonly_block(label: &str, content: &str) -> Html {
     let rows = content.lines().count().max(1);
     let value = content.to_string();
     let on_focus = Callback::from(move |event: FocusEvent| {
@@ -94,6 +117,7 @@ fn render_readonly_block(content: &str) -> Html {
 
     html! {
         <div class="auth-command-block">
+            <div class="auth-command-label">{format!("# {label}")}</div>
             <textarea
                 class="auth-command-textarea"
                 readonly=true
@@ -128,6 +152,7 @@ enum Step {
     },
     Success {
         session: AuthSessionResponse,
+        redirected: bool,
     },
 }
 
@@ -137,9 +162,11 @@ pub fn auth_flow() -> Html {
     let asn_input = use_state(String::new);
     let error = use_state(|| None::<String>);
     let loading = use_state(|| false);
+    let loading_message = use_state(|| None::<&'static str>);
     let ssh_signature = use_state(String::new);
     let pgp_signed_message = use_state(String::new);
     let pgp_public_key = use_state(String::new);
+    let selected_pgp_fp = use_state(String::new);
     let email_code = use_state(String::new);
     let email_sent_to = use_state(Vec::<String>::new);
     let selected_email_mnt = use_state(String::new);
@@ -177,16 +204,7 @@ pub fn auth_flow() -> Html {
                     clean_url();
                     if let Some(session) = decode_auth_session(&encoded) {
                         let return_to_val = (*return_to).clone();
-                        if allowed_return_urls
-                            .iter()
-                            .any(|allowed| allowed == &return_to_val)
-                        {
-                            redirect_with_session(&return_to_val, &session);
-                            step.set(Step::Success { session });
-                        } else {
-                            show_invalid_return_to(&error);
-                            step.set(Step::EnterAsn);
-                        }
+                        finish_auth(&step, &error, &allowed_return_urls, &return_to_val, session);
                     } else {
                         error.set(Some("error.auth.session.invalid".to_string()));
                         step.set(Step::EnterAsn);
@@ -212,6 +230,7 @@ pub fn auth_flow() -> Html {
         let step = step.clone();
         let error = error.clone();
         let loading = loading.clone();
+        let loading_message = loading_message.clone();
 
         Callback::from(move |_: ()| {
             let asn_value = asn_input.trim().to_string();
@@ -221,11 +240,13 @@ pub fn auth_flow() -> Html {
             }
 
             loading.set(true);
+            loading_message.set(Some("auth.finding_methods"));
             error.set(None);
 
             let step = step.clone();
             let error = error.clone();
             let loading = loading.clone();
+            let loading_message = loading_message.clone();
 
             spawn_local(async move {
                 match service::start_auth(API_BASE, &asn_value).await {
@@ -237,6 +258,7 @@ pub fn auth_flow() -> Html {
                     }
                 }
                 loading.set(false);
+                loading_message.set(None);
             });
         })
     };
@@ -267,9 +289,11 @@ pub fn auth_flow() -> Html {
         let step = step.clone();
         let error = error.clone();
         let loading = loading.clone();
+        let loading_message = loading_message.clone();
         let ssh_signature = ssh_signature.clone();
         let pgp_signed_message = pgp_signed_message.clone();
         let pgp_public_key = pgp_public_key.clone();
+        let selected_pgp_fp = selected_pgp_fp.clone();
         let email_code = email_code.clone();
         let email_sent_to = email_sent_to.clone();
         let selected_email_mnt = selected_email_mnt.clone();
@@ -281,6 +305,7 @@ pub fn auth_flow() -> Html {
                 ssh_signature.set(String::new());
                 pgp_signed_message.set(String::new());
                 pgp_public_key.set(String::new());
+                selected_pgp_fp.set(String::new());
                 email_code.set(String::new());
                 email_sent_to.set(Vec::new());
                 let default_mnt = method
@@ -297,9 +322,11 @@ pub fn auth_flow() -> Html {
                             return;
                         };
                         loading.set(true);
+                        loading_message.set(Some("auth.oidc_redirecting"));
                         error.set(None);
                         let error = error.clone();
                         let loading = loading.clone();
+                        let loading_message = loading_message.clone();
                         let challenge_id = challenge.challenge_id.clone();
                         let return_to = (*return_to).clone();
                         spawn_local(async move {
@@ -315,6 +342,7 @@ pub fn auth_flow() -> Html {
                                 Err(msg) => {
                                     error.set(Some(format_error(&msg)));
                                     loading.set(false);
+                                    loading_message.set(None);
                                 }
                             }
                         });
@@ -388,13 +416,13 @@ pub fn auth_flow() -> Html {
             spawn_local(async move {
                 match service::verify_registry_ssh(API_BASE, &challenge_id, &sig).await {
                     Ok(session) => {
-                        if is_allowed_return_to(&return_to_val, &config) {
-                            redirect_with_session(&return_to_val, &session);
-                            step.set(Step::Success { session });
-                        } else {
-                            show_invalid_return_to(&error);
-                            step.set(Step::EnterAsn);
-                        }
+                        finish_auth(
+                            &step,
+                            &error,
+                            &config.allowed_return_urls,
+                            &return_to_val,
+                            session,
+                        );
                     }
                     Err(msg) => error.set(Some(format_error(&msg))),
                 }
@@ -430,13 +458,13 @@ pub fn auth_flow() -> Html {
                 match service::verify_registry_pgp(API_BASE, &challenge_id, &pubkey, &signed).await
                 {
                     Ok(session) => {
-                        if is_allowed_return_to(&return_to_val, &config) {
-                            redirect_with_session(&return_to_val, &session);
-                            step.set(Step::Success { session });
-                        } else {
-                            show_invalid_return_to(&error);
-                            step.set(Step::EnterAsn);
-                        }
+                        finish_auth(
+                            &step,
+                            &error,
+                            &config.allowed_return_urls,
+                            &return_to_val,
+                            session,
+                        );
                     }
                     Err(msg) => error.set(Some(format_error(&msg))),
                 }
@@ -503,13 +531,13 @@ pub fn auth_flow() -> Html {
             spawn_local(async move {
                 match service::verify_registry_email(API_BASE, &challenge_id, &code).await {
                     Ok(session) => {
-                        if is_allowed_return_to(&return_to_val, &config) {
-                            redirect_with_session(&return_to_val, &session);
-                            step.set(Step::Success { session });
-                        } else {
-                            show_invalid_return_to(&error);
-                            step.set(Step::EnterAsn);
-                        }
+                        finish_auth(
+                            &step,
+                            &error,
+                            &config.allowed_return_urls,
+                            &return_to_val,
+                            session,
+                        );
                     }
                     Err(msg) => error.set(Some(format_error(&msg))),
                 }
@@ -565,14 +593,17 @@ pub fn auth_flow() -> Html {
                             let provider = provider.to_string();
                             let return_to = (*return_to).clone();
                             let loading_for_click = loading.clone();
+                            let loading_message_for_click = loading_message.clone();
                             let error = error.clone();
                             let onclick = Callback::from(move |_: MouseEvent| {
                                 error.set(None);
                                 loading_for_click.set(true);
+                                loading_message_for_click.set(Some("auth.oidc_redirecting"));
                                 let provider = provider.clone();
                                 let return_to = return_to.clone();
                                 let error = error.clone();
                                 let loading = loading_for_click.clone();
+                                let loading_message = loading_message_for_click.clone();
                                 spawn_local(async move {
                                     match service::start_oidc(
                                         API_BASE,
@@ -586,6 +617,7 @@ pub fn auth_flow() -> Html {
                                         Err(msg) => {
                                             error.set(Some(format_error(&msg)));
                                             loading.set(false);
+                                            loading_message.set(None);
                                         }
                                     }
                                 });
@@ -598,9 +630,9 @@ pub fn auth_flow() -> Html {
                             })
                         }) }
                     }
-                    if *loading {
+                    if let Some(msg) = *loading_message {
                         <ShellLine>
-                            <span class="status-message">{i18n.t("auth.oidc_redirecting")}</span>
+                            <span class="status-message">{i18n.t(msg)}</span>
                         </ShellLine>
                     }
                     if let Some(err) = (*error).clone() {
@@ -638,9 +670,9 @@ pub fn auth_flow() -> Html {
                             </ShellLine>
                         }
                     }) }
-                    if *loading {
+                    if let Some(msg) = *loading_message {
                         <ShellLine>
-                            <span class="status-message">{i18n.t("auth.oidc_redirecting")}</span>
+                            <span class="status-message">{i18n.t(msg)}</span>
                         </ShellLine>
                     }
                     if let Some(err) = (*error).clone() {
@@ -703,7 +735,7 @@ pub fn auth_flow() -> Html {
                             {format!(" {}", method.ssh_fingerprints.join(", "))}
                         </ShellLine>
                     }
-                    {render_readonly_block(&ssh_cmd)}
+                    {render_readonly_block(i18n.t("block.sign_command"), &ssh_cmd)}
                     <ShellLine>
                         <ShellPrompt text={i18n.t("prompt.signature")} />
                         {format!(" {}", i18n.t("ssh.paste_prompt"))}
@@ -737,7 +769,12 @@ pub fn auth_flow() -> Html {
             let challenge_text = challenge.challenge_text.clone();
             let method_label = i18n.translate_message(&method.label);
 
-            let fingerprint = method.pgp_fingerprints.first().cloned().unwrap_or_default();
+            let fingerprints = method.pgp_fingerprints.clone();
+            let fingerprint = if (*selected_pgp_fp).is_empty() {
+                fingerprints.first().cloned().unwrap_or_default()
+            } else {
+                (*selected_pgp_fp).clone()
+            };
             let pgp_sign_cmd = if fingerprint.is_empty() {
                 format!("gpg --armor --clearsign <<'EOF'\n{challenge_text}\nEOF")
             } else {
@@ -778,25 +815,36 @@ pub fn auth_flow() -> Html {
                 Callback::from(move |v: String| pgp_public_key.set(v))
             };
 
+            let on_fp_change = {
+                let selected_pgp_fp = selected_pgp_fp.clone();
+                Callback::from(move |v: String| selected_pgp_fp.set(v))
+            };
+
             html! {
                 <div class="auth-section">
                     <ShellLine>
                         <ShellPrompt text={i18n.t("prompt.auth")} />
                         {format!(" {} for AS{}", method_label, challenge.asn)}
                     </ShellLine>
-                    if method.pgp_fingerprints.len() == 1 {
+                    if fingerprints.len() == 1 {
                         <ShellLine>
                             <ShellPrompt text={i18n.t("prompt.key")} />
-                            {format!(" {}", method.pgp_fingerprints[0])}
+                            {format!(" {}", fingerprints[0])}
                         </ShellLine>
-                    } else if method.pgp_fingerprints.len() > 1 {
+                    } else if fingerprints.len() > 1 {
                         <ShellLine>
                             <ShellPrompt text={i18n.t("prompt.key")} />
-                            {format!(" {}", method.pgp_fingerprints.join(", "))}
+                            {" "}
+                            <ShellSelect
+                                value={fingerprint.clone()}
+                                on_change={on_fp_change}
+                                options={fingerprints.clone()}
+                                disabled={*loading}
+                            />
                         </ShellLine>
                     }
-                    {render_readonly_block(&challenge_text)}
-                    {render_readonly_block(&pgp_sign_cmd)}
+                    {render_readonly_block(i18n.t("block.challenge"), &challenge_text)}
+                    {render_readonly_block(i18n.t("block.sign_command"), &pgp_sign_cmd)}
                     <ShellLine>
                         <ShellPrompt text={i18n.t("prompt.signed")} />
                         {format!(" {}", i18n.t("pgp.paste_signed"))}
@@ -811,7 +859,7 @@ pub fn auth_flow() -> Html {
                             rows={12}
                         />
                     </ShellLine>
-                    {render_readonly_block(&pgp_export_cmd)}
+                    {render_readonly_block(i18n.t("block.export_command"), &pgp_export_cmd)}
                     <ShellLine>
                         <ShellPrompt text={i18n.t("prompt.pubkey")} />
                         {format!(" {}", i18n.t("pgp.paste_pubkey"))}
@@ -979,7 +1027,10 @@ pub fn auth_flow() -> Html {
             }
         }
 
-        Step::Success { session } => {
+        Step::Success {
+            session,
+            redirected,
+        } => {
             html! {
                 <div class="auth-section">
                     <ShellLine>
@@ -988,7 +1039,7 @@ pub fn auth_flow() -> Html {
                     </ShellLine>
                     <ShellLine>
                         <span class="status-message status-message--success">
-                            {i18n.t("auth.redirecting")}
+                            {i18n.t(if redirected { "auth.redirecting" } else { "auth.complete_close" })}
                         </span>
                     </ShellLine>
                 </div>

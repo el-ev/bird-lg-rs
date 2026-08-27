@@ -9,7 +9,12 @@ pub(super) const TABLE: &[(&str, &str)] = &[
     ("auth.email_verify", "AS{asn} 的邮件验证"),
     ("auth.authenticated", "已认证为 AS{asn} ({mnt})"),
     ("auth.redirecting", "正在跳转\u{2026}"),
+    ("auth.complete_close", "你现在可以关闭此页面了。"),
     ("auth.loading", "加载中\u{2026}"),
+    (
+        "auth.finding_methods",
+        "正在查找你的 ASN 的认证方法\u{2026}",
+    ),
     (
         "auth.oidc_alt",
         "或使用身份提供商登录，我们将自动推断你的 ASN。",
@@ -48,6 +53,9 @@ pub(super) const TABLE: &[(&str, &str)] = &[
     ),
     ("pgp.paste_signed", "粘贴你的完整 clearsign 消息。"),
     ("pgp.paste_pubkey", "粘贴你的 ASCII 格式公钥。"),
+    ("block.challenge", "挑战文本"),
+    ("block.sign_command", "签名命令"),
+    ("block.export_command", "公钥导出命令"),
     ("nav.language", "语言"),
     (
         "auth.oidc_redirecting",
@@ -62,9 +70,9 @@ pub(super) const TABLE: &[(&str, &str)] = &[
         "error.registry.unavailable",
         "当前无法读取 dn42 注册库（原因：{reason}）。这是认证服务侧的问题，与 AS{asn} 无关，请稍后重试或联系运营者。",
     ),
-    ("auth_method.registry_ssh.label", "注册库 SSH 签名"),
-    ("auth_method.registry_pgp.label", "注册库 PGP 签名"),
-    ("auth_method.registry_email.label", "注册库邮件"),
+    ("auth_method.registry_ssh.label", "SSH 签名"),
+    ("auth_method.registry_pgp.label", "PGP 签名"),
+    ("auth_method.registry_email.label", "邮件"),
     ("auth_method.host_impersonation.label", "主 ASN 冒充"),
 ];
 
