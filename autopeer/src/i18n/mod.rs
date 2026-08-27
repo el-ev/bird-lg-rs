@@ -276,7 +276,7 @@ mod tests {
 
         assert_eq!(
             i18n.translate_params("step.auth_redirect.link", &[("provider", "GitHub")]),
-            "跳转到 dn42-auth.owo.li"
+            "前往 dn42-auth.owo.li 登录"
         );
     }
 

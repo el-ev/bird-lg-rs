@@ -29,12 +29,12 @@ pub(super) const TABLE: &[(&str, &str)] = &[
     ("action.dismiss_operation", "关闭"),
     ("action.check_bgp_session", "查看 BGP 会话"),
     // Step: LoadingConfig / AuthRedirect
-    ("step.loading_config.prompt", "正在加载运行时配置\u{2026}"),
+    ("step.loading_config.prompt", "正在加载\u{2026}"),
     (
         "step.auth_redirect.prompt",
         "认证并管理你与 IRIS-AS 4242421023 的 Peering 会话。",
     ),
-    ("step.auth_redirect.link", "跳转到 dn42-auth.owo.li"),
+    ("step.auth_redirect.link", "前往 dn42-auth.owo.li 登录"),
     // Auth method labels returned by auth service sessions
     ("auth_method.registry_ssh.label", "注册库 SSH 签名"),
     ("auth_method.registry_pgp.label", "注册库 PGP 签名"),
@@ -42,7 +42,7 @@ pub(super) const TABLE: &[(&str, &str)] = &[
     ("auth_method.host_impersonation.label", "主 ASN 冒充"),
     // Manage / dashboard headings
     ("dashboard.flow_kicker", "你的对等流程"),
-    ("dashboard.host_readonly_title", "我们的主 ASN 在此保持只读"),
+    ("dashboard.host_readonly_title", "你当前以我们的主 ASN 登录"),
     ("dashboard.update_managed_title", "更新你的会话"),
     ("dashboard.create_or_manage_title", "创建或管理你的会话"),
     (
@@ -51,7 +51,7 @@ pub(super) const TABLE: &[(&str, &str)] = &[
     ),
     (
         "dashboard.create_or_manage_body",
-        "完成一次认证并选择我们的一个节点。随后你可以创建新会话，或打开现有会话以更新或停用它。",
+        "先选择我们的一个节点。随后你可以创建新会话，或打开现有会话以更新或停用它。",
     ),
     (
         "dashboard.session_badge_template",
@@ -68,7 +68,7 @@ pub(super) const TABLE: &[(&str, &str)] = &[
     ("sidebar.host_asn_prefix", "主 ASN AS{asn}"),
     (
         "sidebar.host_authed_template",
-        "你已通过 {label} 作为 {mnt} 认证。仅在你需要为其他 ASN 打开或修复会话时使用此功能。",
+        "你已通过 {label} 作为 {mnt} 认证。此模式仅用于代表其他 ASN 管理会话。",
     ),
     ("sidebar.impersonate_asn_label", "冒充的 ASN"),
     ("sidebar.effective_mnt_label", "有效的维护者"),
@@ -78,7 +78,7 @@ pub(super) const TABLE: &[(&str, &str)] = &[
     ("sidebar.support_mode_title", "冒充其他 ASN"),
     (
         "sidebar.support_mode_body",
-        "此主 ASN 仅用于帮助其他网络。使用右侧的控件来冒充你想要管理的 ASN。",
+        "我们的主 ASN 仅用于支持其他网络。请使用冒充表单选择你想要管理的 ASN。",
     ),
     // Stage 1: Select node
     ("stage1.kicker", "阶段 1"),
@@ -86,21 +86,21 @@ pub(super) const TABLE: &[(&str, &str)] = &[
     ("flow.select_node.title", "选择节点"),
     (
         "flow.select_node.description",
-        "在填写隧道详情前，选择我们网络中最近的节点。",
+        "距离你的网络最近的节点通常是最佳选择。",
     ),
     ("flow.session_details.title", "配置你的会话"),
     (
         "flow.session_details.description",
-        "输入你的 WireGuard 和 BGP 参数，然后调整所需的高级选项。",
+        "输入你的 WireGuard 端点和密钥、隧道地址以及 BGP 选项。",
     ),
     ("flow.review.title", "审核你的变更"),
     (
         "flow.review.description",
-        "在我们创建拉取请求前审核你的变更。",
+        "在我们创建拉取请求前做最后确认。",
     ),
     (
         "stage1.description",
-        "在我们的网络中选择一个节点。空闲节点允许你创建新会话；已有会话将就地打开以供更新。手动会话在保存时将自动纳入自助对等管理。进行中的节点保持只读状态。",
+        "尚无会话的节点可用于创建新会话。已有会话的节点会打开该会话供你编辑。手动配置的会话在保存时会自动纳入自助对等管理。有变更进行中的节点需等变更完成后才能编辑。",
     ),
     (
         "stage1.empty_title",
@@ -128,11 +128,11 @@ pub(super) const TABLE: &[(&str, &str)] = &[
     ("stage1.state.note.pending", "此处你的会话变更已在进行中。"),
     (
         "stage1.state.note.stalled",
-        "上次部署失败——点击修改、重新部署或放弃更改。",
+        "上次部署失败。打开此节点以修改后重新提交、重试部署或放弃该变更。",
     ),
     (
         "stage1.state.note.conflict",
-        "我们的仓库在此节点上存在冲突。",
+        "此节点存在配置冲突，需要我们的运营者先行解决。",
     ),
     (
         "stage1.state.note.disabled",
@@ -170,7 +170,7 @@ pub(super) const TABLE: &[(&str, &str)] = &[
     ("stage2.section.bgp", "BGP 行为"),
     (
         "stage2.section.bgp.help",
-        "MP-BGP 通过你所选的 IPv4 或 IPv6 传输层使用单一 BGP 会话承载 IPv4 和/或 IPv6 路由；若禁用此选项，我们将生成独立的 BGP 会话，且扩展下一跳仅适用于通过 IPv6 传输层承载的 IPv4 路由。",
+        "MP-BGP 在你所选的传输层上通过单一 BGP 会话同时承载 IPv4 和 IPv6 路由。若禁用此选项，我们会为每个路由族分别建立 BGP 会话。扩展下一跳允许会话在没有 IPv4 隧道地址的情况下通过 IPv6 传输层承载 IPv4 路由。",
     ),
     ("stage2.section.policy", "路由策略"),
     ("stage2.advanced.summary", "高级选项"),
@@ -202,12 +202,12 @@ pub(super) const TABLE: &[(&str, &str)] = &[
     ("stage2.field.own6_node", "我方节点 IPv6"),
     (
         "stage2.field.own6_node.no_inventory",
-        "我们的资产清单中未列出此节点的 IPv6 地址。",
+        "此节点没有 IPv6 地址。",
     ),
     ("stage2.field.own4_node", "我方节点 IPv4"),
     (
         "stage2.field.own4_node.no_inventory",
-        "我们的资产清单中未列出此节点的 IPv4 地址。",
+        "此节点没有 IPv4 地址。",
     ),
     ("stage2.field.families", "路由族"),
     ("stage2.field.families.ipv4_label", "IPv4 路由"),
@@ -230,7 +230,7 @@ pub(super) const TABLE: &[(&str, &str)] = &[
     ("stage2.field.psk.placeholder", "可选的 WireGuard PSK"),
     (
         "stage2.field.psk.placeholder.existing",
-        "已配置 PSK — 留空以保留",
+        "已配置 PSK，留空以保留",
     ),
     ("stage2.field.psk.clear", "清除 PSK"),
     ("stage2.field.psk.generate", "生成 PSK"),
@@ -244,13 +244,9 @@ pub(super) const TABLE: &[(&str, &str)] = &[
         "stage2.field.encrypt_endpoint.help",
         "在 Git 仓库中加密你的 Endpoint 地址，使其不以明文形式出现。",
     ),
-    (
-        "stage2.field.encrypt_endpoint.requires_endpoint",
-        "设置 Endpoint 后生效",
-    ),
     // Stage 3: Review
     ("stage3.kicker", "阶段 3"),
-    ("stage3.title", "在我们创建拉取请求前审核你的变更"),
+    ("stage3.title", "确认你的会话详情"),
     ("stage3.review.our_node", "我方节点"),
     ("stage3.review.not_selected", "未选择"),
     ("stage3.review.endpoint", "端点"),
@@ -395,7 +391,7 @@ pub(super) const TABLE: &[(&str, &str)] = &[
     ("operation.message.failed", "你的变更失败。"),
     (
         "operation.message.conflict",
-        "由于我们的仓库存在冲突，无法应用你的变更。",
+        "由于我方存在配置冲突，无法应用你的变更。",
     ),
     (
         "operation.message.wait_node_lock",
@@ -437,7 +433,7 @@ pub(super) const TABLE: &[(&str, &str)] = &[
         "operation.message.merge_failed",
         "正在等待合并。合并尝试失败：{error}",
     ),
-    ("operation.message.dropped", "更改已放弃——拉取请求已关闭。"),
+    ("operation.message.dropped", "更改已放弃，拉取请求已关闭。"),
     ("operation.failure_stage.checks", "CI 检查"),
     ("operation.failure_stage.preflight", "节点预检"),
     ("operation.failure_stage.apply", "节点应用"),
@@ -446,22 +442,22 @@ pub(super) const TABLE: &[(&str, &str)] = &[
     ("peering_strategy.full_table.label", "全表"),
     (
         "peering_strategy.full_table.description",
-        "接收所有有效路由并导出所有有效路由。",
+        "我们接收你的所有有效路由，并向你发送所有有效路由。",
     ),
     ("peering_strategy.transit.label", "中转"),
     (
         "peering_strategy.transit.description",
-        "接收所有有效路由并仅导出我们自有的前缀。",
+        "我们接收你的所有有效路由，但仅向你发送我们自有的前缀。",
     ),
     ("peering_strategy.peer.label", "对等"),
     (
         "peering_strategy.peer.description",
-        "仅接收直连路由并导出我们自有的前缀及下游路由。",
+        "我们仅接收你的直连路由，并向你发送我们自有的前缀及我们下游的路由。",
     ),
     ("peering_strategy.downstream.label", "下游"),
     (
         "peering_strategy.downstream.description",
-        "仅接收直连路由并导出所有有效路由。",
+        "我们仅接收你的直连路由，并向你发送所有有效路由。",
     ),
     // Operation progress labels
     ("operation.progress.branch", "分支"),
@@ -487,7 +483,7 @@ pub(super) const TABLE: &[(&str, &str)] = &[
     ),
     (
         "error.ui.operation.wait_inflight",
-        "此节点上有一项变更仍在进行中——请等待其完成。",
+        "此节点上已有一项变更正在进行。请先等待其完成。",
     ),
     (
         "error.ui.node.blocked_conflict",
@@ -583,11 +579,11 @@ pub(super) const TABLE: &[(&str, &str)] = &[
     ),
     (
         "error.auth.asn.unsupported",
-        "我们尚不支持该 ASN 范围。目前自助对等仅支持 424242xxxx。",
+        "自助对等目前仅支持 424242xxxx 范围内的 ASN。",
     ),
     (
         "error.auth.asn.not_found",
-        "AS{asn} 无效，因其不存在于 dn42 注册库中。",
+        "AS{asn} 不存在于 dn42 注册库中。",
     ),
     (
         "error.auth.asn.no_supported_auth",
@@ -613,7 +609,7 @@ pub(super) const TABLE: &[(&str, &str)] = &[
     ),
     (
         "error.auth.ssh.unrecognized_key",
-        "你的 SSH 签名使用的密钥不存在于已解析的维护者对象中。",
+        "你的 SSH 签名所用的密钥未列于此 ASN 的任何维护者（mntner）对象中。",
     ),
     ("error.auth.ssh.verification_failed", "SSH 签名验证失败。"),
     (
@@ -630,7 +626,7 @@ pub(super) const TABLE: &[(&str, &str)] = &[
     ),
     (
         "error.auth.pgp.unrecognized_key",
-        "你的 PGP 指纹 {fingerprint} 不存在于已解析的维护者对象中。",
+        "你的 PGP 指纹 {fingerprint} 未列于此 ASN 的任何维护者（mntner）对象中。",
     ),
     (
         "error.auth.pgp.challenge_mismatch",
@@ -766,7 +762,7 @@ pub(super) const TABLE: &[(&str, &str)] = &[
     ),
     (
         "error.auth.impersonation.host_asn.cannot_mutate",
-        "AS{asn} 是我们的主 ASN 会话之一；请先冒充你想要管理的 ASN，再进行开启或修改操作",
+        "你当前以我们的主 ASN 之一 AS{asn} 登录。请先冒充你想要管理的 ASN，再创建或修改会话。",
     ),
     (
         "error.auth.impersonation.asn.not_host",

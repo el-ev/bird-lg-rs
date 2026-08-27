@@ -73,7 +73,10 @@ fn finish_auth(
             session,
             redirected: false,
         });
-    } else if allowed_return_urls.iter().any(|allowed| allowed == return_to) {
+    } else if allowed_return_urls
+        .iter()
+        .any(|allowed| allowed == return_to)
+    {
         redirect_with_session(return_to, &session);
         step.set(Step::Success {
             session,
@@ -181,9 +184,10 @@ pub fn auth_flow() -> Html {
                 .and_then(|w| w.location().search().ok())
                 .and_then(|s| UrlSearchParams::new_with_str(&s).ok())
                 .and_then(|p| p.get("lang"))
-                && let Some(locale) = crate::i18n::Locale::from_code(&lang) {
-                    i18n.set_locale(locale);
-                }
+                && let Some(locale) = crate::i18n::Locale::from_code(&lang)
+            {
+                i18n.set_locale(locale);
+            }
             || ()
         });
     }

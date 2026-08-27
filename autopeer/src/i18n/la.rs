@@ -30,15 +30,12 @@ pub(super) const TABLE: &[(&str, &str)] = &[
     ("action.dismiss_operation", "Dimittere"),
     ("action.check_bgp_session", "Sessionem BGP Inspicere"),
     // Step: LoadingConfig / AuthRedirect
-    (
-        "step.loading_config.prompt",
-        "Configurationem temporis exsequendi oneratur\u{2026}",
-    ),
+    ("step.loading_config.prompt", "Oneratur\u{2026}"),
     (
         "step.auth_redirect.prompt",
         "Authenticare et sessiones peering cum IRIS-AS 4242421023 administrare.",
     ),
-    ("step.auth_redirect.link", "Redirectio ad dn42-auth.owo.li"),
+    ("step.auth_redirect.link", "Ingredere apud dn42-auth.owo.li"),
     // Auth method labels returned by auth service sessions
     ("auth_method.registry_ssh.label", "Subscriptio SSH Registri"),
     ("auth_method.registry_pgp.label", "Subscriptio PGP Registri"),
@@ -51,7 +48,7 @@ pub(super) const TABLE: &[(&str, &str)] = &[
     ("dashboard.flow_kicker", "Fluxus Peering Tuus"),
     (
         "dashboard.host_readonly_title",
-        "ASN hospitis noster hic tantum legi potest",
+        "Ut ASN hospitis noster autenticatus es",
     ),
     ("dashboard.update_managed_title", "Sessionem tuam renovare"),
     (
@@ -64,7 +61,7 @@ pub(super) const TABLE: &[(&str, &str)] = &[
     ),
     (
         "dashboard.create_or_manage_body",
-        "Semel autenticare et unum ex nodis nostris elige. Inde sessionem novam creare potes, vel sessionem existentem aperire ad renovationem vel retractionem.",
+        "Primum unum ex nodis nostris elige. Inde sessionem novam creare potes, vel sessionem existentem aperire ad renovationem vel retractionem.",
     ),
     ("dashboard.session_badge_template", "{mnt} per {label}"),
     // Sidebar
@@ -78,7 +75,7 @@ pub(super) const TABLE: &[(&str, &str)] = &[
     ("sidebar.host_asn_prefix", "ASN Hospitis AS{asn}"),
     (
         "sidebar.host_authed_template",
-        "Ut {mnt} per {label} autenticatus es. Hoc solum utere cum sessiones pro alio ASN aperire vel reparare debes.",
+        "Ut {mnt} per {label} autenticatus es. Hic modus solum ad sessiones pro alio ASN administrandas est.",
     ),
     ("sidebar.impersonate_asn_label", "impersonate_asn"),
     ("sidebar.effective_mnt_label", "effective_mnt"),
@@ -91,7 +88,7 @@ pub(super) const TABLE: &[(&str, &str)] = &[
     ("sidebar.support_mode_title", "Alium ASN personare"),
     (
         "sidebar.support_mode_body",
-        "Hic ASN hospitis solum ad alias retia adiuvandum est. Utere organis ad dextram ad ASN quam administrare vis personandum.",
+        "ASN hospitis noster solum ad alia retia adiuvanda est. Per formulam personationis elige ASN quem administrare vis.",
     ),
     // Stage 1: Select node
     ("stage1.kicker", "Gradus I"),
@@ -99,21 +96,21 @@ pub(super) const TABLE: &[(&str, &str)] = &[
     ("flow.select_node.title", "Nodum Eligere"),
     (
         "flow.select_node.description",
-        "Nodum proximum in rete nostro elige antequam singula cuniculi compleas.",
+        "Nodus rete tuo proximus plerumque optima electio est.",
     ),
     ("flow.session_details.title", "Sessionem Tuam Configurare"),
     (
         "flow.session_details.description",
-        "Valores WireGuard et BGP inscribe, deinde optiones provectas quas opus habes adiusta.",
+        "Terminum et clavem WireGuard, inscriptiones cuniculi, et optiones BGP inscribe.",
     ),
     ("flow.review.title", "Mutationem Tuam Recensere"),
     (
         "flow.review.description",
-        "Mutationem tuam recense antequam petitionem tractionis aperiamus.",
+        "Probatio ultima antequam petitionem tractionis aperiamus.",
     ),
     (
         "stage1.description",
-        "Nodum in rete nostro elige. Nodi vacui sessiones novas creari sinunt; sessiones existentes in loco aperiuntur pro renovationibus. Sessiones manuales in autopeer automatice adoptantur cum servas. Nodi in transitu tantum legi possunt.",
+        "Nodi ubi sessionem non habes te novam creare sinunt. Nodi cum sessione existente eam ad emendandum aperiunt. Sessiones manu creatae in autopeer adoptantur cum servas. Nodi cum mutatione in progressu emendari non possunt donec finiatur.",
     ),
     (
         "stage1.empty_title",
@@ -147,11 +144,11 @@ pub(super) const TABLE: &[(&str, &str)] = &[
     ),
     (
         "stage1.state.note.stalled",
-        "Collocatio prior defecit — aperi ut mutes, recolloces, vel mutationes abicias.",
+        "Collocatio prior defecit. Hunc nodum aperi ut mutationem emendes et iterum submittas, collocationem iteres, vel mutationem abicias.",
     ),
     (
         "stage1.state.note.conflict",
-        "Repositorium nostrum in conflictu pro hoc nodo est.",
+        "Hic nodus conflictum configurationis habet quem operator noster prius solvere debet.",
     ),
     (
         "stage1.state.note.disabled",
@@ -195,7 +192,7 @@ pub(super) const TABLE: &[(&str, &str)] = &[
     ("stage2.section.bgp", "Comportamentum BGP"),
     (
         "stage2.section.bgp.help",
-        "MP-BGP unam sessionem BGP super transitu IPv4 vel IPv6 selecto tuo utitur ad itinera IPv4 et/vel IPv6 portanda; si eam inhibes, sessiones BGP separatas generabimus, et Saltus Proximus Extensus solum ad itinera IPv4 super transitu IPv6 portata spectat.",
+        "MP-BGP itinera IPv4 et IPv6 super una sessione BGP in transitu selecto portat. Si eam inhibes, pro quaque familia itinerum sessionem BGP separatam creamus. Saltus Proximus Extensus sessioni permittit ut itinera IPv4 super transitu IPv6 sine inscriptione cuniculi IPv4 portet.",
     ),
     ("stage2.section.policy", "Consilium Cursus"),
     ("stage2.advanced.summary", "Optiones provectae"),
@@ -227,12 +224,12 @@ pub(super) const TABLE: &[(&str, &str)] = &[
     ("stage2.field.own6_node", "IPv6 nodi nostri"),
     (
         "stage2.field.own6_node.no_inventory",
-        "Inventarium nostrum inscriptionem IPv6 pro hoc nodo non enumerat.",
+        "Hic nodus inscriptionem IPv6 non habet.",
     ),
     ("stage2.field.own4_node", "IPv4 nodi nostri"),
     (
         "stage2.field.own4_node.no_inventory",
-        "Inventarium nostrum inscriptionem IPv4 pro hoc nodo non enumerat.",
+        "Hic nodus inscriptionem IPv4 non habet.",
     ),
     ("stage2.field.families", "Familiae"),
     ("stage2.field.families.ipv4_label", "Itinera IPv4"),
@@ -261,7 +258,7 @@ pub(super) const TABLE: &[(&str, &str)] = &[
     ),
     (
         "stage2.field.psk.placeholder.existing",
-        "PSK configurata — relinque vacuum ad servandum",
+        "PSK configurata. Relinque vacuum ad servandum.",
     ),
     ("stage2.field.psk.clear", "Dele PSK"),
     ("stage2.field.psk.generate", "Genera PSK"),
@@ -275,16 +272,9 @@ pub(super) const TABLE: &[(&str, &str)] = &[
         "stage2.field.encrypt_endpoint.help",
         "Encrypta inscriptionem terminationis in repositorio git ne in textu aperto appareat.",
     ),
-    (
-        "stage2.field.encrypt_endpoint.requires_endpoint",
-        "valet cum terminatio posita est",
-    ),
     // Stage 3: Review
     ("stage3.kicker", "Gradus III"),
-    (
-        "stage3.title",
-        "Mutationem tuam recense antequam PR aperiamus",
-    ),
+    ("stage3.title", "Singula sessionis tuae confirma"),
     ("stage3.review.our_node", "Nodus noster"),
     ("stage3.review.not_selected", "Non selectus"),
     ("stage3.review.endpoint", "Terminus"),
@@ -456,7 +446,7 @@ pub(super) const TABLE: &[(&str, &str)] = &[
     ("operation.message.failed", "Mutatio tua defecit."),
     (
         "operation.message.conflict",
-        "Mutationem tuam applicare non potuimus quia repositorium nostrum in conflictu erat.",
+        "Mutationem tuam applicare non potuimus propter conflictum configurationis in parte nostra.",
     ),
     (
         "operation.message.wait_node_lock",
@@ -500,7 +490,7 @@ pub(super) const TABLE: &[(&str, &str)] = &[
     ),
     (
         "operation.message.dropped",
-        "Mutationes abiectae — rogatio tractionis clausa est.",
+        "Mutationes abiectae. Rogatio tractionis clausa est.",
     ),
     ("operation.failure_stage.checks", "Probationes CI"),
     ("operation.failure_stage.preflight", "Praevectio nodi"),
@@ -510,22 +500,22 @@ pub(super) const TABLE: &[(&str, &str)] = &[
     ("peering_strategy.full_table.label", "Tabula Plena"),
     (
         "peering_strategy.full_table.description",
-        "Omnia itinera valida accipere et omnia itinera valida exportare.",
+        "Omnia itinera valida a te accipimus et omnia itinera valida tibi mittimus.",
     ),
     ("peering_strategy.transit.label", "Transitus"),
     (
         "peering_strategy.transit.description",
-        "Omnia itinera valida accipere et solum praefixiones proprias exactas exportare.",
+        "Omnia itinera valida a te accipimus et solum praefixiones nostras proprias tibi mittimus.",
     ),
     ("peering_strategy.peer.label", "Par"),
     (
         "peering_strategy.peer.description",
-        "Solum itinera directa accipere et praefixiones proprias exactas plus itinera inferiora exportare.",
+        "Solum itinera directa tua accipimus et praefixiones nostras proprias plus itinera inferiorum nostrorum tibi mittimus.",
     ),
     ("peering_strategy.downstream.label", "Inferior"),
     (
         "peering_strategy.downstream.description",
-        "Solum itinera directa accipere et omnia itinera valida exportare.",
+        "Solum itinera directa tua accipimus et omnia itinera valida tibi mittimus.",
     ),
     // Operation progress labels
     ("operation.progress.branch", "Ramus"),
@@ -554,7 +544,7 @@ pub(super) const TABLE: &[(&str, &str)] = &[
     ),
     (
         "error.ui.operation.wait_inflight",
-        "Mutatio in transitu adhuc in hoc nodo currit — exspecta dum finiat.",
+        "Mutatio iam in hoc nodo in progressu est. Prius exspecta dum finiat.",
     ),
     (
         "error.ui.node.blocked_conflict",
@@ -662,11 +652,11 @@ pub(super) const TABLE: &[(&str, &str)] = &[
     ),
     (
         "error.auth.asn.unsupported",
-        "Illum ambitum ASN nondum sustinemus. Nunc Autopeer solum 424242xxxx sustinet.",
+        "Autopeer nunc solum ASN in ambitu 424242xxxx sustinet.",
     ),
     (
         "error.auth.asn.not_found",
-        "AS{asn} invalidus est quia in registro dn42 non exsistit.",
+        "AS{asn} in registro dn42 non exsistit.",
     ),
     (
         "error.auth.asn.no_supported_auth",
@@ -707,7 +697,7 @@ pub(super) const TABLE: &[(&str, &str)] = &[
     ),
     (
         "error.auth.ssh.unrecognized_key",
-        "Subscriptio SSH tua clave usa est quae in obiectis custodis solutis non adest.",
+        "Subscriptio SSH tua clave facta est quae in nullo obiecto custodis (mntner) huius ASN enumeratur.",
     ),
     (
         "error.auth.ssh.verification_failed",
@@ -727,7 +717,7 @@ pub(super) const TABLE: &[(&str, &str)] = &[
     ),
     (
         "error.auth.pgp.unrecognized_key",
-        "Vestigium digitale tuum PGP {fingerprint} in obiectis custodis solutis non adest.",
+        "Vestigium digitale tuum PGP {fingerprint} in nullo obiecto custodis (mntner) huius ASN enumeratur.",
     ),
     (
         "error.auth.pgp.challenge_mismatch",
@@ -887,7 +877,7 @@ pub(super) const TABLE: &[(&str, &str)] = &[
     ),
     (
         "error.auth.impersonation.host_asn.cannot_mutate",
-        "AS{asn} una ex sessionibus ASN hospitum nostrorum est; persona ASN quem administrare vis ante sessiones aperiendas vel modificandas",
+        "Ut AS{asn}, unus ex ASN hospitum nostrorum, autenticatus es. Persona ASN quem administrare vis antequam sessiones crees vel modifices.",
     ),
     (
         "error.auth.impersonation.asn.not_host",

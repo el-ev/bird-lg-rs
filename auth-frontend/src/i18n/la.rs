@@ -12,10 +12,7 @@ pub(super) const TABLE: &[(&str, &str)] = &[
     ("auth.email_verify", "Verificatio electronica pro AS{asn}"),
     ("auth.authenticated", "Authenticatus ut AS{asn} ({mnt})"),
     ("auth.redirecting", "Redirectio\u{2026}"),
-    (
-        "auth.complete_close",
-        "Hanc paginam nunc claudere potes.",
-    ),
+    ("auth.complete_close", "Hanc paginam nunc claudere potes."),
     ("auth.loading", "Onerans\u{2026}"),
     (
         "auth.finding_methods",
@@ -23,12 +20,12 @@ pub(super) const TABLE: &[(&str, &str)] = &[
     ),
     (
         "auth.oidc_alt",
-        "Vel intra per provisorem identitatis et ASN tuum automatice deducemus.",
+        "Vel intra per provisorem identitatis et ASN tuum automatice reperiemus.",
     ),
     ("auth.continue_with", "Perge cum {provider}"),
     (
         "auth.email_intro",
-        "Mitte nexum intrandi et codicem unicum ad inscriptiones electronicas unius ex curatoribus tuis, deinde nexum preme aut codicem infra adglutina.",
+        "Elige curatorem et nexum intrandi cum codice unico ad inscriptiones electronicas registri eius mittemus. Deinde nexum ex epistula aperi, aut codicem infra adglutina.",
     ),
     ("auth.email_auth_as", "Authenticare ut {mnt}"),
     ("auth.email_send_to", "Mittere ad {emails}"),
@@ -86,7 +83,7 @@ pub(super) const TABLE: &[(&str, &str)] = &[
     ),
     (
         "error.registry.unavailable",
-        "Registrum dn42 legi non potuit (causa: {reason}). Vitium apud ministerium authenticationis est, non apud AS{asn} — postea iterum conare aut operatorem appella.",
+        "Registrum dn42 legi non potuit (causa: {reason}). Vitium apud ministerium authenticationis est, non apud AS{asn}. Postea iterum conare aut operatorem appella.",
     ),
     ("auth_method.registry_ssh.label", "Subscriptio SSH"),
     ("auth_method.registry_pgp.label", "Subscriptio PGP"),

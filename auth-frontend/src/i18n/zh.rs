@@ -17,12 +17,12 @@ pub(super) const TABLE: &[(&str, &str)] = &[
     ),
     (
         "auth.oidc_alt",
-        "或使用身份提供商登录，我们将自动推断你的 ASN。",
+        "或使用身份提供商登录，我们会自动查找你的 ASN。",
     ),
     ("auth.continue_with", "使用 {provider} 继续"),
     (
         "auth.email_intro",
-        "将登录链接和一次性验证码发送到你的某个维护者的注册库邮箱联系人，然后点击链接或在下方粘贴验证码。",
+        "选择一个维护者，我们会向其注册库邮箱联系人发送登录链接和一次性验证码。然后点击邮件中的链接，或在下方粘贴验证码。",
     ),
     ("auth.email_auth_as", "以 {mnt} 身份认证"),
     ("auth.email_send_to", "发送至 {emails}"),

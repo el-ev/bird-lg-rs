@@ -30,18 +30,12 @@ pub(super) const TABLE: &[(&str, &str)] = &[
     ("action.dismiss_operation", "Ausblenden"),
     ("action.check_bgp_session", "BGP-Sitzung prüfen"),
     // Step: LoadingConfig / AuthRedirect
-    (
-        "step.loading_config.prompt",
-        "Laufzeitkonfiguration wird geladen\u{2026}",
-    ),
+    ("step.loading_config.prompt", "Wird geladen\u{2026}"),
     (
         "step.auth_redirect.prompt",
         "Authentifizieren Sie sich und verwalten Sie Ihre Peering-Sitzungen mit IRIS-AS 4242421023.",
     ),
-    (
-        "step.auth_redirect.link",
-        "Weiterleitung zu dn42-auth.owo.li",
-    ),
+    ("step.auth_redirect.link", "Bei dn42-auth.owo.li anmelden"),
     // Auth method labels returned by auth service sessions
     (
         "auth_method.registry_ssh.label",
@@ -60,7 +54,7 @@ pub(super) const TABLE: &[(&str, &str)] = &[
     ("dashboard.flow_kicker", "Ihr Peering-Flow"),
     (
         "dashboard.host_readonly_title",
-        "Unsere Host-ASN bleibt hier schreibgeschützt",
+        "Sie sind als unsere Host-ASN angemeldet",
     ),
     ("dashboard.update_managed_title", "Session aktualisieren"),
     (
@@ -73,7 +67,7 @@ pub(super) const TABLE: &[(&str, &str)] = &[
     ),
     (
         "dashboard.create_or_manage_body",
-        "Authentifizieren Sie sich einmal und wählen Sie einen unserer Nodes. Danach können Sie eine neue Session erstellen oder eine bestehende öffnen, um sie zu aktualisieren oder stillzulegen.",
+        "Wählen Sie zunächst einen unserer Nodes. Danach können Sie eine neue Session erstellen oder eine bestehende öffnen, um sie zu aktualisieren oder stillzulegen.",
     ),
     ("dashboard.session_badge_template", "{mnt} über {label}"),
     // Sidebar
@@ -87,7 +81,7 @@ pub(super) const TABLE: &[(&str, &str)] = &[
     ("sidebar.host_asn_prefix", "Host ASN AS{asn}"),
     (
         "sidebar.host_authed_template",
-        "Sie haben sich über {label} als {mnt} authentifiziert. Verwenden Sie dies nur, wenn Sie Sessions für eine andere ASN öffnen oder reparieren müssen.",
+        "Sie haben sich über {label} als {mnt} authentifiziert. Dieser Modus dient nur dazu, Sessions im Namen einer anderen ASN zu verwalten.",
     ),
     ("sidebar.impersonate_asn_label", "impersonate_asn"),
     ("sidebar.effective_mnt_label", "effective_mnt"),
@@ -100,7 +94,7 @@ pub(super) const TABLE: &[(&str, &str)] = &[
     ("sidebar.support_mode_title", "Andere ASN impersonieren"),
     (
         "sidebar.support_mode_body",
-        "Diese Host-ASN dient nur zur Unterstützung anderer Netzwerke. Verwenden Sie die Bedienelemente rechts, um die ASN zu impersonieren, die Sie verwalten möchten.",
+        "Unsere Host-ASN dient nur zur Unterstützung anderer Netzwerke. Wählen Sie über das Impersonations-Formular die ASN, die Sie verwalten möchten.",
     ),
     // Stage 1: Select node
     ("stage1.kicker", "Stufe 1"),
@@ -108,21 +102,21 @@ pub(super) const TABLE: &[(&str, &str)] = &[
     ("flow.select_node.title", "Node wählen"),
     (
         "flow.select_node.description",
-        "Wählen Sie den nächstgelegenen Node in unserem Netzwerk, bevor Sie die Tunneldetails eingeben.",
+        "Der Node, der Ihrem Netzwerk am nächsten liegt, ist meist die beste Wahl.",
     ),
     ("flow.session_details.title", "Session konfigurieren"),
     (
         "flow.session_details.description",
-        "Geben Sie Ihre WireGuard- und BGP-Werte ein und passen Sie danach die benötigten erweiterten Optionen an.",
+        "Geben Sie WireGuard-Endpunkt und -Schlüssel, Tunneladressen und BGP-Optionen ein.",
     ),
     ("flow.review.title", "Überprüfen Sie Ihre Änderung"),
     (
         "flow.review.description",
-        "Prüfen Sie Ihre Änderung, bevor wir den Pull Request öffnen.",
+        "Eine letzte Prüfung, bevor wir den Pull Request öffnen.",
     ),
     (
         "stage1.description",
-        "Wählen Sie einen Node in unserem Netzwerk. Leere Nodes erlauben das Erstellen einer Session; bestehende Sessions werden direkt zum Aktualisieren geöffnet. Manuelle Sessions werden beim Speichern automatisch in Autopeer übernommen. Nodes mit laufenden Änderungen bleiben schreibgeschützt.",
+        "Nodes ohne eigene Session lassen Sie eine neue erstellen. Nodes mit einer bestehenden Session öffnen diese zur Bearbeitung. Manuell angelegte Sessions werden beim Speichern in Autopeer übernommen. Nodes mit einer laufenden Änderung können erst nach deren Abschluss bearbeitet werden.",
     ),
     (
         "stage1.empty_title",
@@ -156,11 +150,11 @@ pub(super) const TABLE: &[(&str, &str)] = &[
     ),
     (
         "stage1.state.note.stalled",
-        "Ein vorheriges Deployment ist fehlgeschlagen — öffnen Sie den Node zum Ändern, erneuten Deployen oder Verwerfen.",
+        "Ein früheres Deployment ist fehlgeschlagen. Öffnen Sie diesen Node, um die Änderung zu bearbeiten und erneut einzureichen, das Deployment zu wiederholen oder die Änderung zu verwerfen.",
     ),
     (
         "stage1.state.note.conflict",
-        "Unser Repo hat für diesen Node einen Konflikt.",
+        "Dieser Node hat einen Konfigurationskonflikt, den unser Betreiber zuerst beheben muss.",
     ),
     (
         "stage1.state.note.disabled",
@@ -201,7 +195,7 @@ pub(super) const TABLE: &[(&str, &str)] = &[
     ("stage2.section.bgp", "BGP Verhalten"),
     (
         "stage2.section.bgp.help",
-        "MP-BGP verwendet eine einzelne BGP-Session über den ausgewählten IPv4- oder IPv6-Transport, um IPv4- und/oder IPv6-Routen zu übertragen. Wenn Sie es deaktivieren, erzeugen wir getrennte BGP-Sessions; Extended Next Hop gilt nur für IPv4-Routen über IPv6-Transport.",
+        "MP-BGP überträgt IPv4- und IPv6-Routen über eine einzelne BGP-Session auf dem von Ihnen gewählten Transport. Wenn Sie es deaktivieren, richten wir für jede Routenfamilie eine eigene BGP-Session ein. Extended Next Hop erlaubt es der Session, IPv4-Routen über IPv6-Transport ohne IPv4-Tunneladresse zu übertragen.",
     ),
     ("stage2.section.policy", "Routing-Richtlinie"),
     ("stage2.advanced.summary", "Erweiterte Optionen"),
@@ -233,12 +227,12 @@ pub(super) const TABLE: &[(&str, &str)] = &[
     ("stage2.field.own6_node", "Unsere Node-IPv6"),
     (
         "stage2.field.own6_node.no_inventory",
-        "Unser Inventory enthält keine IPv6-Adresse für diesen Node.",
+        "Dieser Node hat keine IPv6-Adresse.",
     ),
     ("stage2.field.own4_node", "Unsere Node-IPv4"),
     (
         "stage2.field.own4_node.no_inventory",
-        "Unser Inventory enthält keine IPv4-Adresse für diesen Node.",
+        "Dieser Node hat keine IPv4-Adresse.",
     ),
     ("stage2.field.families", "Familien"),
     ("stage2.field.families.ipv4_label", "IPv4 Routen"),
@@ -264,7 +258,7 @@ pub(super) const TABLE: &[(&str, &str)] = &[
     ("stage2.field.psk.placeholder", "Optionaler WireGuard-PSK"),
     (
         "stage2.field.psk.placeholder.existing",
-        "PSK konfiguriert — leer lassen zum Beibehalten",
+        "PSK konfiguriert, zum Beibehalten leer lassen",
     ),
     ("stage2.field.psk.clear", "PSK löschen"),
     ("stage2.field.psk.generate", "PSK erzeugen"),
@@ -278,16 +272,9 @@ pub(super) const TABLE: &[(&str, &str)] = &[
         "stage2.field.encrypt_endpoint.help",
         "Verschlüsseln Sie Ihre Endpunktadresse im Git-Repo, sodass sie nicht im Klartext sichtbar ist.",
     ),
-    (
-        "stage2.field.encrypt_endpoint.requires_endpoint",
-        "wird wirksam, sobald ein Endpoint gesetzt ist",
-    ),
     // Stage 3: Review
     ("stage3.kicker", "Stufe 3"),
-    (
-        "stage3.title",
-        "Prüfen Sie Ihre Änderung, bevor wir den PR öffnen",
-    ),
+    ("stage3.title", "Bestätigen Sie Ihre Session-Details"),
     ("stage3.review.our_node", "Unser Node"),
     ("stage3.review.not_selected", "Nicht ausgewählt"),
     ("stage3.review.endpoint", "Endpunkt"),
@@ -441,7 +428,7 @@ pub(super) const TABLE: &[(&str, &str)] = &[
     ),
     (
         "operation.message.conflict",
-        "Wir konnten Ihre Änderung nicht anwenden, da unser Repo in Konflikt stand.",
+        "Wir konnten Ihre Änderung wegen eines Konfigurationskonflikts auf unserer Seite nicht anwenden.",
     ),
     (
         "operation.message.wait_node_lock",
@@ -485,7 +472,7 @@ pub(super) const TABLE: &[(&str, &str)] = &[
     ),
     (
         "operation.message.dropped",
-        "Änderungen verworfen – der Pull-Request wurde geschlossen.",
+        "Änderungen verworfen. Der Pull-Request wurde geschlossen.",
     ),
     ("operation.failure_stage.checks", "CI prüft"),
     ("operation.failure_stage.preflight", "Node-Preflight"),
@@ -495,22 +482,22 @@ pub(super) const TABLE: &[(&str, &str)] = &[
     ("peering_strategy.full_table.label", "Full Table"),
     (
         "peering_strategy.full_table.description",
-        "Alle gültigen Routen empfangen und alle gültigen Routen exportieren.",
+        "Wir nehmen alle gültigen Routen von Ihnen an und senden Ihnen alle gültigen Routen.",
     ),
     ("peering_strategy.transit.label", "Transit"),
     (
         "peering_strategy.transit.description",
-        "Alle gültigen Routen empfangen und nur unsere eigenen exakten Präfixe exportieren.",
+        "Wir nehmen alle gültigen Routen von Ihnen an und senden Ihnen nur unsere eigenen Präfixe.",
     ),
     ("peering_strategy.peer.label", "Peer"),
     (
         "peering_strategy.peer.description",
-        "Nur direkte Routen empfangen und unsere eigenen exakten Präfixe plus Downstream-Routen exportieren.",
+        "Wir nehmen nur Ihre direkten Routen an und senden Ihnen unsere eigenen Präfixe sowie Routen unserer Downstreams.",
     ),
     ("peering_strategy.downstream.label", "Downstream"),
     (
         "peering_strategy.downstream.description",
-        "Nur direkte Routen empfangen und alle gültigen Routen exportieren.",
+        "Wir nehmen nur Ihre direkten Routen an und senden Ihnen alle gültigen Routen.",
     ),
     // Operation progress labels
     ("operation.progress.branch", "Zweig"),
@@ -539,7 +526,7 @@ pub(super) const TABLE: &[(&str, &str)] = &[
     ),
     (
         "error.ui.operation.wait_inflight",
-        "Auf diesem Node läuft noch eine Änderung — warten Sie, bis sie abgeschlossen ist.",
+        "Auf diesem Node läuft bereits eine Änderung. Warten Sie zuerst, bis sie abgeschlossen ist.",
     ),
     (
         "error.ui.node.blocked_conflict",
@@ -653,11 +640,11 @@ pub(super) const TABLE: &[(&str, &str)] = &[
     ),
     (
         "error.auth.asn.unsupported",
-        "Wir unterstützen diesen Bereich ASN noch nicht. Derzeit unterstützt Autopeer nur 424242xxxx.",
+        "Autopeer unterstützt derzeit nur ASNs im Bereich 424242xxxx.",
     ),
     (
         "error.auth.asn.not_found",
-        "AS{asn} ist ungültig, da es nicht in der dn42-Registrierung vorhanden ist.",
+        "AS{asn} existiert nicht in der dn42-Registrierung.",
     ),
     (
         "error.auth.asn.no_supported_auth",
@@ -698,7 +685,7 @@ pub(super) const TABLE: &[(&str, &str)] = &[
     ),
     (
         "error.auth.ssh.unrecognized_key",
-        "Ihre SSH-Signatur hat einen Schlüssel verwendet, der in den aufgelösten Betreuerobjekten nicht vorhanden ist.",
+        "Ihre SSH-Signatur wurde mit einem Schlüssel erstellt, der in keinem Betreuer-Objekt (mntner) dieser ASN aufgeführt ist.",
     ),
     (
         "error.auth.ssh.verification_failed",
@@ -718,7 +705,7 @@ pub(super) const TABLE: &[(&str, &str)] = &[
     ),
     (
         "error.auth.pgp.unrecognized_key",
-        "Ihr PGP-Fingerabdruck {fingerprint} ist in den aufgelösten Betreuerobjekten nicht vorhanden.",
+        "Ihr PGP-Fingerabdruck {fingerprint} ist in keinem Betreuer-Objekt (mntner) dieser ASN aufgeführt.",
     ),
     (
         "error.auth.pgp.challenge_mismatch",
@@ -878,7 +865,7 @@ pub(super) const TABLE: &[(&str, &str)] = &[
     ),
     (
         "error.auth.impersonation.host_asn.cannot_mutate",
-        "AS{asn} ist eine unserer Host-ASN-Sessions; impersonieren Sie die ASN, die Sie verwalten möchten, bevor Sie Sessions öffnen oder ändern.",
+        "Sie sind als AS{asn} angemeldet, einer unserer Host-ASNs. Impersonieren Sie die ASN, die Sie verwalten möchten, bevor Sie Sessions erstellen oder ändern.",
     ),
     (
         "error.auth.impersonation.asn.not_host",

@@ -12,10 +12,7 @@ pub(super) const TABLE: &[(&str, &str)] = &[
     ("auth.email_verify", "Email verification for AS{asn}"),
     ("auth.authenticated", "Authenticated as AS{asn} ({mnt})"),
     ("auth.redirecting", "Redirecting\u{2026}"),
-    (
-        "auth.complete_close",
-        "You can close this page now.",
-    ),
+    ("auth.complete_close", "You can close this page now."),
     ("auth.loading", "Loading\u{2026}"),
     (
         "auth.finding_methods",
@@ -23,12 +20,12 @@ pub(super) const TABLE: &[(&str, &str)] = &[
     ),
     (
         "auth.oidc_alt",
-        "Or sign in with your identity provider and let us derive your ASN automatically.",
+        "Or sign in with your identity provider and we will look up your ASN automatically.",
     ),
     ("auth.continue_with", "Continue with {provider}"),
     (
         "auth.email_intro",
-        "Send a sign-in link and one-time code to the registry email contacts on one of your maintainers, then click the link or paste the code below.",
+        "Choose a maintainer and we will send a sign-in link and one-time code to its registry email contacts. Then open the link from the email, or paste the code below.",
     ),
     ("auth.email_auth_as", "Authenticate as {mnt}"),
     ("auth.email_send_to", "Send to {emails}"),
@@ -103,7 +100,7 @@ pub(super) const TABLE: &[(&str, &str)] = &[
     ("error.auth.return_to.invalid", "Invalid return URL."),
     (
         "error.auth.asn.unsupported",
-        "We do not support that ASN range yet. Right now we only support 424242xxxx.",
+        "We currently support only ASNs in the 424242xxxx range.",
     ),
     (
         "error.auth.asn.not_found",
@@ -123,7 +120,7 @@ pub(super) const TABLE: &[(&str, &str)] = &[
     ),
     (
         "error.auth.ssh.unrecognized_key",
-        "Your SSH signature used a key that is not present in the resolved maintainer objects.",
+        "Your SSH signature was made with a key that is not listed in any maintainer (mntner) object for this ASN.",
     ),
     (
         "error.auth.ssh.verification_failed",
@@ -132,6 +129,10 @@ pub(super) const TABLE: &[(&str, &str)] = &[
     (
         "error.auth.pgp.verification_failed",
         "PGP signature verification failed. Re-sign the challenge with the matching registry key and paste the full signed block.",
+    ),
+    (
+        "error.auth.pgp.unrecognized_key",
+        "Your PGP fingerprint {fingerprint} is not listed in any maintainer (mntner) object for this ASN.",
     ),
     (
         "error.auth.challenge.expired",
@@ -147,7 +148,7 @@ pub(super) const TABLE: &[(&str, &str)] = &[
     ),
     (
         "error.registry.unavailable",
-        "We could not read the dn42 registry (reason: {reason}). This is a problem on the auth service side, not with AS{asn} — please try again later or contact the operator.",
+        "We could not read the dn42 registry (reason: {reason}). This is a problem on the auth service side, not with AS{asn}. Please try again later or contact the operator.",
     ),
     // Backend auth method copy (same keys the worker sends in UiMessage)
     ("auth_method.registry_ssh.label", "SSH Signature"),

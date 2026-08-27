@@ -28,7 +28,7 @@ pub(super) const TABLE: &[(&str, &str)] = &[
     ("auth.continue_with", "Weiter mit {provider}"),
     (
         "auth.email_intro",
-        "Senden Sie einen Anmeldelink und Einmalcode an die E-Mail-Kontakte eines Ihrer Maintainer, klicken Sie dann auf den Link oder geben Sie den Code ein.",
+        "Wählen Sie einen Maintainer und wir senden einen Anmeldelink und Einmalcode an dessen Registry-E-Mail-Kontakte. Öffnen Sie dann den Link aus der E-Mail oder geben Sie den Code unten ein.",
     ),
     ("auth.email_auth_as", "Authentifizierung als {mnt}"),
     ("auth.email_send_to", "Senden an {emails}"),
@@ -86,7 +86,7 @@ pub(super) const TABLE: &[(&str, &str)] = &[
     ),
     (
         "error.registry.unavailable",
-        "Die dn42-Registry konnte nicht gelesen werden (Grund: {reason}). Das Problem liegt beim Auth-Dienst, nicht bei AS{asn} — bitte versuchen Sie es später erneut oder kontaktieren Sie den Betreiber.",
+        "Die dn42-Registry konnte nicht gelesen werden (Grund: {reason}). Das Problem liegt beim Auth-Dienst, nicht bei AS{asn}. Bitte versuchen Sie es später erneut oder kontaktieren Sie den Betreiber.",
     ),
     ("auth_method.registry_email.label", "E-Mail"),
     (

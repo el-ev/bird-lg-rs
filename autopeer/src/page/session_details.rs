@@ -222,12 +222,6 @@ pub fn session_details_panel(props: &SessionDetailsProps) -> Html {
                         disabled={props.loading}
                     />
                     {" "}{help_hint(i18n, "stage2.field.encrypt_endpoint.help")}
-                    if draft.encrypt_endpoint && draft.endpoint.trim().is_empty() {
-                        {" "}
-                        <span class="autopeer-inline-note">
-                            {i18n.t("stage2.field.encrypt_endpoint.requires_endpoint")}
-                        </span>
-                    }
                 </ShellLine>
                 {props.field_validation_block(SessionDraftField::WgPublicKey, html! {
                     <ShellLine>
