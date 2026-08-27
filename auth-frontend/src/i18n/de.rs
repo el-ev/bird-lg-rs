@@ -66,6 +66,14 @@ pub(super) const TABLE: &[(&str, &str)] = &[
         "Weiterleitung zu Ihrem OIDC-Anbieter\u{2026}",
     ),
     ("error.auth.return_to.invalid", "Ungültige Zieladresse."),
+    (
+        "error.registry.lookup_failed",
+        "Die Abfrage von AS{asn} in der dn42-Registry ist fehlgeschlagen. Bitte versuchen Sie es später erneut.",
+    ),
+    (
+        "error.registry.unavailable",
+        "Die dn42-Registry konnte nicht gelesen werden (Grund: {reason}). Das Problem liegt beim Auth-Dienst, nicht bei AS{asn} — bitte versuchen Sie es später erneut oder kontaktieren Sie den Betreiber.",
+    ),
     ("auth_method.registry_email.label", "Registrierungs-E-Mail"),
     (
         "auth_method.host_impersonation.label",

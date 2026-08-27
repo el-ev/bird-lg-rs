@@ -130,6 +130,14 @@ pub(super) const TABLE: &[(&str, &str)] = &[
         "error.auth.registry_email.code.invalid",
         "Registry email auth code is invalid.",
     ),
+    (
+        "error.registry.lookup_failed",
+        "Looking up AS{asn} in the dn42 registry failed. Please try again later.",
+    ),
+    (
+        "error.registry.unavailable",
+        "We could not read the dn42 registry (reason: {reason}). This is a problem on the auth service side, not with AS{asn} — please try again later or contact the operator.",
+    ),
     // Backend auth method copy (same keys the worker sends in UiMessage)
     ("auth_method.registry_ssh.label", "Registry SSH Signature"),
     (

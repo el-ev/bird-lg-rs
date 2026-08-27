@@ -161,6 +161,25 @@ const components = {
       properties: {
         ok: { type: "boolean" },
         now: { type: "string", format: "date-time" },
+        registry: ref("RegistryHealth"),
+      },
+    },
+    RegistryHealth: {
+      type: "object",
+      required: ["ok"],
+      properties: {
+        ok: { type: "boolean" },
+        reason: {
+          type: "string",
+          enum: [
+            "token_rejected",
+            "access_forbidden",
+            "repo_not_visible",
+            "branch_missing",
+            "request_failed",
+          ],
+        },
+        status: { type: "integer", description: "HTTP status the registry API returned (0 = network failure)" },
       },
     },
     AuthStartRequest: {
@@ -294,8 +313,12 @@ const paths = {
     get: {
       tags: ["meta"],
       summary: "Worker health check",
+      parameters: [
+        queryParam("deep", "Set to 1 to also verify the DN42 registry is readable with the configured token"),
+      ],
       responses: {
         "200": jsonResponse("Health status", ref("HealthResponse")),
+        "503": jsonResponse("Registry is not readable (deep check only)", ref("HealthResponse")),
       },
     },
   },
@@ -307,7 +330,7 @@ const paths = {
       responses: {
         "200": jsonResponse("Challenge created", ref("AuthStartResponse")),
         "400": errorResponse("Invalid ASN or no supported auth methods"),
-        "502": errorResponse("Registry lookup failed"),
+        "502": errorResponse("Registry lookup failed or registry unavailable to the worker"),
       },
     },
   },

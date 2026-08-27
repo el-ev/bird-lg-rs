@@ -54,6 +54,14 @@ pub(super) const TABLE: &[(&str, &str)] = &[
         "正在跳转到你的 OIDC 提供商\u{2026}",
     ),
     ("error.auth.return_to.invalid", "无效的返回地址。"),
+    (
+        "error.registry.lookup_failed",
+        "在 dn42 注册库中查询 AS{asn} 失败，请稍后重试。",
+    ),
+    (
+        "error.registry.unavailable",
+        "当前无法读取 dn42 注册库（原因：{reason}）。这是认证服务侧的问题，与 AS{asn} 无关，请稍后重试或联系运营者。",
+    ),
     ("auth_method.registry_ssh.label", "注册库 SSH 签名"),
     ("auth_method.registry_pgp.label", "注册库 PGP 签名"),
     ("auth_method.registry_email.label", "注册库邮件"),

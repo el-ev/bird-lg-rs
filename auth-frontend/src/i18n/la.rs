@@ -66,6 +66,14 @@ pub(super) const TABLE: &[(&str, &str)] = &[
         "Redirectio ad provisorem OIDC tuum\u{2026}",
     ),
     ("error.auth.return_to.invalid", "Destinatio invalida."),
+    (
+        "error.registry.lookup_failed",
+        "Quaestio AS{asn} in registro dn42 defecit. Postea iterum conare.",
+    ),
+    (
+        "error.registry.unavailable",
+        "Registrum dn42 legi non potuit (causa: {reason}). Vitium apud ministerium authenticationis est, non apud AS{asn} — postea iterum conare aut operatorem appella.",
+    ),
     ("auth_method.registry_ssh.label", "Subscriptio SSH Registri"),
     ("auth_method.registry_pgp.label", "Subscriptio PGP Registri"),
     ("auth_method.registry_email.label", "Electronica Registri"),

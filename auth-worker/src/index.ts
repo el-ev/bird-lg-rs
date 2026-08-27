@@ -39,6 +39,8 @@ import {
 import {
   NoMaintainerError,
   RegistryPathNotFoundError,
+  RegistryUnavailableError,
+  diagnoseRegistryAccess,
   loadMaintainersForAsn,
   methodsFromMaintainers,
 } from "dn42-auth-worker/registry";
@@ -302,9 +304,16 @@ async function requireSession(env: Env, request: Request): Promise<SessionRecord
 }
 
 function classifyMaintainerLookupError(asn: string, error: unknown): HttpError {
-  if (error instanceof RegistryPathNotFoundError) return new HttpError(uiMessage("error.auth.asn.not_found", { asn }), 400);
+  if (error instanceof RegistryPathNotFoundError) {
+    // Only a missing aut-num file means the ASN is unknown; a missing mntner or
+    // other path is broken registry data, not a bad ASN from the user.
+    if (error.path.startsWith("data/aut-num/")) return new HttpError(uiMessage("error.auth.asn.not_found", { asn }), 400);
+    return new HttpError(uiMessage("error.registry.lookup_failed", { asn }), 502);
+  }
+  if (error instanceof RegistryUnavailableError) return new HttpError(uiMessage("error.registry.unavailable", { asn, reason: error.reason }), 502);
   if (error instanceof NoMaintainerError) return new HttpError(uiMessage("error.auth.asn.no_supported_auth", { asn }), 400);
   if (error instanceof HttpError) return error;
+  console.error("maintainer lookup failed", { asn }, error);
   return new HttpError(uiMessage("error.registry.lookup_failed", { asn }), 502);
 }
 
@@ -382,7 +391,19 @@ async function router(request: Request, env: Env): Promise<Response> {
   }
 
   if (method === "GET" && url.pathname === "/health") {
-    return jsonWithCors(request, env, { ok: true, now: nowIso() });
+    if (url.searchParams.get("deep") !== "1") {
+      return jsonWithCors(request, env, { ok: true, now: nowIso() });
+    }
+    const problem = await diagnoseRegistryAccess(env);
+    if (problem) {
+      console.error("registry health check failed", problem);
+      return jsonWithCors(request, env, {
+        ok: false,
+        now: nowIso(),
+        registry: { ok: false, reason: problem.reason, status: problem.status },
+      }, 503);
+    }
+    return jsonWithCors(request, env, { ok: true, now: nowIso(), registry: { ok: true } });
   }
 
   if (method === "GET" && url.pathname === OPENAPI_PATH) {
@@ -748,6 +769,14 @@ export default {
       return await router(request, env);
     } catch (error) {
       if (error instanceof HttpError) {
+        if (error.status >= 500) {
+          console.error("auth-worker request failed", {
+            path: new URL(request.url).pathname,
+            status: error.status,
+            key: error.uiMessage.key,
+            params: error.uiMessage.params,
+          });
+        }
         const publicMessage = isUiMessageKey(error.uiMessage.key) ? error.uiMessage : uiMessage(error.uiMessage.key);
         return errorWithCors(request, env, publicMessage, error.status);
       }
